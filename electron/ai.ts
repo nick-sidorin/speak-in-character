@@ -60,7 +60,7 @@ function instructions(targetLanguage: string): string {
     `Turn the speaker's transcribed words into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
     'The speaker may use any language or mix languages. Understand the words first; then express the same message in the target language.',
     'Preserve the speaker\'s meaning, facts, perspective, intent, humor and emotional tone. Never invent claims, actions, names or additional dialogue.',
-    'Character description and an optional style preset can define the VOICE of the finished message: vocabulary, register, idioms and contractions. Apply their stylistic guidance when provided, but never let them change the content.',
+    'Character description and an optional style preset define the VOICE of the finished message: vocabulary, register, idioms and contractions. If a style preset is selected, apply it distinctly and recognizably in the final wording rather than only slightly changing formality. Still prioritize natural readability and do not change content.',
     'The situation field helps disambiguate proper nouns, places and terminology; it must not supply a new story or change the meaning of the input.',
     'Use established canonical localized proper names only when confidently known. If uncertain, preserve the original name rather than invent a translation.',
     'No default dialect, game lore or character stereotype. Without style guidance, use natural language matching the original register.',

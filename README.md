@@ -10,7 +10,7 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
 3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-**v0.5.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+**v0.6.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
 ## What it does
 
@@ -19,10 +19,12 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 - **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
 - **Reply language:** type any target language into a plain text field; English by default. **Input speech can be in another language or mixed languages.**
 - **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.
-- **Game context and character voice:** character/style and situation fields accept natural language, including Russian prompts and localized names. A described manner of speaking (for example, cheerful dwarven slang) is applied to the **final generated line only**, while transcription remains faithful to what was spoken. The model may change wording for voice, but must not invent facts, actions or a different message.
+- **Character and situation:** these fields accept natural language (including Russian and local game terminology). They provide context for name recognition and clarify the speaker's intent. There is no hardcoded game setting or dialect in the core prompt.
+
+**Speech presets:** a selected optional JSON preset provides a stylistic voice for the final output. Presets never rewrite the original transcript and must not change the content of what was said. Bundled examples include Dwarven voice, Pirate voice and Courtly speech. No preset is the default.
 - **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
 - **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
-- **Settings:** protected API key, audio processing, move HUD and shortcut editor.
+- **Settings:** protected API key, audio processing, **speech presets**, move HUD and shortcut editor.
 - **Compact click-through HUD:** two text lines (product name and dynamic status) with recording/processing/success indicator.
 - **Position persistence:** separate HUD and panel positions on disk.
 
@@ -41,6 +43,20 @@ Customize all three from **Settings**: click **Assign**, then press any supporte
 **Caps Lock caveat:** Windows still toggles the Caps Lock typing state when the key is pressed. InCharacter does not intercept, block or synthesize game input. If this is inconvenient while chatting or playing, rebind recording to another key from Settings.
 
 Hold-to-talk uses a tiny Windows helper at `native/hotkey.cs`; it polls only the three configured combinations via `GetAsyncKeyState` and reports key down/up or one-shot window actions. It does not log other keys, read game memory or interact with gameplay. If the helper is unavailable, shortcuts fall back to Electron's global shortcuts when supported and recording becomes a toggle.
+
+## Custom speech presets
+
+Built-in presets are **individual JSON files** in the `presets/` directory, packaged with the application. The core rewrite prompt in `electron/ai.ts` is deliberately neutral: it has no hard-coded WoW, dwarf or pirate assumptions.
+
+To add your own preset without rebuilding the app:
+
+1. Open **Settings → Speech presets → Open folder**.
+2. Place a UTF-8 `.json` file inside the opened personal presets directory.
+3. Click **Reload presets** and select it from the list.
+
+You can also override a bundled preset by using the same `id` in a personal file. Presets remain local except that the **selected preset instructions and optional recognition hints are sent to OpenAI when making a request**.
+
+Each JSON file contains `schemaVersion`, `id`, `name`, `description`, `instructions` and optional `recognitionHints`. See [presets/README.md](presets/README.md) for a complete editable example. The user-editable folder is inside the Electron application data directory (`%APPDATA%\\InCharacter\\presets` on a typical Windows installation).
 
 ## Position and focus
 
