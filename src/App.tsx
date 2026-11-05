@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { INTERFACE_LANGUAGES, REPLY_LANGUAGES, t, type InterfaceLanguage, type ReplyLanguageChoice, type TranslationKey } from './i18n';
 
 type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
@@ -12,6 +13,7 @@ type RecordEntry = {
   durationMs: number;
   transcript: string;
   english: string;
+  targetLanguage: string;
   estimatedTextCostUsd: number;
   transcriptionCostUsd: number;
 };
@@ -28,29 +30,28 @@ function amount(usd: number): string {
   return '$' + usd.toFixed(5);
 }
 
-function errorText(error: unknown): string {
+function errorText(error: unknown, lang: InterfaceLanguage): string {
   if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-    return 'Нет доступа к микрофону. Проверь разрешения Windows.';
+    return t(lang, 'micDenied');
   }
-  return error instanceof Error ? error.message : 'Неизвестная ошибка. Попробуй ещё раз.';
+  return error instanceof Error ? error.message : t(lang, 'unknownError');
 }
 
-function phaseLabel(phase: Phase, hold: boolean): string {
-  if (phase === 'recording') return 'Записываю речь';
-  if (phase === 'requesting') return 'Подключаю микрофон';
-  if (phase === 'finalizing') return 'Завершаю запись';
-  if (phase === 'processing') return 'Распознаю и перевожу…';
-  if (phase === 'ready') return 'Реплика готова';
-  if (phase === 'error') return 'Нужна проверка';
-  return hold ? 'Удерживай Ctrl + Shift + Space' : 'Нажми Ctrl + Shift + Space';
+function phaseLabel(phase: Phase, hold: boolean, lang: InterfaceLanguage): string {
+  const keys: Partial<Record<Phase, TranslationKey>> = {
+    recording: 'phaseRecording', requesting: 'phaseRequesting', finalizing: 'phaseFinalizing',
+    processing: 'phaseProcessing', ready: 'phaseReady', error: 'phaseError',
+  };
+  const key = keys[phase];
+  return key ? t(lang, key) : t(lang, hold ? 'phaseHold' : 'phaseTap');
 }
 
-function StateIcon({ phase }: { phase: Phase }) {
+function StateIcon({ phase, language }: { phase: Phase; language: InterfaceLanguage }) {
   if (phase === 'processing' || phase === 'requesting' || phase === 'finalizing') {
-    return <span className="state-spinner" aria-label="Обработка" />;
+    return <span className="state-spinner" aria-label={t(language, 'iconProcessing')} />;
   }
-  if (phase === 'ready') return <span className="state-check" aria-label="Готово">✓</span>;
-  if (phase === 'error') return <span className="state-error" aria-label="Ошибка">!</span>;
+  if (phase === 'ready') return <span className="state-check" aria-label={t(language, 'iconReady')}>✓</span>;
+  if (phase === 'error') return <span className="state-error" aria-label={t(language, 'iconError')}>!</span>;
   return <span className={phase === 'recording' ? 'state-dot recording' : 'state-dot'} />;
 }
 
@@ -65,18 +66,30 @@ export default function App() {
   const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
   const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
   const [situation, setSituation] = useState(() => localStorage.getItem('situation') || '');
+  const [uiLanguage, setUiLanguage] = useState<InterfaceLanguage>(() => {
+    const stored = localStorage.getItem('interface-language');
+    return INTERFACE_LANGUAGES.find(item => item.value === stored)?.value ?? 'ru';
+  });
+  const [replyChoice, setReplyChoice] = useState<ReplyLanguageChoice>(() => {
+    const stored = localStorage.getItem('reply-language');
+    if (stored === '__other__') return '__other__';
+    return REPLY_LANGUAGES.find(item => item.value === stored)?.value ?? 'English';
+  });
+  const [customReplyLanguage, setCustomReplyLanguage] = useState(() => localStorage.getItem('custom-reply-language') || '');
+  const replyLanguage = replyChoice === '__other__' ? customReplyLanguage.trim() : replyChoice;
+  const tr = (key: TranslationKey) => t(uiLanguage, key);
   const [original, setOriginal] = useState('');
   const [english, setEnglish] = useState('');
   const [history, setHistory] = useState<RecordEntry[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
-  const [message, setMessage] = useState('Готов к разговору.');
+  const [message, setMessage] = useState('');
   const [moveEnabled, setMoveEnabled] = useState(false);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
 
   const phaseRef = useRef<Phase>('idle');
   const processingRef = useRef(false);
   const hasKeyRef = useRef(false);
-  const contextRef = useRef({ character, situation });
+  const contextRef = useRef({ character, situation, targetLanguage: replyLanguage });
   const micRef = useRef(micProcessing);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -96,7 +109,7 @@ export default function App() {
   const upRef = useRef<() => void>(() => {});
   const processRef = useRef<(blob: Blob, id: number, duration: number) => Promise<void>>(async () => {});
 
-  contextRef.current = { character, situation };
+  contextRef.current = { character, situation, targetLanguage: replyLanguage };
   micRef.current = micProcessing;
   hasKeyRef.current = hasKey;
 
@@ -117,12 +130,12 @@ export default function App() {
   processRef.current = async (blob: Blob, id: number, duration: number) => {
     if (!hasKeyRef.current) {
       setPhase('ready');
-      setMessage('Аудио записано. Подключи OpenAI в настройках, чтобы распознать речь.');
+      setMessage(tr('msgNoKey'));
       return;
     }
     processingRef.current = true;
     setPhase('processing');
-    setMessage('Обработка в OpenAI…');
+    setMessage(tr('msgProcessing'));
     changeEntry(id, { transcriptionCostUsd: duration / 60000 * TRANSCRIPTION_PER_MINUTE });
 
     try {
@@ -142,14 +155,14 @@ export default function App() {
       }
       if (!result.translated) {
         setPhase('error');
-        setMessage('Речь распознана, но перевод не получен. Исправь текст и повтори перевод.');
+        setMessage(tr('msgTranscriptOnly'));
       } else {
         setPhase('ready');
-        setMessage('Готово! Английская реплика уже в буфере обмена.');
+        setMessage(tr('msgCopiedReady'));
       }
     } catch (error) {
       setPhase('error');
-      setMessage('OpenAI: ' + errorText(error));
+      setMessage('OpenAI: ' + errorText(error, uiLanguage));
     } finally {
       processingRef.current = false;
     }
@@ -174,12 +187,17 @@ export default function App() {
 
   startRef.current = async () => {
     if (processingRef.current || ['recording', 'requesting', 'processing', 'finalizing'].includes(phaseRef.current)) return;
+    if (!replyLanguage) {
+      setMessage(tr('msgCustomMissing'));
+      setPhase('error');
+      return;
+    }
     pendingReleaseRef.current = false;
     setOriginal('');
     setEnglish('');
     setElapsed(0);
     setPhase('requesting');
-    setMessage('Запрашиваю доступ к микрофону…');
+    setMessage(tr('msgMicAccess'));
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -204,13 +222,13 @@ export default function App() {
         streamRef.current = null;
         processingRef.current = false;
         setPhase('error');
-        setMessage('Ошибка записи микрофона.');
+        setMessage(tr('msgMicError'));
       };
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
         if (!blob.size) {
           setPhase('error');
-          setMessage('Запись пустая, попробуй ещё раз.');
+          setMessage(tr('msgEmpty'));
           return;
         }
         const url = URL.createObjectURL(blob);
@@ -225,19 +243,20 @@ export default function App() {
           durationMs: duration,
           transcript: '',
           english: '',
+          targetLanguage: contextRef.current.targetLanguage,
           estimatedTextCostUsd: 0,
           transcriptionCostUsd: 0,
         };
         setHistory(previous => [item, ...previous].slice(0, MAX_HISTORY));
         activeIdRef.current = id;
         setActiveId(id);
-        setMessage('Запись готова.');
+        setMessage(tr('msgAudioReady'));
         void processRef.current(blob, id, duration);
       };
       recorder.start(250);
       startedRef.current = Date.now();
       setPhase('recording');
-      setMessage('Записываю…');
+      setMessage(tr('msgRecording'));
       timerRef.current = setInterval(() => setElapsed(Date.now() - startedRef.current), 120);
       if (pendingReleaseRef.current) {
         setTimeout(() => stopRef.current(), 160);
@@ -247,7 +266,7 @@ export default function App() {
       streamRef.current?.getTracks().forEach(track => track.stop());
       streamRef.current = null;
       setPhase('error');
-      setMessage(errorText(error));
+      setMessage(errorText(error, uiLanguage));
     }
   };
 
@@ -304,9 +323,9 @@ export default function App() {
       await window.inCharacter.saveApiKey(keyDraft);
       setKeyDraft('');
       setHasKey(true);
-      setMessage('API-ключ сохранён в защищённом хранилище Windows.');
+      setMessage(tr('msgKeySaved'));
     } catch (error) {
-      setMessage('Не удалось сохранить ключ: ' + errorText(error));
+      setMessage(tr('msgKeyError') + errorText(error, uiLanguage));
     } finally {
       setKeyBusy(false);
     }
@@ -314,9 +333,14 @@ export default function App() {
 
   async function rewrite() {
     if (!original.trim() || processingRef.current) return;
+    if (!replyLanguage) {
+      setMessage(tr('msgCustomMissing'));
+      setPhase('error');
+      return;
+    }
     processingRef.current = true;
     setPhase('processing');
-    setMessage('Перевожу исправленный текст…');
+    setMessage(tr('msgRewriting'));
     try {
       const result = await window.inCharacter.rewriteSpeech(original, contextRef.current);
       setEnglish(result.text);
@@ -329,10 +353,10 @@ export default function App() {
         });
       }
       setPhase('ready');
-      setMessage('Перевод обновлён и скопирован.');
+      setMessage(tr('msgRewriteReady'));
     } catch (error) {
       setPhase('error');
-      setMessage('Перевод: ' + errorText(error));
+      setMessage(tr('msgRewriteError') + errorText(error, uiLanguage));
     } finally {
       processingRef.current = false;
     }
@@ -341,7 +365,7 @@ export default function App() {
   async function copyReply() {
     if (!english.trim()) return;
     await window.inCharacter.copyText(english);
-    setMessage('Реплика скопирована. Вставь её в чат WoW через Ctrl+V.');
+    setMessage(tr('msgClipboard'));
   }
 
   function selectHistoryItem(item: RecordEntry) {
@@ -349,6 +373,14 @@ export default function App() {
     setActiveId(item.id);
     setOriginal(item.transcript);
     setEnglish(item.english);
+    const known = REPLY_LANGUAGES.some(language => language.value === item.targetLanguage);
+    const choice = known ? item.targetLanguage as ReplyLanguageChoice : '__other__';
+    setReplyChoice(choice);
+    localStorage.setItem('reply-language', choice);
+    if (!known) {
+      setCustomReplyLanguage(item.targetLanguage);
+      localStorage.setItem('custom-reply-language', item.targetLanguage);
+    }
     setTab('rp');
   }
 
@@ -359,9 +391,9 @@ export default function App() {
         bytes: new Uint8Array(await item.blob.arrayBuffer()),
         extension,
       });
-      if (!result.canceled) setMessage('Запись сохранена: ' + result.filePath);
+      if (!result.canceled) setMessage(tr('msgSaved') + result.filePath);
     } catch (error) {
-      setMessage('Сохранение: ' + errorText(error));
+      setMessage(tr('msgSaveError') + errorText(error, uiLanguage));
     }
   }
 
@@ -393,16 +425,16 @@ export default function App() {
       onPointerUp={moveEnabled ? dragWindowEnd : undefined}
       onPointerCancel={moveEnabled ? dragWindowEnd : undefined}
     >
-      <div className="hud-status"><StateIcon phase={phase} /></div>
+      <div className="hud-status"><StateIcon phase={phase} language={uiLanguage} /></div>
       <div className="hud-text">
         <div className="hud-brand">INCHARACTER <span>PREVIEW</span></div>
         <div className="hud-main">
-          {moveEnabled ? 'Перетащи окно · закрепи ✓' : phaseLabel(phase, shortcuts.hold)}
+          {moveEnabled ? tr('hudMove') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
           {phase === 'recording' && <span className="hud-timer">{clock(elapsed)}</span>}
         </div>
-        <div className="hud-hint">{moveEnabled ? 'Ctrl + Shift + M · Закрепить' : 'Ctrl + Shift + Space · Голос  |  Ctrl + Shift + O · Панель'}</div>
+        <div className="hud-hint">{moveEnabled ? tr('hudLock') : tr('hudHint')}</div>
       </div>
-      {moveEnabled && <button type="button" className="hud-lock" title="Закрепить" onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
+      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')} onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
     </div>;
   }
 
@@ -416,35 +448,60 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.3.0</span></div>
+        <div className="brand-name">InCharacter <span>0.3.1</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
-      <button className="window-close" title="Скрыть панель" type="button" onClick={() => window.inCharacter.setViewMode('hud')}>×</button>
+      <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}>×</button>
     </header>
 
-    <nav className="tabs" aria-label="Разделы">
-      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}>✦ <span>Реплика</span></button>
-      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>◷ <span>История</span>{history.length > 0 && <small>{history.length}</small>}</button>
-      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}>⚙ <span>Настройки</span></button>
+    <nav className="tabs" aria-label={tr('tabsAria')}>
+      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}>✦ <span>{tr('tabReply')}</span></button>
+      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>◷ <span>{tr('tabHistory')}</span>{history.length > 0 && <small>{history.length}</small>}</button>
+      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}>⚙ <span>{tr('tabSettings')}</span></button>
     </nav>
 
     <main className="content">
       {tab === 'rp' && <div className="rp-screen">
         <div className="section-intro">
-          <h1>Говори свободно.</h1>
-          <p>Русский, English или всё сразу — реплика получится на английском.</p>
+          <h1>{tr('heroTitle')}</h1>
+          <p>{tr('heroSub')}</p>
         </div>
 
+        <div className="target-language">
+          <label htmlFor="reply-language">{tr('targetLabel')}</label>
+          <select
+            id="reply-language"
+            value={replyChoice}
+            onChange={event => {
+              const value = event.target.value as ReplyLanguageChoice;
+              setReplyChoice(value);
+              localStorage.setItem('reply-language', value);
+            }}
+          >
+            {REPLY_LANGUAGES.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+            <option value="__other__">{tr('otherTarget')}</option>
+          </select>
+          {replyChoice === '__other__' && <input
+            type="text"
+            maxLength={80}
+            value={customReplyLanguage}
+            placeholder={tr('targetCustomPlaceholder')}
+            onChange={event => {
+              setCustomReplyLanguage(event.target.value);
+              localStorage.setItem('custom-reply-language', event.target.value);
+            }}
+          />}
+        </div>
         <div className="context-fields">
           <label>
-            <span>Персонаж / манера речи</span>
+            <span>{tr('charLabel')}</span>
             <input value={character} placeholder="Corvin Sidwell, human, Stormwind…" onChange={event => {
               setCharacter(event.target.value);
               localStorage.setItem('character', event.target.value);
             }} />
           </label>
           <label>
-            <span>Ситуация / названия</span>
+            <span>{tr('situLabel')}</span>
             <input value={situation} placeholder="Goldshire, talking to Borin…" onChange={event => {
               setSituation(event.target.value);
               localStorage.setItem('situation', event.target.value);
@@ -455,8 +512,8 @@ export default function App() {
         <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
           <div className="status-figure"><StateIcon phase={phase} /></div>
           <div className="record-label">
-            <strong>{phaseLabel(phase, shortcuts.hold)}</strong>
-            <small>{shortcuts.hold ? 'Отпусти сочетание, чтобы закончить запись' : 'Нажми сочетание ещё раз, чтобы закончить'}</small>
+            <strong>{phaseLabel(phase, shortcuts.hold, uiLanguage)}</strong>
+            <small>{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</small>
           </div>
           <span className="record-timer">{clock(elapsed)}</span>
           <button
@@ -464,64 +521,64 @@ export default function App() {
             className={'record-action ' + (phase === 'recording' ? 'stop-action' : '')}
             disabled={isBusy}
             onClick={() => toggleRef.current()}
-            title={phase === 'recording' ? 'Завершить запись' : 'Записать голос'}
+            title={phase === 'recording' ? tr('recTitle') : tr('startTitle')}
           >{phase === 'recording' ? '■' : '●'}</button>
         </div>
-        <div className="record-shortcut">Горячая клавиша: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd></div>
+        <div className="record-shortcut">{tr('shortcutLabel')} <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd></div>
 
         <div className="drafts">
           <div className="draft-header">
-            <span>Твоя речь</span>
-            <small>Расшифровку можно исправить</small>
+            <span>{tr('rawLabel')}</span>
+            <small>{tr('rawHint')}</small>
           </div>
           <textarea
             rows={3}
             value={original}
-            placeholder="После записи здесь появятся твои слова…"
+            placeholder={tr('rawPlaceholder')}
             onChange={event => {
               setOriginal(event.target.value);
               if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { transcript: event.target.value });
             }}
           />
           <div className="draft-header english-header">
-            <span>Реплика на английском</span>
-            <small>{phase === 'processing' ? 'Перевожу…' : 'Можно отредактировать'}</small>
+            <span>{tr('outputLabel')}</span>
+            <small>{phase === 'processing' ? tr('outputProcessing') : tr('outputHint')}</small>
           </div>
           <textarea
             rows={4}
             value={english}
-            placeholder="Ready for the conversation…"
+            placeholder={tr('outputPlaceholder')}
             onChange={event => {
               setEnglish(event.target.value);
               if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { english: event.target.value });
             }}
           />
           <div className="draft-actions">
-            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>↻ Перевести снова</button>
-            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}>▣ Копировать для WoW</button>
+            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>↻ {tr('retryTranslation')}</button>
+            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}>▣ {tr('copyToWow')}</button>
           </div>
         </div>
       </div>}
 
       {tab === 'history' && <section className="history-screen">
         <div className="screen-title">
-          <h1>История сессии</h1>
-          <p>Последние записи и реплики. История исчезнет после выхода из приложения.</p>
+          <h1>{tr('historyTitle')}</h1>
+          <p>{tr('historySub')}</p>
         </div>
-        {history.length === 0 ? <div className="empty-state">◷<p>Здесь пока нет записей.</p><span>Произнеси первую реплику через Ctrl + Shift + Space.</span></div>
+        {history.length === 0 ? <div className="empty-state">◷<p>{tr('historyEmpty')}</p><span>{tr('historyEmptyHint')}</span></div>
           : <div className="history-list">
             {history.map(item => <div className={'history-item ' + (activeId === item.id ? 'current' : '')} key={item.id}>
               <div className="history-row">
                 <div className="history-title">
-                  <strong>{new Date(item.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</strong>
-                  <span>{clock(item.durationMs)} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)} приблизительно</span>
+                  <strong>{new Date(item.createdAt).toLocaleTimeString(uiLanguage, { hour: '2-digit', minute: '2-digit' })}</strong>
+                  <span>{clock(item.durationMs)} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)} {tr('roughly')}</span>
                 </div>
-                <button className="history-restore" type="button" onClick={() => selectHistoryItem(item)}>Открыть реплику</button>
+                <button className="history-restore" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</button>
               </div>
-              <div className="history-preview">{item.english || item.transcript || 'Аудиозапись без текста'}</div>
+              <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
               <div className="history-audio">
-                <audio controls src={item.url} preload="metadata" aria-label="Прослушать запись" />
-                <button type="button" className="save-icon" title="Сохранить аудиозапись" onClick={() => void saveEntry(item)}>↓</button>
+                <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
+                <button type="button" className="save-icon" title={tr('saveRecording')} onClick={() => void saveEntry(item)}>↓</button>
               </div>
             </div>)}
           </div>}
@@ -529,47 +586,59 @@ export default function App() {
 
       {tab === 'settings' && <section className="settings-screen">
         <div className="screen-title">
-          <h1>Настройки</h1>
-          <p>Настраивай один раз, а потом просто разговаривай.</p>
+          <h1>{tr('settingsTitle')}</h1>
+          <p>{tr('settingsSub')}</p>
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>OpenAI API</strong><span className={hasKey ? 'connected' : 'disconnected'}>{hasKey ? '● Подключено' : '○ Не подключено'}</span></div>
-          <p>Ключ сохраняется локально в защищённом хранилище Windows.</p>
+          <div className="settings-heading"><strong>{tr('languageUiLabel')}</strong></div>
+          <p>{tr('languageUiDescription')}</p>
+          <select className="interface-language-select" value={uiLanguage} onChange={event => {
+            const selected = event.target.value as InterfaceLanguage;
+            setUiLanguage(selected);
+            localStorage.setItem('interface-language', selected);
+            setMessage(t(selected, 'readyMsg'));
+          }}>
+            {INTERFACE_LANGUAGES.map(language => <option value={language.value} key={language.value}>{language.label}</option>)}
+          </select>
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>OpenAI API</strong><span className={hasKey ? 'connected' : 'disconnected'}>{hasKey ? tr('connected') : tr('disconnected')}</span></div>
+          <p>{tr('apiKeyInfo')}</p>
           <div className="key-input-row">
-            <input type="password" value={keyDraft} placeholder={hasKey ? 'Введите новый ключ для замены' : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
-            <button type="button" disabled={!keyDraft.trim() || keyBusy} onClick={() => void saveKey()}>Сохранить</button>
+            <input type="password" value={keyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
+            <button type="button" disabled={!keyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</button>
           </div>
-          <p className="tiny">Записи отправляются в OpenAI только после добавления ключа. Оплата API отдельно от ChatGPT.</p>
+          <p className="tiny">{tr('apiKeyDisclaimer')}</p>
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>Микрофон</strong></div>
+          <div className="settings-heading"><strong>{tr('microphoneTitle')}</strong></div>
           <label className="toggle-line">
             <input type="checkbox" checked={micProcessing} disabled={inProgress} onChange={event => {
               setMicProcessing(event.target.checked);
               localStorage.setItem('mic-processing', String(event.target.checked));
             }} />
-            <span>Подавление шума, эха и автоусиление<small>По умолчанию выключено — голос звучит естественнее.</small></span>
+            <span>{tr('micProcessing')}<small>{tr('micProcessingHint')}</small></span>
           </label>
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>Оверлей</strong></div>
-          <div className="setting-row"><div>Переместить индикатор<small>Позиция сохранится после перезапуска.</small></div>
-            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}>Переместить ↗</button>
+          <div className="settings-heading"><strong>{tr('overlayTitle')}</strong></div>
+          <div className="setting-row"><div>{tr('moveIndicator')}<small>{tr('positionSaved')}</small></div>
+            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</button>
           </div>
-          <div className="keyboard-description">{shortcuts.hold ? 'Удерживай' : 'Нажимай'} Ctrl + Shift + Space для записи. Ctrl + Shift + O открывает панель, Ctrl + Shift + M перемещает HUD.</div>
-          {!shortcuts.hold && <p className="tiny warning-text">Windows-компонент удержания недоступен: используется режим переключения записи.</p>}
+          <div className="keyboard-description">{shortcuts.hold ? tr('keyboardHold') : tr('keyboardTap')}</div>
+          {!shortcuts.hold && <p className="tiny warning-text">{tr('hotkeyFallback')}</p>}
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>Стоимость текущей сессии</strong></div>
-          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{history.length} записей</span></div>
-          <p>Оценка: аудио по $0.006/мин + фактическое число текстовых токенов. Окончательные списания смотри в OpenAI Usage.</p>
-          <button className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>Открыть OpenAI Usage ↗</button>
+          <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
+          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{history.length} {tr('recordingsCount')}</span></div>
+          <p>{tr('costDisclaimer')}</p>
+          <button className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>{tr('openUsage')}</button>
         </div>
       </section>}
     </main>
     <footer className="bottom-bar">
-      <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message}</span>
-      <button type="button" title="Завершить приложение" onClick={() => window.inCharacter.quit()}>Выйти</button>
+      <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message || tr('readyMsg')}</span>
+      <button type="button" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</button>
     </footer>
   </div>;
 }
