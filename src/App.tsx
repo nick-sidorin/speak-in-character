@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { INTERFACE_LANGUAGES, REPLY_LANGUAGES, t, type InterfaceLanguage, type ReplyLanguageChoice, type TranslationKey } from './i18n';
+import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw } from 'lucide-react';
 
 type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
@@ -50,9 +51,41 @@ function StateIcon({ phase, language }: { phase: Phase; language: InterfaceLangu
   if (phase === 'processing' || phase === 'requesting' || phase === 'finalizing') {
     return <span className="state-spinner" aria-label={t(language, 'iconProcessing')} />;
   }
-  if (phase === 'ready') return <span className="state-check" aria-label={t(language, 'iconReady')}>✓</span>;
-  if (phase === 'error') return <span className="state-error" aria-label={t(language, 'iconError')}>!</span>;
-  return <span className={phase === 'recording' ? 'state-dot recording' : 'state-dot'} />;
+  if (phase === 'ready') return <span className="state-check" aria-label={t(language, 'iconReady')}><Check size={17} strokeWidth={3} /></span>;
+  if (phase === 'error') return <span className="state-error" aria-label={t(language, 'iconError')}><AlertCircle size={19} strokeWidth={2.5}/></span>;
+  return <span className={'state-circle ' + (phase === 'recording' ? 'recording' : '')}>
+    <Circle size={18} fill="currentColor" strokeWidth={1.8} />
+  </span>;
+}
+
+type ShortcutAction = 'record' | 'panel' | 'move';
+type ShortcutConfig = Record<ShortcutAction,string>;
+const DEFAULT_KEYS: ShortcutConfig = { record: 'Ctrl+Shift+Space', panel: 'Ctrl+Shift+O', move: 'Ctrl+Shift+M' };
+const MODIFIER_OPTIONS = ['Ctrl','Alt','Shift','Ctrl+Shift','Ctrl+Alt','Alt+Shift','Ctrl+Alt+Shift'];
+const MAIN_KEY_OPTIONS = ['Space',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),...'0123456789'.split(''),...Array.from({length:12},(_,index)=>'F'+(index+1))];
+
+function KeyCaps({ value }: { value: string }) {
+  const tokens = value.split('+');
+  return <span className="key-caps">{tokens.map((token,index) =>
+    <span className="key-part" key={index}>
+      {index > 0 && <span className="key-plus">+</span>}
+      <kbd>{token}</kbd>
+    </span>
+  )}</span>;
+}
+
+function ShortcutPicker({value,onChange}:{value:string;onChange:(combo:string)=>void}) {
+  const parts=value.split('+');
+  const key=parts.pop() || 'Space';
+  const modifier=parts.join('+') || 'Ctrl';
+  return <div className="shortcut-picker">
+    <select aria-label="Modifier keys" value={modifier} onChange={event=>onChange(event.target.value+'+'+key)}>
+      {MODIFIER_OPTIONS.map(option=><option key={option} value={option}>{option}</option>)}
+    </select>
+    <select aria-label="Main key" value={key} onChange={event=>onChange(modifier+'+'+event.target.value)}>
+      {MAIN_KEY_OPTIONS.map(option=><option key={option} value={option}>{option}</option>)}
+    </select>
+  </div>;
 }
 
 export default function App() {
@@ -85,6 +118,10 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [moveEnabled, setMoveEnabled] = useState(false);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
+  const [keyBindings, setKeyBindings] = useState<ShortcutConfig>(DEFAULT_KEYS);
+  const [keyDraft, setKeyDraft] = useState<ShortcutConfig>(DEFAULT_KEYS);
+  const [shortcutBusy, setShortcutBusy] = useState(false);
+  const [shortcutError, setShortcutError] = useState('');
 
   const phaseRef = useRef<Phase>('idle');
   const processingRef = useRef(false);
@@ -297,6 +334,11 @@ export default function App() {
 
   useEffect(() => {
     window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
+    void window.inCharacter.getShortcuts().then(result => {
+      setKeyBindings(result.shortcuts);
+      setKeyDraft(result.shortcuts);
+      setShortcuts(result.status);
+    }).catch(error => console.warn('Unable to load shortcuts', error));
     const offToggle = window.inCharacter.onToggleRecording(() => toggleRef.current());
     const offDown = window.inCharacter.onHoldKeyDown(() => downRef.current());
     const offUp = window.inCharacter.onHoldKeyUp(() => upRef.current());
@@ -359,6 +401,23 @@ export default function App() {
       setMessage(tr('msgRewriteError') + errorText(error, uiLanguage));
     } finally {
       processingRef.current = false;
+    }
+  }
+
+  async function saveShortcuts() {
+    if (inProgress || shortcutBusy) return;
+    setShortcutBusy(true);
+    setShortcutError('');
+    try {
+      const result = await window.inCharacter.setShortcuts(keyDraft);
+      setKeyBindings(result.shortcuts);
+      setKeyDraft(result.shortcuts);
+      setShortcuts(result.status);
+      setMessage(tr('hotkeySaved'));
+    } catch (error) {
+      setShortcutError(errorText(error, uiLanguage));
+    } finally {
+      setShortcutBusy(false);
     }
   }
 
@@ -432,9 +491,14 @@ export default function App() {
           {moveEnabled ? tr('hudMove') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
           {phase === 'recording' && <span className="hud-timer">{clock(elapsed)}</span>}
         </div>
-        <div className="hud-hint">{moveEnabled ? tr('hudLock') : tr('hudHint')}</div>
+        <div className="hud-hints">
+          {moveEnabled ? <div className="hud-key-line"><KeyCaps value={keyBindings.move}/><span>{tr('hudMoveAction')}</span></div> : <>
+            <div className="hud-key-line"><KeyCaps value={keyBindings.record}/><span>{tr('hudVoice')}</span></div>
+            <div className="hud-key-line"><KeyCaps value={keyBindings.panel}/><span>{tr('hudPanel')}</span></div>
+          </>}
+        </div>
       </div>
-      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')} onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
+      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')} onClick={() => window.inCharacter.setHudMoveMode(false)}><Check size={16} strokeWidth={2.7}/></button>}
     </div>;
   }
 
@@ -448,16 +512,16 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.3.1</span></div>
+        <div className="brand-name">InCharacter <span>0.4.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
-      <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}>×</button>
+      <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
     </header>
 
     <nav className="tabs" aria-label={tr('tabsAria')}>
-      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}>✦ <span>{tr('tabReply')}</span></button>
-      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>◷ <span>{tr('tabHistory')}</span>{history.length > 0 && <small>{history.length}</small>}</button>
-      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}>⚙ <span>{tr('tabSettings')}</span></button>
+      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}><MessageSquareText size={16} strokeWidth={2}/><span>{tr('tabReply')}</span></button>
+      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}><Clock3 size={16} strokeWidth={2}/><span>{tr('tabHistory')}</span>{history.length > 0 && <small>{history.length}</small>}</button>
+      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}><Settings2 size={16} strokeWidth={2}/><span>{tr('tabSettings')}</span></button>
     </nav>
 
     <main className="content">
@@ -522,9 +586,9 @@ export default function App() {
             disabled={isBusy}
             onClick={() => toggleRef.current()}
             title={phase === 'recording' ? tr('recTitle') : tr('startTitle')}
-          >{phase === 'recording' ? '■' : '●'}</button>
+          >{phase === 'recording' ? <Square size={16} fill="currentColor" strokeWidth={1.5}/> : <Circle size={17} fill="currentColor" strokeWidth={1.5}/>}</button>
         </div>
-        <div className="record-shortcut">{tr('shortcutLabel')} <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd></div>
+        <div className="record-shortcut">{tr('shortcutLabel')} <KeyCaps value={keyBindings.record}/></div>
 
         <div className="drafts">
           <div className="draft-header">
@@ -554,8 +618,8 @@ export default function App() {
             }}
           />
           <div className="draft-actions">
-            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>↻ {tr('retryTranslation')}</button>
-            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}>▣ {tr('copyToWow')}</button>
+            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}><RefreshCw size={15} strokeWidth={2}/>{tr('retryTranslation')}</button>
+            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}><ClipboardCopy size={16} strokeWidth={2}/>{tr('copyToWow')}</button>
           </div>
         </div>
       </div>}
@@ -565,7 +629,7 @@ export default function App() {
           <h1>{tr('historyTitle')}</h1>
           <p>{tr('historySub')}</p>
         </div>
-        {history.length === 0 ? <div className="empty-state">◷<p>{tr('historyEmpty')}</p><span>{tr('historyEmptyHint')}</span></div>
+        {history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span>{tr('historyEmptyHint')}</span></div>
           : <div className="history-list">
             {history.map(item => <div className={'history-item ' + (activeId === item.id ? 'current' : '')} key={item.id}>
               <div className="history-row">
@@ -578,7 +642,7 @@ export default function App() {
               <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
               <div className="history-audio">
                 <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
-                <button type="button" className="save-icon" title={tr('saveRecording')} onClick={() => void saveEntry(item)}>↓</button>
+                <button type="button" className="save-icon" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18} strokeWidth={2}/></button>
               </div>
             </div>)}
           </div>}
@@ -602,7 +666,7 @@ export default function App() {
           </select>
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>OpenAI API</strong><span className={hasKey ? 'connected' : 'disconnected'}>{hasKey ? tr('connected') : tr('disconnected')}</span></div>
+          <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\\s*/, '')}</span></div>
           <p>{tr('apiKeyInfo')}</p>
           <div className="key-input-row">
             <input type="password" value={keyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
@@ -623,10 +687,22 @@ export default function App() {
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('overlayTitle')}</strong></div>
           <div className="setting-row"><div>{tr('moveIndicator')}<small>{tr('positionSaved')}</small></div>
-            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</button>
+            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}><Move size={15} strokeWidth={2}/>{tr('moveAction')}</button>
           </div>
-          <div className="keyboard-description">{shortcuts.hold ? tr('keyboardHold') : tr('keyboardTap')}</div>
+          <div className="keyboard-description">{shortcuts.hold ? tr('hotkeyHoldHint') : tr('hotkeyTapHint')}</div>
           {!shortcuts.hold && <p className="tiny warning-text">{tr('hotkeyFallback')}</p>}
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>{tr('hotkeyTitle')}</strong></div>
+          <p>{tr('hotkeyDesc')}</p>
+          {(['record','panel','move'] as const).map(action=><div className="hotkey-setting-row" key={action}>
+            <label>{tr(action === 'record' ? 'hotkeyRecord' : action === 'panel' ? 'hotkeyPanel' : 'hotkeyMove')}</label>
+            <ShortcutPicker value={keyDraft[action]} onChange={value => setKeyDraft(previous => ({...previous,[action]:value}))}/>
+          </div>)}
+          {shortcutError && <p className="hotkey-error">{shortcutError}</p>}
+          <button type="button" className="shortcut-save-btn" disabled={shortcutBusy || inProgress} onClick={() => void saveShortcuts()}>
+            {tr('hotkeySave')}
+          </button>
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
