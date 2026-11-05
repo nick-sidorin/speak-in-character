@@ -42,8 +42,15 @@ contextBridge.exposeInMainWorld('inCharacter', {
   endHudDrag: () => ipcRenderer.send('overlay:drag-end'),
   hasApiKey: (): Promise<boolean> => ipcRenderer.invoke('ai:key-status'),
   saveApiKey: (key: string): Promise<boolean> => ipcRenderer.invoke('ai:save-key', key),
-  processVoice: (payload: { bytes: Uint8Array; mimeType: string; character: string; situation: string; targetLanguage: string }): Promise<{transcript: string; translated: string; estimatedTextCostUsd: number}> => ipcRenderer.invoke('ai:process', payload),
-  rewriteSpeech: (transcript: string, context: {character:string;situation:string;targetLanguage:string}): Promise<{text: string; estimatedTextCostUsd: number}> => ipcRenderer.invoke('ai:rewrite', transcript, context),
+  processVoice: (payload: { bytes: Uint8Array; mimeType: string; character: string; situation: string; targetLanguage: string; presetId: string }): Promise<{transcript: string; translated: string; estimatedTextCostUsd: number}> => ipcRenderer.invoke('ai:process', payload),
+  rewriteSpeech: (transcript: string, context: {character:string;situation:string;targetLanguage:string;presetId:string}): Promise<{text: string; estimatedTextCostUsd: number}> => ipcRenderer.invoke('ai:rewrite', transcript, context),
+  listPresets: (): Promise<Array<{
+    id: string;
+    name: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+    description: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+    source: 'built-in' | 'custom';
+  }>> => ipcRenderer.invoke('presets:list'),
+  openPresetsFolder: (): Promise<void> => ipcRenderer.invoke('presets:open-folder'),
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
   openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
   getShortcuts: () => ipcRenderer.invoke('shortcuts:get'),

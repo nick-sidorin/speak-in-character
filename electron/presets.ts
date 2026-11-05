@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, statSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 export type PresetLocale = 'en' | 'ru' | 'fr' | 'es' | 'de';
@@ -72,7 +72,7 @@ export function ensureCustomPresetsDirectory(): string {
 
 function readDirectory(directory: string, source: PresetSource): PresetDefinition[] {
   const result: PresetDefinition[] = [];
-  let entries: ReturnType<typeof readdirSync>;
+  let entries: Dirent[];
   try {
     entries = readdirSync(directory, { withFileTypes: true });
   } catch (error) {

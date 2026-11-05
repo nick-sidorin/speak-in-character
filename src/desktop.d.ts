@@ -18,8 +18,15 @@ declare global {
       endHudDrag: () => void;
       hasApiKey: () => Promise<boolean>;
       saveApiKey: (key: string) => Promise<boolean>;
-      processVoice: (payload: {bytes: Uint8Array; mimeType: string; character: string; situation: string; targetLanguage: string}) => Promise<{transcript: string; translated: string; estimatedTextCostUsd: number}>;
-      rewriteSpeech: (transcript: string, context: {character: string; situation: string; targetLanguage: string}) => Promise<{text: string; estimatedTextCostUsd: number}>;
+      processVoice: (payload: {bytes: Uint8Array; mimeType: string; character: string; situation: string; targetLanguage: string; presetId: string}) => Promise<{transcript: string; translated: string; estimatedTextCostUsd: number}>;
+      rewriteSpeech: (transcript: string, context: {character: string; situation: string; targetLanguage: string; presetId: string}) => Promise<{text: string; estimatedTextCostUsd: number}>;
+      listPresets: () => Promise<Array<{
+        id: string;
+        name: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+        description: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+        source: 'built-in' | 'custom';
+      }>>;
+      openPresetsFolder: () => Promise<void>;
       copyText: (value: string) => Promise<void>;
       openUsage: () => Promise<void>;
       setShortcutCapture: (active: boolean) => void;

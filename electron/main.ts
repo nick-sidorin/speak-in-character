@@ -10,6 +10,7 @@ import {
 } from 'electron';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { copyToClipboard, hasApiKey, processVoice, rewriteSpeech, setApiKey } from './ai';
+import { ensureCustomPresetsDirectory, listPresets } from './presets';
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -432,7 +433,13 @@ app.whenReady().then(() => {
   ipcMain.handle('ai:key-status', () => hasApiKey());
   ipcMain.handle('ai:save-key', (_event, key: string) => setApiKey(key));
   ipcMain.handle('ai:process', (_event, payload: Parameters<typeof processVoice>[0]) => processVoice(payload));
-  ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {character:string;situation:string;targetLanguage:string}) => rewriteSpeech(transcript, context));
+  ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {character:string;situation:string;targetLanguage:string;presetId:string}) => rewriteSpeech(transcript, context));
+  ipcMain.handle('presets:list', () => listPresets());
+  ipcMain.handle('presets:open-folder', async () => {
+    const folder = ensureCustomPresetsDirectory();
+    const error = await shell.openPath(folder);
+    if (error) throw new Error(error);
+  });
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));

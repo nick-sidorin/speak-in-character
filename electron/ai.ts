@@ -1,8 +1,9 @@
 import { app, clipboard, safeStorage } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolvePreset } from './presets';
 
-type AiContext = { character: string; situation: string; targetLanguage: string };
+type AiContext = { character: string; situation: string; targetLanguage: string; presetId: string };
 export type RewriteResult = { text: string; estimatedTextCostUsd: number };
 export type VoiceResult = { transcript: string; translated: string; estimatedTextCostUsd: number };
 export type VoicePayload = AiContext & { bytes: Uint8Array; mimeType: string };
@@ -55,17 +56,15 @@ function cleanContext(value: string, limit: number) {
 
 function instructions(targetLanguage: string): string {
   return [
-    'You are a faithful multilingual editor for a human roleplayer in World of Warcraft.',
-    `Rewrite the player's speech into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
-    'Speech can be in Russian, English, French, German or other languages, including code-switching. Understand the speech first, then express the intended message in the target language.',
-    'Preserve the exact facts, meaning, intent, speaker perspective and emotion from the original speech. Never invent new claims, actions, names, or conversation turns.',
-    'The character field may describe the speaker, personality, RP register and preferred manner of speaking IN ANY LANGUAGE. Apply that speaking style to the FINAL MESSAGE: vocabulary, idioms, contractions, humor and subtle dialect flavor. A style description is a real stylistic instruction, not merely a hint about proper names.',
-    'For example, an explicitly cheerful fantasy dwarf using colloquial language can sound warm, boisterous and slightly Scottish-inspired in English: occasional aye, ye, lad/lass, dinnae, or dropped g. Use natural phrasing, not a repetitive caricature or a wall of phonetic spellings. In other target languages, use culturally and linguistically natural analogues, rather than untranslated English catchphrases.',
-    'If the character profile does not specify a special style, stay close to the original register. Never let a roleplaying style change what the player actually said or make their character take actions they did not describe.',
-    'The situation field is background context for understanding people, places and game names. It does not authorize inventing dialogue, lore or facts.',
-    'For World of Warcraft proper names, use established canonical names in the target-language localization ONLY when confidently known.',
-    'Never invent item or place names: if the precise localized form is uncertain, keep the original proper name unchanged.',
-    'No intro, no explanations, no quotation marks around the whole result; return only the final chat message.',
+    'You are InCharacter, a faithful multilingual voice-to-chat editor for roleplaying and everyday communication across any game or social world.',
+    `Turn the speaker's transcribed words into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
+    'The speaker may use any language or mix languages. Understand the words first; then express the same message in the target language.',
+    'Preserve the speaker\'s meaning, facts, perspective, intent, humor and emotional tone. Never invent claims, actions, names or additional dialogue.',
+    'Character description and an optional style preset can define the VOICE of the finished message: vocabulary, register, idioms and contractions. Apply their stylistic guidance when provided, but never let them change the content.',
+    'The situation field helps disambiguate proper nouns, places and terminology; it must not supply a new story or change the meaning of the input.',
+    'Use established canonical localized proper names only when confidently known. If uncertain, preserve the original name rather than invent a translation.',
+    'No default dialect, game lore or character stereotype. Without style guidance, use natural language matching the original register.',
+    'Output only the final message, with no prefacing, explanation or surrounding quotation marks.',
   ].join(' ');
 }
 
@@ -78,6 +77,7 @@ export async function rewriteSpeech(
   if (!spoken) throw new Error('Текст для перевода пуст.');
   const targetLanguage = cleanContext(context.targetLanguage || 'English', 80);
   if (!targetLanguage) throw new Error('Укажи язык реплики.');
+  const preset = resolvePreset(context.presetId || '');
   const response = await openAiFetch('https://api.openai.com/v1/chat/completions', key, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,6 +90,10 @@ export async function rewriteSpeech(
           character: cleanContext(context.character, 700),
           situation: cleanContext(context.situation, 700),
           targetLanguage,
+          stylePreset: preset ? {
+            name: preset.name.en,
+            instructions: preset.instructions,
+          } : null,
           spoken,
         }) },
       ],
@@ -116,6 +120,7 @@ export async function processVoice(payload: VoicePayload): Promise<VoiceResult> 
   }
   const mime = payload.mimeType?.includes('ogg') ? 'audio/ogg' : 'audio/webm';
   const extension = mime.includes('ogg') ? 'ogg' : 'webm';
+  const preset = resolvePreset(payload.presetId || '');
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   const form = new FormData();
@@ -123,7 +128,7 @@ export async function processVoice(payload: VoicePayload): Promise<VoiceResult> 
   form.append('model', 'gpt-4o-transcribe');
   form.append('prompt', [
     'Speech may be in any language, or a mixture. Transcribe it in the original language(s). Preserve code-switching; do not translate.',
-    'The setting is World of Warcraft. Names may include Stormwind, Ironforge, Goldshire, Elwynn Forest, The Crossroads, Orgrimmar.',
+    preset?.recognitionHints || '',
     cleanContext(payload.character, 400),
     cleanContext(payload.situation, 400),
   ].filter(Boolean).join(' ').slice(0, 1000));
