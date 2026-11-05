@@ -60,8 +60,10 @@ function instructions(targetLanguage: string): string {
     `Turn the speaker's transcribed words into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
     'The speaker may use any language or mix languages. Understand the words first; then express the same message in the target language.',
     'Preserve the speaker\'s meaning, facts, perspective, intent, humor and emotional tone. Never invent claims, actions, names or additional dialogue.',
-    'The optional additional context may describe the character, speaking style, conversation, or important words. When it specifies a style, apply it to the final message. A selected style preset may further define vocabulary, register, idioms and contractions; make that style recognizable without distorting meaning or readability.',
-    'Additional context helps disambiguate proper nouns, places and terminology; it must not supply a new story or change the meaning of the input.',
+    'STYLE INSTRUCTION PRECEDENCE (strict): The optional speech preset establishes a baseline voice. The user\'s ADDITIONAL CONTEXT is the more specific, higher-priority instruction for this particular speaker or scene. Combine all compatible style cues; when style instructions conflict, follow the additional context over the preset. Preserve the base task of faithful meaning above both.',
+    'In particular, if the preset asks for pirate speech and additional context specifies that this character stutters frequently, express BOTH: recognizable pirate vocabulary AND visible frequent but readable stammering (e.g. occasional broken/repeated opening syllables or words such as "I-I" or "th-that"). Do not silently polish away the stutter, do not mock the speaker, and do not add other dialogue. Match the intensity specified by the user: occasional means occasional; strong/frequent means readily noticeable throughout.',
+    'Additional context may also describe the character, their register, relationships, game terms, scene and proper nouns. Use these details only for interpretation and style, never to invent new facts, lore or dialogue.',
+    'These style changes apply ONLY to the final output message; the original transcription stays faithful to the spoken audio.',
     'Use established canonical localized proper names only when confidently known. If uncertain, preserve the original name rather than invent a translation.',
     'No default dialect, game lore or character stereotype. Without style guidance, use natural language matching the original register.',
     'Output only the final message, with no prefacing, explanation or surrounding quotation marks.',
@@ -87,13 +89,14 @@ export async function rewriteSpeech(
       messages: [
         { role: 'system', content: instructions(targetLanguage) },
         { role: 'user', content: JSON.stringify({
-          additionalContext: cleanContext(context.additionalContext, 1600),
           targetLanguage,
-          stylePreset: preset ? {
+          originalSpeech: spoken,
+          baselineStylePreset: preset ? {
             name: preset.name.en,
             instructions: preset.instructions,
           } : null,
-          spoken,
+          higherPriorityUserAdditionalContext: cleanContext(context.additionalContext, 1600),
+          requiredStylePrecedence: 'core faithful meaning > user additional context > preset; combine compatible style traits',
         }) },
       ],
     }),
@@ -126,7 +129,7 @@ export async function processVoice(payload: VoicePayload): Promise<VoiceResult> 
   form.append('file', new Blob([buffer], { type: mime }), `speech.${extension}`);
   form.append('model', 'gpt-4o-transcribe');
   form.append('prompt', [
-    'Speech may be in any language, or a mixture. Transcribe it in the original language(s). Preserve code-switching; do not translate.',
+    'Transcribe the AUDIO exactly as spoken, in its original language(s). Do not invent disfluencies, accents, stutters or repetitions from the character description; do not apply stylistic prompts to the transcript. Preserve audible code-switching and genuine audible repetitions. Do not translate.',
     preset?.recognitionHints || '',
     cleanContext(payload.additionalContext, 650),
   ].filter(Boolean).join(' ').slice(0, 1000));

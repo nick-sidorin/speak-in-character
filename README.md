@@ -10,7 +10,7 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
 3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-**v0.7.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+**v0.7.1** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
 ## What it does
 
@@ -22,6 +22,8 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 - **Additional context:** one optional multiline field for any situational prompt, character description, game terms or contextual notes. Existing character and situation values are migrated into it automatically on first launch of v0.7.0. The neutral core prompt stays independent of any game.
 
 **Speech presets:** select a preset on the **Reply** screen. Preset management (open folder / reload) is in Settings. An optional JSON preset provides a stylistic voice for the final output. Presets never rewrite the original transcript and must not change the content of what was said. Bundled examples include Dwarven voice, Pirate voice and Courtly speech. No preset is the default.
+
+**Style precedence:** the core translator preserves the spoken meaning. An optional preset sets the baseline voice, and the **Additional context** field takes precedence over the preset when it adds a specific character trait. Compatible instructions blend together: a pirate who stutters frequently should sound like a pirate **and** visibly stutter in the finished line. No trait should be silently dropped just because a preset is active. The original transcription is not stylized.
 - **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
 - **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
 - **Settings:** protected API key, audio processing, **speech presets**, move HUD and shortcut editor.
