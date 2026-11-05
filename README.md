@@ -8,7 +8,7 @@ InCharacter is a Windows voice companion for roleplay and everyday chat. Speak i
 
 ## Download and run
 
-**[Download the latest Windows Preview from GitHub Releases](https://github.com/nick-sidorin/speak-in-character/releases/latest)** — no GitHub Actions navigation required.
+**[Download the latest Windows Preview from GitHub Releases](https://github.com/nick-sidorin/speak-in-character/releases)** — no GitHub Actions navigation required.
 
 1. Download the `InCharacter-v0.8.2-Windows-x64-portable.zip` asset from the release page.
 2. **Extract the whole ZIP** to a folder and launch `InCharacter.exe`. Visual Studio and Node.js are **not** needed.

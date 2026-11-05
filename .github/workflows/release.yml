@@ -67,7 +67,7 @@ jobs:
           directory="$(dirname "$exe")"
           archive="InCharacter-${VERSION}-Windows-x64-portable.zip"
           (cd "$directory" && zip -q -r "$GITHUB_WORKSPACE/$archive" .)
-          unzip -l "$archive" | grep -q "InCharacter.exe"
+          unzip -tqq "$archive"
           sha256sum "$archive" > SHA256SUMS.txt
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "Packed $archive"
