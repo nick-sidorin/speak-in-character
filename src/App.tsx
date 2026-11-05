@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { INTERFACE_LANGUAGES, REPLY_LANGUAGES, t, type InterfaceLanguage, type ReplyLanguageChoice, type TranslationKey } from './i18n';
+import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
+import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw } from 'lucide-react';
 
 type ViewMode = 'hud' | 'panel';
@@ -60,9 +60,7 @@ function StateIcon({ phase, language }: { phase: Phase; language: InterfaceLangu
 
 type ShortcutAction = 'record' | 'panel' | 'move';
 type ShortcutConfig = Record<ShortcutAction,string>;
-const DEFAULT_KEYS: ShortcutConfig = { record: 'Ctrl+Shift+Space', panel: 'Ctrl+Shift+O', move: 'Ctrl+Shift+M' };
-const MODIFIER_OPTIONS = ['Ctrl','Alt','Shift','Ctrl+Shift','Ctrl+Alt','Alt+Shift','Ctrl+Alt+Shift'];
-const MAIN_KEY_OPTIONS = ['Space',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),...'0123456789'.split(''),...Array.from({length:12},(_,index)=>'F'+(index+1))];
+const DEFAULT_KEYS: ShortcutConfig = { record: 'CapsLock', panel: 'Ctrl+Shift+O', move: 'Ctrl+Shift+M' };
 
 function KeyCaps({ value }: { value: string }) {
   const tokens = value.split('+');
@@ -74,18 +72,25 @@ function KeyCaps({ value }: { value: string }) {
   )}</span>;
 }
 
-function ShortcutPicker({value,onChange}:{value:string;onChange:(combo:string)=>void}) {
-  const parts=value.split('+');
-  const key=parts.pop() || 'Space';
-  const modifier=parts.join('+') || 'Ctrl';
-  return <div className="shortcut-picker">
-    <select aria-label="Modifier keys" value={modifier} onChange={event=>onChange(event.target.value+'+'+key)}>
-      {MODIFIER_OPTIONS.map(option=><option key={option} value={option}>{option}</option>)}
-    </select>
-    <select aria-label="Main key" value={key} onChange={event=>onChange(modifier+'+'+event.target.value)}>
-      {MAIN_KEY_OPTIONS.map(option=><option key={option} value={option}>{option}</option>)}
-    </select>
-  </div>;
+// Use physical keyboard codes to keep shortcuts independent of RU/EN layout.
+function shortcutFromEvent(event: KeyboardEvent<HTMLButtonElement>): string | null {
+  if (event.repeat) return null;
+  const code = event.code;
+  if (['ControlLeft','ControlRight','ShiftLeft','ShiftRight','AltLeft','AltRight','MetaLeft','MetaRight'].includes(code)) {
+    return null;
+  }
+  let key = '';
+  if (/^Key[A-Z]$/.test(code)) key = code.slice(3);
+  else if (/^Digit[0-9]$/.test(code)) key = code.slice(5);
+  else if (/^F(?:[1-9]|1[0-2])$/.test(code)) key = code;
+  else if (['CapsLock','Space','Tab','Enter','Backspace','Escape','Delete','Insert','Home','End','PageUp','PageDown','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(code)) key = code;
+  if (!key) return null;
+  const mods = [
+    ...(event.ctrlKey ? ['Ctrl'] : []),
+    ...(event.altKey ? ['Alt'] : []),
+    ...(event.shiftKey ? ['Shift'] : []),
+  ];
+  return [...mods,key].join('+');
 }
 
 export default function App() {
@@ -103,13 +108,12 @@ export default function App() {
     const stored = localStorage.getItem('interface-language');
     return INTERFACE_LANGUAGES.find(item => item.value === stored)?.value ?? 'ru';
   });
-  const [replyChoice, setReplyChoice] = useState<ReplyLanguageChoice>(() => {
+  const [replyLanguageInput, setReplyLanguageInput] = useState(() => {
     const stored = localStorage.getItem('reply-language');
-    if (stored === '__other__') return '__other__';
-    return REPLY_LANGUAGES.find(item => item.value === stored)?.value ?? 'English';
+    if (stored === '__other__') return localStorage.getItem('custom-reply-language') || 'English';
+    return stored || 'English';
   });
-  const [customReplyLanguage, setCustomReplyLanguage] = useState(() => localStorage.getItem('custom-reply-language') || '');
-  const replyLanguage = replyChoice === '__other__' ? customReplyLanguage.trim() : replyChoice;
+  const replyLanguage = replyLanguageInput.trim();
   const tr = (key: TranslationKey) => t(uiLanguage, key);
   const [original, setOriginal] = useState('');
   const [english, setEnglish] = useState('');
@@ -119,7 +123,7 @@ export default function App() {
   const [moveEnabled, setMoveEnabled] = useState(false);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
   const [keyBindings, setKeyBindings] = useState<ShortcutConfig>(DEFAULT_KEYS);
-  const [keyDraft, setKeyDraft] = useState<ShortcutConfig>(DEFAULT_KEYS);
+  const [captureAction, setCaptureAction] = useState<ShortcutAction | null>(null);
   const [shortcutBusy, setShortcutBusy] = useState(false);
   const [shortcutError, setShortcutError] = useState('');
 
@@ -336,16 +340,22 @@ export default function App() {
     window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
     void window.inCharacter.getShortcuts().then(result => {
       setKeyBindings(result.shortcuts);
-      setKeyDraft(result.shortcuts);
       setShortcuts(result.status);
     }).catch(error => console.warn('Unable to load shortcuts', error));
     const offToggle = window.inCharacter.onToggleRecording(() => toggleRef.current());
     const offDown = window.inCharacter.onHoldKeyDown(() => downRef.current());
     const offUp = window.inCharacter.onHoldKeyUp(() => upRef.current());
-    const offMode = window.inCharacter.onViewModeChanged(mode => setView(mode));
+    const offMode = window.inCharacter.onViewModeChanged(mode => {
+      setView(mode);
+      if (mode === 'hud') {
+        setCaptureAction(null);
+        window.inCharacter.setShortcutCapture(false);
+      }
+    });
     const offMove = window.inCharacter.onHudMoveModeChanged(value => setMoveEnabled(value));
     const offShortcuts = window.inCharacter.onShortcutStatus(value => setShortcuts(value));
     return () => {
+      window.inCharacter.setShortcutCapture(false);
       offToggle();
       offDown();
       offUp();
@@ -404,16 +414,36 @@ export default function App() {
     }
   }
 
-  async function saveShortcuts() {
+  function startCapture(action: ShortcutAction) {
     if (inProgress || shortcutBusy) return;
+    setShortcutError('');
+    window.inCharacter.setShortcutCapture(true);
+    setCaptureAction(action);
+  }
+
+  function cancelCapture() {
+    window.inCharacter.setShortcutCapture(false);
+    setCaptureAction(null);
+  }
+
+  async function captureShortcut(event: KeyboardEvent<HTMLButtonElement>, action: ShortcutAction) {
+    if (captureAction !== action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.code === 'Escape') {
+      cancelCapture();
+      return;
+    }
+    const combo = shortcutFromEvent(event);
+    if (!combo || shortcutBusy) return;
     setShortcutBusy(true);
     setShortcutError('');
     try {
-      const result = await window.inCharacter.setShortcuts(keyDraft);
+      const result = await window.inCharacter.setShortcuts({ ...keyBindings, [action]: combo });
       setKeyBindings(result.shortcuts);
-      setKeyDraft(result.shortcuts);
       setShortcuts(result.status);
       setMessage(tr('hotkeySaved'));
+      cancelCapture();
     } catch (error) {
       setShortcutError(errorText(error, uiLanguage));
     } finally {
@@ -432,14 +462,8 @@ export default function App() {
     setActiveId(item.id);
     setOriginal(item.transcript);
     setEnglish(item.english);
-    const known = REPLY_LANGUAGES.some(language => language.value === item.targetLanguage);
-    const choice = known ? item.targetLanguage as ReplyLanguageChoice : '__other__';
-    setReplyChoice(choice);
-    localStorage.setItem('reply-language', choice);
-    if (!known) {
-      setCustomReplyLanguage(item.targetLanguage);
-      localStorage.setItem('custom-reply-language', item.targetLanguage);
-    }
+    setReplyLanguageInput(item.targetLanguage);
+    localStorage.setItem('reply-language', item.targetLanguage);
     setTab('rp');
   }
 
@@ -486,16 +510,9 @@ export default function App() {
     >
       <div className="hud-status"><StateIcon phase={phase} language={uiLanguage} /></div>
       <div className="hud-text">
-        <div className="hud-brand">INCHARACTER <span>PREVIEW</span></div>
+        <div className="hud-brand">INCHARACTER</div>
         <div className="hud-main">
-          {moveEnabled ? tr('hudMove') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
-          {phase === 'recording' && <span className="hud-timer">{clock(elapsed)}</span>}
-        </div>
-        <div className="hud-hints">
-          {moveEnabled ? <div className="hud-key-line"><KeyCaps value={keyBindings.move}/><span>{tr('hudMoveAction')}</span></div> : <>
-            <div className="hud-key-line"><KeyCaps value={keyBindings.record}/><span>{tr('hudVoice')}</span></div>
-            <div className="hud-key-line"><KeyCaps value={keyBindings.panel}/><span>{tr('hudPanel')}</span></div>
-          </>}
+          {moveEnabled ? tr('hudMove') : phase === 'idle' ? tr('hudIdle') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
         </div>
       </div>
       {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')} onClick={() => window.inCharacter.setHudMoveMode(false)}><Check size={16} strokeWidth={2.7}/></button>}
@@ -512,7 +529,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.4.0</span></div>
+        <div className="brand-name">InCharacter <span>0.5.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
@@ -533,28 +550,17 @@ export default function App() {
 
         <div className="target-language">
           <label htmlFor="reply-language">{tr('targetLabel')}</label>
-          <select
+          <input
             id="reply-language"
-            value={replyChoice}
-            onChange={event => {
-              const value = event.target.value as ReplyLanguageChoice;
-              setReplyChoice(value);
-              localStorage.setItem('reply-language', value);
-            }}
-          >
-            {REPLY_LANGUAGES.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-            <option value="__other__">{tr('otherTarget')}</option>
-          </select>
-          {replyChoice === '__other__' && <input
             type="text"
             maxLength={80}
-            value={customReplyLanguage}
-            placeholder={tr('targetCustomPlaceholder')}
+            value={replyLanguageInput}
+            placeholder="English"
             onChange={event => {
-              setCustomReplyLanguage(event.target.value);
-              localStorage.setItem('custom-reply-language', event.target.value);
+              setReplyLanguageInput(event.target.value);
+              localStorage.setItem('reply-language', event.target.value);
             }}
-          />}
+          />
         </div>
         <div className="context-fields">
           <label>
@@ -695,14 +701,25 @@ export default function App() {
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('hotkeyTitle')}</strong></div>
           <p>{tr('hotkeyDesc')}</p>
-          {(['record','panel','move'] as const).map(action=><div className="hotkey-setting-row" key={action}>
+          {(['record','panel','move'] as const).map(action => <div className="hotkey-setting-row" key={action}>
             <label>{tr(action === 'record' ? 'hotkeyRecord' : action === 'panel' ? 'hotkeyPanel' : 'hotkeyMove')}</label>
-            <ShortcutPicker value={keyDraft[action]} onChange={value => setKeyDraft(previous => ({...previous,[action]:value}))}/>
+            <KeyCaps value={keyBindings[action]} />
+            <button
+              type="button"
+              className={'shortcut-assign-btn ' + (captureAction === action ? 'capturing' : '')}
+              disabled={shortcutBusy || inProgress}
+              onClick={() => startCapture(action)}
+              onKeyDown={event => void captureShortcut(event, action)}
+              onBlur={() => {
+                if (captureAction === action && !shortcutBusy) cancelCapture();
+              }}
+            >
+              {captureAction === action ? tr('hotkeyListening') : tr('hotkeyAssign')}
+            </button>
           </div>)}
+          {captureAction && <p className="hotkey-capture-hint">{tr('hotkeyCaptureHint')}</p>}
           {shortcutError && <p className="hotkey-error">{shortcutError}</p>}
-          <button type="button" className="shortcut-save-btn" disabled={shortcutBusy || inProgress} onClick={() => void saveShortcuts()}>
-            {tr('hotkeySave')}
-          </button>
+          <p className="tiny">{tr('hotkeyCapsNote')}</p>
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
