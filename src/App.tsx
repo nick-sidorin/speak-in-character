@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 
 type Phase = 'idle' | 'requesting' | 'recording' | 'ready' | 'error';
 type ViewMode = 'hud' | 'panel';
@@ -30,6 +30,21 @@ export default function App() {
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true });
   const [hudMoveMode, setHudMoveMode] = useState(false);
   const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
+  const [hasKey, setHasKey] = useState(false);
+  const [keyDraft, setKeyDraft] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
+  const [situation, setSituation] = useState(() => localStorage.getItem('situation') || '');
+  const [transcript, setTranscript] = useState('');
+  const [english, setEnglish] = useState('');
+  const [aiStatus, setAiStatus] = useState<'idle' | 'processing' | 'ready' | 'error'>('idle');
+  const hasKeyRef = useRef(false);
+  const characterRef = useRef('');
+  const situationRef = useRef('');
+  const processRef = useRef<(blob: Blob) => Promise<void>>(async () => {});
+  hasKeyRef.current = hasKey;
+  characterRef.current = character;
+  situationRef.current = situation;
 
   const phaseRef = useRef<Phase>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -98,7 +113,11 @@ export default function App() {
           urlRef.current = url;
           setAudioUrl(url);
           setFileSize(blob.size);
-          setNotice('Запись готова. Открой панель, чтобы прослушать или сохранить.');
+          if (hasKeyRef.current) {
+            void processRef.current(blob);
+          } else {
+            setNotice('Запись готова. Добавь OpenAI API-ключ для распознавания.');
+          }
         } else {
           updatePhase('error');
           setNotice('Запись пуста. Проверь выбранный микрофон.');
@@ -128,6 +147,91 @@ export default function App() {
     }
   }, [micProcessing]);
 
+  processRef.current = async (blob: Blob) => {
+    setAiStatus('processing');
+    setNotice('Распознаю речь и готовлю английскую реплику…');
+    setTranscript('');
+    setEnglish('');
+    try {
+      const result = await window.inCharacter.processVoice({
+        bytes: new Uint8Array(await blob.arrayBuffer()),
+        mimeType: blob.type,
+        character: characterRef.current,
+        situation: situationRef.current,
+      });
+      setTranscript(result.transcript);
+      setEnglish(result.translated);
+      if (!result.translated) {
+        setAiStatus('error');
+        setNotice('Речь распознана, но перевод не получился. Проверь API и нажми «Перевести ещё раз».');
+      } else {
+        setAiStatus('ready');
+        setNotice('Реплика готова и скопирована в буфер обмена. Можно вставлять в WoW!');
+      }
+    } catch (error) {
+      setAiStatus('error');
+      setNotice(`Ошибка ИИ: ${errorMessage(error)}`);
+    }
+  };
+
+  const saveKey = async () => {
+    if (!keyDraft.trim()) {
+      setNotice('Вставь OpenAI API-ключ в поле.');
+      return;
+    }
+    try {
+      await window.inCharacter.saveApiKey(keyDraft);
+      setKeyDraft('');
+      setHasKey(true);
+      hasKeyRef.current = true;
+      setNotice('Ключ сохранён в защищённом хранилище Windows.');
+      setShowSettings(false);
+    } catch (error) {
+      setNotice(`Не удалось сохранить ключ: ${errorMessage(error)}`);
+    }
+  };
+
+  const translateEdited = async () => {
+    if (!transcript.trim()) return;
+    setAiStatus('processing');
+    setNotice('Перевожу исправленную расшифровку…');
+    try {
+      const text = await window.inCharacter.rewriteSpeech(transcript, { character, situation });
+      setEnglish(text);
+      setAiStatus('ready');
+      setNotice('Реплика обновлена и скопирована в буфер.');
+    } catch (error) {
+      setAiStatus('error');
+      setNotice(`Не получилось перевести: ${errorMessage(error)}`);
+    }
+  };
+
+  const copyEnglish = async () => {
+    try {
+      await window.inCharacter.copyText(english);
+      setNotice('Английская реплика скопирована в буфер.');
+    } catch (error) {
+      setNotice(errorMessage(error));
+    }
+  };
+
+  const dragHudStart = (event: PointerEvent<HTMLDivElement>) => {
+    if (!hudMoveMode || (event.target as HTMLElement).closest('button')) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    window.inCharacter.startHudDrag();
+  };
+  const dragHudMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (hudMoveMode && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      window.inCharacter.moveHudDrag();
+    }
+  };
+  const dragHudEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      window.inCharacter.endHudDrag();
+    }
+  };
+
   const toggleRef = useRef<() => void>(() => {});
   toggleRef.current = () => {
     if (phaseRef.current === 'recording') stop();
@@ -135,6 +239,11 @@ export default function App() {
   };
 
   useEffect(() => {
+    window.inCharacter.hasApiKey().then(available => {
+      hasKeyRef.current = available;
+      setHasKey(available);
+      if (!available) setShowSettings(true);
+    }).catch(() => setShowSettings(true));
     const unsubscribeRecord = window.inCharacter.onToggleRecording(() => toggleRef.current());
     const unsubscribeMode = window.inCharacter.onViewModeChanged(mode => setView(mode));
     const unsubscribeMove = window.inCharacter.onHudMoveModeChanged(enabled => setHudMoveMode(enabled));
@@ -171,13 +280,24 @@ export default function App() {
   };
 
   return view === 'hud' ? (
-    <div className={`hud ${hudMoveMode ? 'hud-move' : ''}`} role="status" aria-live="polite">
+    <div
+      className={`hud ${hudMoveMode ? 'hud-move' : ''}`}
+      role="status"
+      aria-live="polite"
+      onPointerDown={dragHudStart}
+      onPointerMove={dragHudMove}
+      onPointerUp={dragHudEnd}
+      onPointerCancel={dragHudEnd}
+    >
       <div className={`hud-icon ${phase === 'recording' ? 'pulsing' : ''}`}>●</div>
       <div className="hud-copy">
         <div className="hud-title">INCHARACTER <span className="hud-beta">PREVIEW</span></div>
         <div className="hud-state">
           {phase === 'recording' ? `Recording · ${timeLabel(elapsed)}`
-            : phase === 'ready' ? `Recording ready · ${timeLabel(elapsed)}`
+            : aiStatus === 'processing' ? 'Processing speech…'
+              : aiStatus === 'ready' ? 'Reply copied to clipboard'
+                : aiStatus === 'error' ? 'AI issue — open panel'
+                  : phase === 'ready' ? `Recording ready · ${timeLabel(elapsed)}`
               : phase === 'requesting' ? 'Connecting microphone…'
                 : phase === 'error' ? 'Microphone issue — open panel'
                   : 'Ready to capture'}
@@ -197,9 +317,9 @@ export default function App() {
         <button className="icon-button" onClick={() => window.inCharacter.setViewMode('hud')} title="Свернуть панель">×</button>
       </header>
       <main className="panel-content">
-        <div className="eyebrow">LOCAL AUDIO PROTOTYPE · 0.1.1</div>
-        <h1>Твой голос. Твоя история.</h1>
-        <p className="intro">Проверь запись прямо поверх игры. Распознавание речи и перевод добавим позже.</p>
+        <div className="eyebrow">VOICE TO RP · 0.2.0</div>
+        <h1>Говори свободно.</h1>
+        <p className="intro">Говори по-русски, по-английски или вперемешку. ИИ подготовит реплику для RP-чата.</p>
 
         <section className={`record-surface ${phase === 'recording' ? 'record-active' : ''}`}>
           <div className="record-topline">
@@ -230,6 +350,56 @@ export default function App() {
           ↔ Переместить оверлей <span>Ctrl + Shift + M</span>
         </button>
 
+        <section className="ai-settings">
+          <div className="section-heading">
+            <span>OpenAI API</span>
+            <button className="settings-link" onClick={() => setShowSettings(!showSettings)}>{hasKey ? (showSettings ? 'Скрыть' : 'Сменить ключ') : 'Подключить'}</button>
+          </div>
+          {showSettings && <div className="settings-editor">
+            <label htmlFor="api-key">API-ключ (хранится защищённым Windows)</label>
+            <div className="key-row">
+              <input id="api-key" type="password" value={keyDraft} placeholder="sk-…" autoComplete="off" onChange={event => setKeyDraft(event.target.value)}/>
+              <button onClick={() => void saveKey()}>Сохранить</button>
+            </div>
+            <div className="tiny-note">После настройки запись автоматически отправляется в OpenAI для распознавания и перевода. API оплачивается отдельно от ChatGPT.</div>
+          </div>}
+          <div className="context-grid">
+            <label>Персонаж / манера речи
+              <input
+                value={character}
+                placeholder="Corvin Sidwell, human, Stormwind…"
+                onChange={event => { setCharacter(event.target.value); localStorage.setItem('character', event.target.value); }}
+              />
+            </label>
+            <label>Контекст / игровые названия
+              <input
+                value={situation}
+                placeholder="Goldshire, talking with Borin about Ironforge…"
+                onChange={event => { setSituation(event.target.value); localStorage.setItem('situation', event.target.value); }}
+              />
+            </label>
+          </div>
+          {blobRef.current && hasKey && aiStatus !== 'processing' && (
+            <button className="secondary-button" onClick={() => void processRef.current(blobRef.current!)}>
+              Распознать последнюю запись ещё раз
+            </button>
+          )}
+        </section>
+        {(transcript || english || aiStatus === 'processing') && (
+          <section className="transcription">
+            <div className="section-heading"><span>Реплика для RP</span><span>{aiStatus === 'processing' ? 'Обрабатываю…' : english ? 'Готова' : 'Нужна проверка'}</span></div>
+            <label>Твоя речь — можно исправить распознавание
+              <textarea rows={3} value={transcript} onChange={event => setTranscript(event.target.value)} placeholder="Оригинальная расшифровка…" />
+            </label>
+            <button className="secondary-button" disabled={!hasKey || !transcript.trim() || aiStatus === 'processing'} onClick={() => void translateEdited()}>
+              Перевести исправленный текст
+            </button>
+            <label>Английская реплика — можно отредактировать
+              <textarea className="english-output" rows={3} value={english} onChange={event => setEnglish(event.target.value)} placeholder="Готовая реплика появится здесь…" />
+            </label>
+            <button className="copy-button" disabled={!english.trim()} onClick={() => void copyEnglish()}>Скопировать для WoW (Ctrl+V)</button>
+          </section>
+        )}
         <section className="playback">
           <div className="section-heading"><span>Последняя запись</span><span>{fileSize ? formatSize(fileSize) : 'Пока пусто'}</span></div>
           {audioUrl ? (
@@ -247,7 +417,7 @@ export default function App() {
         )}
       </main>
       <footer className="panel-footer">
-        <span>🔒 Аудио остаётся на компьютере</span>
+        <span>🔒 Аудио локально без ключа · с ключом → OpenAI</span>
         <button className="quit-button" onClick={() => window.inCharacter.quit()}>Выйти</button>
       </footer>
     </div>
