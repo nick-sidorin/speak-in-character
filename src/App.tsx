@@ -27,7 +27,9 @@ export default function App() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState(0);
   const [notice, setNotice] = useState('');
-  const [shortcuts, setShortcuts] = useState({ recording: true, panel: true });
+  const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true });
+  const [hudMoveMode, setHudMoveMode] = useState(false);
+  const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
 
   const phaseRef = useRef<Phase>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -68,7 +70,7 @@ export default function App() {
         throw new Error('Микрофон недоступен в этом окружении.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: micProcessing, noiseSuppression: micProcessing, autoGainControl: micProcessing },
         video: false,
       });
       streamRef.current = stream;
@@ -124,7 +126,7 @@ export default function App() {
       updatePhase('error');
       setNotice(errorMessage(error));
     }
-  }, []);
+  }, [micProcessing]);
 
   const toggleRef = useRef<() => void>(() => {});
   toggleRef.current = () => {
@@ -135,16 +137,23 @@ export default function App() {
   useEffect(() => {
     const unsubscribeRecord = window.inCharacter.onToggleRecording(() => toggleRef.current());
     const unsubscribeMode = window.inCharacter.onViewModeChanged(mode => setView(mode));
+    const unsubscribeMove = window.inCharacter.onHudMoveModeChanged(enabled => setHudMoveMode(enabled));
     const unsubscribeShortcuts = window.inCharacter.onShortcutStatus(status => setShortcuts(status));
     return () => {
       unsubscribeRecord();
       unsubscribeMode();
+      unsubscribeMove();
       unsubscribeShortcuts();
       clearTimer();
       streamRef.current?.getTracks().forEach(track => track.stop());
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     };
   }, []);
+
+  const updateMicProcessing = (enabled: boolean) => {
+    setMicProcessing(enabled);
+    localStorage.setItem('mic-processing', String(enabled));
+  };
 
   const save = async () => {
     const blob = blobRef.current;
@@ -162,7 +171,7 @@ export default function App() {
   };
 
   return view === 'hud' ? (
-    <div className="hud" role="status" aria-live="polite">
+    <div className={`hud ${hudMoveMode ? 'hud-move' : ''}`} role="status" aria-live="polite">
       <div className={`hud-icon ${phase === 'recording' ? 'pulsing' : ''}`}>●</div>
       <div className="hud-copy">
         <div className="hud-title">INCHARACTER <span className="hud-beta">PREVIEW</span></div>
@@ -173,8 +182,9 @@ export default function App() {
                 : phase === 'error' ? 'Microphone issue — open panel'
                   : 'Ready to capture'}
         </div>
-        <div className="hud-help">Ctrl + Shift + Space · Record　 |　 Ctrl + Shift + O · Panel</div>
+        <div className="hud-help">{hudMoveMode ? 'Перетащи окно · Ctrl + Shift + M — закрепить' : 'Ctrl + Shift + Space · Record　 |　 Ctrl + Shift + O · Panel'}</div>
       </div>
+      {hudMoveMode && <button className="hud-done" type="button" title="Закрепить оверлей" onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
     </div>
   ) : (
     <div className="panel">
@@ -187,7 +197,7 @@ export default function App() {
         <button className="icon-button" onClick={() => window.inCharacter.setViewMode('hud')} title="Свернуть панель">×</button>
       </header>
       <main className="panel-content">
-        <div className="eyebrow">LOCAL AUDIO PROTOTYPE · 0.1.0</div>
+        <div className="eyebrow">LOCAL AUDIO PROTOTYPE · 0.1.1</div>
         <h1>Твой голос. Твоя история.</h1>
         <p className="intro">Проверь запись прямо поверх игры. Распознавание речи и перевод добавим позже.</p>
 
@@ -206,7 +216,19 @@ export default function App() {
             {phase === 'recording' ? 'Остановить запись' : phase === 'requesting' ? 'Подключение…' : 'Начать запись'}
           </button>
           <div className="shortcut-note">или <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd> в любой момент</div>
+          <label className="processing-option">
+            <input
+              type="checkbox"
+              checked={micProcessing}
+              disabled={phase === 'recording' || phase === 'requesting'}
+              onChange={event => updateMicProcessing(event.target.checked)}
+            />
+            Подавление шума и эха
+          </label>
         </section>
+        <button className="move-hud-button" type="button" onClick={() => window.inCharacter.setHudMoveMode(true)}>
+          ↔ Переместить оверлей <span>Ctrl + Shift + M</span>
+        </button>
 
         <section className="playback">
           <div className="section-heading"><span>Последняя запись</span><span>{fileSize ? formatSize(fileSize) : 'Пока пусто'}</span></div>
@@ -220,7 +242,7 @@ export default function App() {
           )}
         </section>
         {notice && <div className="notice" title={notice}>{notice}</div>}
-        {(!shortcuts.panel || !shortcuts.recording) && (
+        {(!shortcuts.panel || !shortcuts.recording || !shortcuts.move) && (
           <div className="warning">Одна из горячих клавиш занята другой программой. Попробуй кнопку записи или освободи сочетание.</div>
         )}
       </main>

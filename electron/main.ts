@@ -8,19 +8,104 @@ import {
   session,
 } from 'electron';
 import { writeFile } from 'node:fs/promises';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 const HUD = { width: 330, height: 92 };
-const PANEL = { width: 462, height: 565 };
+const PANEL = { width: 462, height: 610 };
 const SHORTCUT_RECORD = 'CommandOrControl+Shift+Space';
 const SHORTCUT_PANEL = 'CommandOrControl+Shift+O';
+const SHORTCUT_MOVE = 'CommandOrControl+Shift+M';
 
 let overlay: BrowserWindow | null = null;
 let mode: ViewMode = 'hud';
-let shortcutStatus = { recording: false, panel: false };
+let shortcutStatus = { recording: false, panel: false, move: false };
+let hudMoveEnabled = false;
+
+type SavedPosition = { x: number; y: number };
+type SavedPositions = Partial<Record<ViewMode, SavedPosition>>;
+const positionFile = join(app.getPath('userData'), 'window-positions.json');
+let positions: SavedPositions = {};
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+function loadPositions() {
+  try {
+    if (existsSync(positionFile)) {
+      const value: unknown = JSON.parse(readFileSync(positionFile, 'utf8'));
+      if (value && typeof value === 'object') {
+        const source = value as Record<string, unknown>;
+        for (const view of ['hud', 'panel'] as const) {
+          const item = source[view];
+          if (item && typeof item === 'object') {
+            const candidate = item as Record<string, unknown>;
+            if (Number.isFinite(candidate.x) && Number.isFinite(candidate.y)) {
+              positions[view] = { x: candidate.x as number, y: candidate.y as number };
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to load saved overlay positions:', error);
+  }
+}
+
+function flushPositions() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = undefined;
+  try {
+    mkdirSync(app.getPath('userData'), { recursive: true });
+    writeFileSync(positionFile, JSON.stringify(positions, null, 2), 'utf8');
+  } catch (error) {
+    console.warn('Unable to save overlay positions:', error);
+  }
+}
+
+function rememberPosition() {
+  if (!overlay || overlay.isDestroyed()) return;
+  const { x, y } = overlay.getBounds();
+  positions[mode] = { x, y };
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushPositions, 400);
+}
+
+function windowBounds(view: ViewMode) {
+  const size = view === 'hud' ? HUD : PANEL;
+  const saved = positions[view];
+  if (saved) {
+    // Prevent an invisible overlay when a monitor is disconnected.
+    const visible = screen.getAllDisplays().some(({ workArea }) => {
+      const overlapX = Math.max(0, Math.min(saved.x + size.width, workArea.x + workArea.width) - Math.max(saved.x, workArea.x));
+      const overlapY = Math.max(0, Math.min(saved.y + size.height, workArea.y + workArea.height) - Math.max(saved.y, workArea.y));
+      return overlapX >= Math.min(120, size.width) && overlapY >= Math.min(60, size.height);
+    });
+    if (visible) return { ...saved, ...size };
+  }
+  return defaultBounds(size);
+}
+
+function setHudMoveMode(enabled: boolean) {
+  if (!overlay || overlay.isDestroyed() || mode !== 'hud') return;
+  hudMoveEnabled = enabled;
+  overlay.setFocusable(enabled);
+  if (enabled) {
+    overlay.setIgnoreMouseEvents(false);
+    overlay.showInactive();
+  } else {
+    overlay.setIgnoreMouseEvents(true, { forward: true });
+    overlay.showInactive();
+  }
+  overlay.webContents.send('overlay:move-mode', enabled);
+}
+
+function toggleHudMoveMode() {
+  if (!overlay || overlay.isDestroyed()) return;
+  if (mode !== 'hud') changeMode('hud');
+  setHudMoveMode(!hudMoveEnabled);
+}
 
 function defaultBounds(size: { width: number; height: number }) {
   const { workArea } = screen.getPrimaryDisplay();
@@ -34,25 +119,27 @@ function defaultBounds(size: { width: number; height: number }) {
 
 function changeMode(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
+  if (mode === 'hud' && hudMoveEnabled) setHudMoveMode(false);
   mode = next;
   if (next === 'panel') {
     overlay.setFocusable(true);
     overlay.setIgnoreMouseEvents(false);
-    overlay.setBounds(defaultBounds(PANEL));
+    overlay.setBounds(windowBounds('panel'));
     overlay.show();
     overlay.focus();
   } else {
     overlay.setIgnoreMouseEvents(true, { forward: true });
     overlay.setFocusable(false);
-    overlay.setBounds(defaultBounds(HUD));
+    overlay.setBounds(windowBounds('hud'));
     overlay.showInactive();
   }
   overlay.webContents.send('overlay:mode', mode);
+  overlay.webContents.send('overlay:move-mode', hudMoveEnabled);
 }
 
 function createOverlay() {
   overlay = new BrowserWindow({
-    ...defaultBounds(HUD),
+    ...windowBounds('hud'),
     title: 'InCharacter',
     frame: false,
     transparent: true,
@@ -78,6 +165,7 @@ function createOverlay() {
   overlay.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   overlay.webContents.on('did-finish-load', () => {
     overlay?.webContents.send('overlay:mode', mode);
+    overlay?.webContents.send('overlay:move-mode', hudMoveEnabled);
     overlay?.webContents.send('app:shortcuts', shortcutStatus);
   });
 
@@ -87,6 +175,7 @@ function createOverlay() {
   } else {
     void overlay.loadFile(join(__dirname, '../dist/index.html'));
   }
+  overlay.on('moved', rememberPosition);
   overlay.once('ready-to-show', () => overlay?.showInactive());
   overlay.on('closed', () => { overlay = null; });
 }
@@ -101,11 +190,13 @@ function registerShortcuts() {
     panel: globalShortcut.register(SHORTCUT_PANEL, () => {
       changeMode(mode === 'hud' ? 'panel' : 'hud');
     }),
+    move: globalShortcut.register(SHORTCUT_MOVE, toggleHudMoveMode),
   };
   overlay?.webContents.send('app:shortcuts', shortcutStatus);
 }
 
 app.whenReady().then(() => {
+  loadPositions();
   app.setAppUserModelId('io.incharacter.speak');
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
@@ -117,6 +208,11 @@ app.whenReady().then(() => {
 
   ipcMain.on('overlay:set-mode', (_event, next: ViewMode) => {
     if (next === 'panel' || next === 'hud') changeMode(next);
+  });
+
+  ipcMain.on('overlay:move-hud', (_event, enabled: boolean) => {
+    if (enabled && mode !== 'hud') changeMode('hud');
+    setHudMoveMode(Boolean(enabled));
   });
 
   ipcMain.on('app:quit', () => app.quit());
@@ -148,5 +244,8 @@ app.whenReady().then(() => {
   registerShortcuts();
 });
 
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => {
+  if (saveTimer) flushPositions();
+  globalShortcut.unregisterAll();
+});
 app.on('window-all-closed', () => app.quit());

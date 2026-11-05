@@ -2,7 +2,7 @@
 
 **Speak naturally. Stay in character.**
 
-An early Windows voice companion for roleplayers. This is the **audio and overlay prototype (v0.1.0)**: no AI translation, no OpenAI account, and no World of Warcraft addon required.
+An early Windows voice companion for roleplayers. This is the **audio and overlay prototype (v0.1.1)**: no AI translation, no OpenAI account, and no World of Warcraft addon required.
 
 ## What works
 
@@ -10,10 +10,12 @@ An early Windows voice companion for roleplayers. This is the **audio and overla
 - Global hotkeys (also work while WoW is focused):
   - **Ctrl + Shift + Space** — start / stop microphone recording (toggle, **not** hold-to-talk yet).
   - **Ctrl + Shift + O** — open / close the control panel.
+  - **Ctrl + Shift + M** — enable / disable HUD move mode; drag HUD with the mouse, then press again or click ✓ to lock it.
 - Microphone capture using Electron's browser MediaRecorder.
 - Local audio playback and **Save recording** (.webm or .ogg depending on codec support).
 - No audio sent to the network. No text transcription or clipboard integration yet.
-- Panel can be dragged via its header; closing the panel returns to the click-through HUD.
+- Panel can be dragged via its header. The HUD can be dragged in move mode; both window positions persist across app launches.
+- Optional microphone processing toggle (echo cancellation, noise suppression and automatic gain); **off** by default for a more natural voice, and remembered across app launches.
 
 ## Download the Windows executable
 
@@ -32,6 +34,8 @@ A fresh Windows machine does **not** need Visual Studio, Node.js or Python to ru
 5. Speak. Press **Ctrl + Shift + Space** again to stop.
 6. Open the panel to play back your recording or save it to a file.
 7. Press **Ctrl + Shift + O** to return to the click-through HUD.
+8. To reposition the small HUD, press **Ctrl + Shift + M**, drag it, and press the shortcut again or click ✓. The position survives a restart.
+9. If the voice sounds metallic or filtered, compare recordings with the **noise/echo cancellation** option off (default) and on.
 
 If the key combination is already used by another program (or by WoW), close that program/change its shortcut. In this prototype shortcut remapping is not implemented yet; the control-panel button remains available.
 
@@ -75,6 +79,6 @@ This does not inject into or automate the game. You remain in control of gamepla
 
 ## Privacy
 
-In v0.1.0, recordings stay in the app's memory until you replace them or close it. Saving is explicit. The application itself sends no microphone audio to external APIs. There is no telemetry.
+In v0.1.1, recordings stay in the app's memory until you replace them or close it. Saving is explicit. The application itself sends no microphone audio to external APIs. There is no telemetry.
 
 Licensed under MIT (see `LICENSE`).
