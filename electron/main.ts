@@ -222,7 +222,7 @@ function startHoldHelper(): boolean {
     child.stdout.on('data', (data: Buffer) => {
       buffer += data.toString('utf8');
       let index: number;
-      while ((index = buffer.indexOf('\\n')) !== -1) {
+      while ((index = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, index).trim();
         buffer = buffer.slice(index + 1);
         if (line === 'DOWN' || line === 'UP') {
@@ -281,16 +281,17 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('overlay:drag-start', () => {
-    if (!hudMoveEnabled || mode !== 'hud' || !overlay || overlay.isDestroyed()) return;
+    if ((mode === 'hud' && !hudMoveEnabled) || !overlay || overlay.isDestroyed()) return;
     dragAnchor = { cursor: screen.getCursorScreenPoint(), position: overlay.getPosition().reduce((p, v, i) => ({ ...p, [i === 0 ? 'x' : 'y']: v }), { x: 0, y: 0 }) };
   });
   ipcMain.on('overlay:drag-move', () => {
-    if (!dragAnchor || !hudMoveEnabled || !overlay || overlay.isDestroyed()) return;
+    if (!dragAnchor || (mode === 'hud' && !hudMoveEnabled) || !overlay || overlay.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
     overlay.setBounds({
       x: Math.round(dragAnchor.position.x + cursor.x - dragAnchor.cursor.x),
       y: Math.round(dragAnchor.position.y + cursor.y - dragAnchor.cursor.y),
-      width: HUD.width, height: HUD.height,
+      width: mode === 'hud' ? HUD.width : PANEL.width,
+      height: mode === 'hud' ? HUD.height : PANEL.height,
     }, false);
   });
   ipcMain.on('overlay:drag-end', () => {

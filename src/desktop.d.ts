@@ -18,8 +18,8 @@ declare global {
       endHudDrag: () => void;
       hasApiKey: () => Promise<boolean>;
       saveApiKey: (key: string) => Promise<boolean>;
-      processVoice: (payload: {bytes: Uint8Array; mimeType: string; character: string; situation: string}) => Promise<{transcript: string; translated: string}>;
-      rewriteSpeech: (transcript: string, context: {character: string; situation: string}) => Promise<string>;
+      processVoice: (payload: {bytes: Uint8Array; mimeType: string; character: string; situation: string}) => Promise<{transcript: string; translated: string; estimatedTextCostUsd: number}>;
+      rewriteSpeech: (transcript: string, context: {character: string; situation: string}) => Promise<{text: string; estimatedTextCostUsd: number}>;
       copyText: (value: string) => Promise<void>;
       openUsage: () => Promise<void>;
       setHudMoveMode: (enabled: boolean) => void;

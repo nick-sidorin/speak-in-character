@@ -3,6 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type AiContext = { character: string; situation: string };
+export type RewriteResult = { text: string; estimatedTextCostUsd: number };
+export type VoiceResult = { transcript: string; translated: string; estimatedTextCostUsd: number };
 export type VoicePayload = AiContext & { bytes: Uint8Array; mimeType: string };
 
 function keyPath() { return join(app.getPath('userData'), 'api-key.dat'); }
@@ -66,7 +68,7 @@ function instructions(): string {
 export async function rewriteSpeech(
   transcript: string,
   context: AiContext,
-): Promise<string> {
+): Promise<RewriteResult> {
   const key = requiredKey();
   const spoken = cleanContext(transcript, 5000);
   if (!spoken) throw new Error('Текст для перевода пуст.');
@@ -87,14 +89,16 @@ export async function rewriteSpeech(
     }),
   });
   const data: unknown = await response.json();
-  const root = data as { choices?: { message?: { content?: string } }[] };
+  const root = data as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
   const translated = root.choices?.[0]?.message?.content?.trim();
   if (!translated) throw new Error('OpenAI вернул пустую реплику.');
   clipboard.writeText(translated);
-  return translated;
+  const cost = ((root.usage?.prompt_tokens || 0) * 0.4 + (root.usage?.completion_tokens || 0) * 1.6) / 1_000_000;
+  return { text: translated, estimatedTextCostUsd: cost };
+
 }
 
-export async function processVoice(payload: VoicePayload): Promise<{ transcript: string; translated: string }> {
+export async function processVoice(payload: VoicePayload): Promise<VoiceResult> {
   const key = requiredKey();
   if (!payload?.bytes || !ArrayBuffer.isView(payload.bytes)) {
     throw new Error('Некорректные аудиоданные.');
@@ -125,11 +129,10 @@ export async function processVoice(payload: VoicePayload): Promise<{ transcript:
   if (!transcript) throw new Error('Не удалось распознать речь.');
   // If translation fails, let the UI display the raw transcript.
   try {
-    const translated = await rewriteSpeech(transcript, payload);
-    return { transcript, translated };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { transcript, translated: '' };
+    const result = await rewriteSpeech(transcript, payload);
+    return { transcript, translated: result.text, estimatedTextCostUsd: result.estimatedTextCostUsd };
+  } catch {
+    return { transcript, translated: '', estimatedTextCostUsd: 0 };
   }
 }
 
