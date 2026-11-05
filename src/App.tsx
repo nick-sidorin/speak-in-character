@@ -588,7 +588,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.7.1</span></div>
+        <div className="brand-name">InCharacter <span>0.8.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
