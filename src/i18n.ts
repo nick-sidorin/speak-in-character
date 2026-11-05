@@ -238,7 +238,20 @@ const strings = {
     "hotkeyAssign": "Назначить",
     "hotkeyListening": "Нажми клавиши…",
     "hotkeyCaptureHint": "Нажми одну клавишу или сочетание. Esc — отменить. Сохранение автоматическое.",
-    "hotkeyCapsNote": "Caps Lock остаётся системной клавишей: при нажатии Windows может переключать регистр букв."
+    "hotkeyCapsNote": "Caps Lock остаётся системной клавишей: при нажатии Windows может переключать регистр букв.",
+    "presetTitle": "Пресеты речи",
+    "presetIntro": "Выбирай манеру речи дополнительно к описанию персонажа. Пресет влияет на итоговую реплику, не на распознавание твоих слов.",
+    "presetNone": "Без пресета",
+    "presetNoneDesc": "Обычная естественная речь с учётом твоего описания персонажа.",
+    "presetBuiltIn": "Встроенный",
+    "presetCustom": "Свой",
+    "presetFolder": "Открыть папку",
+    "presetReload": "Обновить список",
+    "presetReloaded": "Пресеты обновлены.",
+    "presetFolderError": "Не удалось открыть папку пресетов: ",
+    "presetLoadError": "Не удалось загрузить пресеты: ",
+    "presetMissing": "Выбранный пресет не найден. Обнови список или выбери другой.",
+    "presetActive": "Активный пресет"
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -354,7 +367,20 @@ const strings = {
     "hotkeyAssign": "Bind key",
     "hotkeyListening": "Press keys…",
     "hotkeyCaptureHint": "Press one key or a combination. Esc cancels. Changes save automatically.",
-    "hotkeyCapsNote": "Caps Lock remains a system key and may toggle uppercase typing in Windows."
+    "hotkeyCapsNote": "Caps Lock remains a system key and may toggle uppercase typing in Windows.",
+    "presetTitle": "Speech presets",
+    "presetIntro": "Choose a speaking style in addition to your character description. Presets shape the final reply without changing the transcript.",
+    "presetNone": "No preset",
+    "presetNoneDesc": "Natural speech guided by your character description.",
+    "presetBuiltIn": "Built-in",
+    "presetCustom": "Custom",
+    "presetFolder": "Open folder",
+    "presetReload": "Reload presets",
+    "presetReloaded": "Presets reloaded.",
+    "presetFolderError": "Couldn't open presets folder: ",
+    "presetLoadError": "Couldn't load presets: ",
+    "presetMissing": "Selected preset not found. Reload or choose another.",
+    "presetActive": "Active preset"
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -470,7 +496,20 @@ const strings = {
     "hotkeyAssign": "Attribuer",
     "hotkeyListening": "Appuyez…",
     "hotkeyCaptureHint": "Appuyez sur une touche ou une combinaison. Échap annule. Enregistrement immédiat.",
-    "hotkeyCapsNote": "Verr. Maj reste une touche système et peut activer les majuscules dans Windows."
+    "hotkeyCapsNote": "Verr. Maj reste une touche système et peut activer les majuscules dans Windows.",
+    "presetTitle": "Styles de parole",
+    "presetIntro": "Choisissez un style en complément du personnage. Le style change la réplique, pas la transcription.",
+    "presetNone": "Aucun style",
+    "presetNoneDesc": "Expression naturelle suivant votre personnage.",
+    "presetBuiltIn": "Intégré",
+    "presetCustom": "Personnalisé",
+    "presetFolder": "Ouvrir le dossier",
+    "presetReload": "Actualiser",
+    "presetReloaded": "Styles actualisés.",
+    "presetFolderError": "Impossible d'ouvrir le dossier : ",
+    "presetLoadError": "Impossible de charger les styles : ",
+    "presetMissing": "Style introuvable. Actualisez ou changez-le.",
+    "presetActive": "Style actif"
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -586,7 +625,20 @@ const strings = {
     "hotkeyAssign": "Asignar",
     "hotkeyListening": "Pulsa teclas…",
     "hotkeyCaptureHint": "Pulsa una tecla o combinación. Esc cancela. Se guarda automáticamente.",
-    "hotkeyCapsNote": "Bloq Mayús sigue siendo una tecla del sistema y puede activar las mayúsculas en Windows."
+    "hotkeyCapsNote": "Bloq Mayús sigue siendo una tecla del sistema y puede activar las mayúsculas en Windows.",
+    "presetTitle": "Estilos de voz",
+    "presetIntro": "Elige un estilo además de tu personaje. Solo cambia el mensaje final, no la transcripción.",
+    "presetNone": "Sin estilo",
+    "presetNoneDesc": "Voz natural según la descripción de tu personaje.",
+    "presetBuiltIn": "Incluido",
+    "presetCustom": "Personalizado",
+    "presetFolder": "Abrir carpeta",
+    "presetReload": "Actualizar",
+    "presetReloaded": "Estilos actualizados.",
+    "presetFolderError": "No se pudo abrir la carpeta: ",
+    "presetLoadError": "No se pudieron cargar los estilos: ",
+    "presetMissing": "Estilo no encontrado. Actualiza o elige otro.",
+    "presetActive": "Estilo activo"
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -702,7 +754,20 @@ const strings = {
     "hotkeyAssign": "Zuweisen",
     "hotkeyListening": "Tasten drücken…",
     "hotkeyCaptureHint": "Eine Taste oder Kombination drücken. Esc bricht ab. Wird sofort gespeichert.",
-    "hotkeyCapsNote": "Caps Lock bleibt eine Systemtaste und kann die Großschreibung in Windows umschalten."
+    "hotkeyCapsNote": "Caps Lock bleibt eine Systemtaste und kann die Großschreibung in Windows umschalten.",
+    "presetTitle": "Sprechstil-Presets",
+    "presetIntro": "Wähle einen Stil zusätzlich zur Charakterbeschreibung. Er beeinflusst nur die fertige Nachricht.",
+    "presetNone": "Kein Preset",
+    "presetNoneDesc": "Natürliche Sprache gemäß deiner Charakterbeschreibung.",
+    "presetBuiltIn": "Integriert",
+    "presetCustom": "Benutzerdefiniert",
+    "presetFolder": "Ordner öffnen",
+    "presetReload": "Neu laden",
+    "presetReloaded": "Presets aktualisiert.",
+    "presetFolderError": "Preset-Ordner konnte nicht geöffnet werden: ",
+    "presetLoadError": "Presets konnten nicht geladen werden: ",
+    "presetMissing": "Preset nicht gefunden. Neu laden oder anderes wählen.",
+    "presetActive": "Aktives Preset"
   }
 } as const;
 
