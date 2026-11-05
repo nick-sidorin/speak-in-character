@@ -28,6 +28,11 @@ jobs:
           if (-not (Test-Path $compiler)) { throw "C# compiler not found: $compiler" }
           & $compiler /nologo /optimize+ /target:exe /out:native\\hotkey.exe native\\hotkey.cs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test Windows keyboard interception logic
+        shell: pwsh
+        run: |
+          & native\hotkey.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Validate and package
         run: npm run dist:win
         env:

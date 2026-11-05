@@ -309,6 +309,7 @@ function stopHoldHelper() {
     child.removeAllListeners('error');
     child.removeAllListeners('exit');
     child.stdout.removeAllListeners('data');
+    child.stdin.end();
     child.kill();
   }
 }
@@ -340,7 +341,7 @@ function startHoldHelper(): boolean {
   if (!existsSync(binary)) return false;
 
   try {
-    const child = spawn(binary, [shortcuts.record, shortcuts.panel, shortcuts.move], { windowsHide: true });
+    const child = spawn(binary, [shortcuts.record, shortcuts.panel, shortcuts.move, ...(shortcutCaptureActive ? ['--capture'] : [])], { windowsHide: true });
     hotkeyHelper = child;
     let buffer = '';
     child.stdout.on('data', (data: Buffer) => {
@@ -356,6 +357,7 @@ function startHoldHelper(): boolean {
         else if (event === 'MOVE_DOWN') toggleHudMoveMode();
       }
     });
+    child.stderr.on('data', (data: Buffer) => console.error('Native hotkeys:', data.toString('utf8').trim()));
     child.on('error', error => {
       console.error('Hotkey helper error:', error);
       if (hotkeyHelper === child) {
@@ -474,6 +476,9 @@ app.whenReady().then(() => {
   ipcMain.on('shortcuts:capture', (_event, active: boolean) => {
     shortcutCaptureActive = active === true;
     if (shortcutCaptureActive) overlay?.webContents.send('hotkey:up');
+    if (hotkeyHelper?.stdin.writable) {
+      hotkeyHelper.stdin.write(shortcutCaptureActive ? 'CAPTURE_ON\n' : 'CAPTURE_OFF\n');
+    }
   });
 
   ipcMain.on('app:quit', () => app.quit());

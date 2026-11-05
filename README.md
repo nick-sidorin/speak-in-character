@@ -10,7 +10,7 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
 3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-**v0.7.1** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+**v0.8.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
 ## What it does
 
@@ -42,9 +42,13 @@ Initial settings:
 
 Customize all three from **Settings**: click **Assign**, then press any supported keyboard key or combination. The binding is saved instantly, without a Save button. Press **Escape** while assigning to cancel. Standalone keys such as Caps Lock, Space, letters and F1–F12 are supported; modifiers Ctrl/Alt/Shift can be combined with them. Standalone Ctrl/Alt/Shift and OS-reserved shortcuts are not supported. Primary keys must differ across actions to avoid simultaneous triggers. Existing installations that still use all three original default shortcuts automatically migrate the record key to Caps Lock; user-customized bindings are preserved.
 
-**Caps Lock caveat:** Windows still toggles the Caps Lock typing state when the key is pressed. InCharacter does not intercept, block or synthesize game input. If this is inconvenient while chatting or playing, rebind recording to another key from Settings.
+**Global shortcut interception (Windows):** A low-level keyboard hook (`WH_KEYBOARD_LL`) consumes only the three assigned shortcut **primary keys** while their modifier combinations match. Caps Lock no longer toggles typing case while bound to recording; Ctrl+Shift+O no longer opens browser pages. Unrelated keys and modifiers pass through. Hook interception is paused during shortcut assignment and removed when the helper closes.
 
-Hold-to-talk uses a tiny Windows helper at `native/hotkey.cs`; it polls only the three configured combinations via `GetAsyncKeyState` and reports key down/up or one-shot window actions. It does not log other keys, read game memory or interact with gameplay. If the helper is unavailable, shortcuts fall back to Electron's global shortcuts when supported and recording becomes a toggle.
+**Conflict caution:** if Whisper Flow is also bound to Caps Lock, both applications cannot be guaranteed priority. Disable/rebind the key in one app for reliable use. Elevated windows, secure desktop and games using raw input can also behave differently.
+
+**Privacy:** InCharacter does not log keystrokes, inject input into the game or send keyboard data over the network. The helper only signals recording/panel/move events.
+
+Hold-to-talk uses a small Windows helper at `native/hotkey.cs` with scoped suppression of only the three assigned key combinations, and reports record key down/up and panel/move actions. All unrelated keys pass through. If the helper is unavailable, shortcuts fall back to Electron global shortcuts where supported, with recording in toggle mode.
 
 ## Custom speech presets
 
