@@ -223,7 +223,7 @@ const strings = {
     "exit": "Выйти",
     "copyName": "Реплика",
     "hotkeyTitle": "Горячие клавиши",
-    "hotkeyDesc": "Выбери сочетания для записи, панели и перемещения. Изменения применятся после сохранения.",
+    "hotkeyDesc": "Нажми «Назначить», затем нужную клавишу или комбинацию. Изменение сохранится сразу.",
     "hotkeyRecord": "Запись голоса",
     "hotkeyPanel": "Показать панель",
     "hotkeyMove": "Переместить HUD",
@@ -233,7 +233,12 @@ const strings = {
     "hudPanel": "Панель",
     "hudMoveAction": "Перемещение",
     "hotkeyHoldHint": "Удерживай клавиши для записи. Комбинации можно поменять ниже.",
-    "hotkeyTapHint": "Нажми для записи. Комбинации можно поменять ниже."
+    "hotkeyTapHint": "Нажми для записи. Комбинации можно поменять ниже.",
+    "hudIdle": "Удерживай горячую клавишу",
+    "hotkeyAssign": "Назначить",
+    "hotkeyListening": "Нажми клавиши…",
+    "hotkeyCaptureHint": "Нажми одну клавишу или сочетание. Esc — отменить. Сохранение автоматическое.",
+    "hotkeyCapsNote": "Caps Lock остаётся системной клавишей: при нажатии Windows может переключать регистр букв."
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -334,7 +339,7 @@ const strings = {
     "exit": "Quit",
     "copyName": "Reply",
     "hotkeyTitle": "Keyboard shortcuts",
-    "hotkeyDesc": "Customize recording, panel and HUD movement shortcuts. Save to apply.",
+    "hotkeyDesc": "Choose Bind key, then press the desired key or combination. Saved immediately.",
     "hotkeyRecord": "Record voice",
     "hotkeyPanel": "Show panel",
     "hotkeyMove": "Move HUD",
@@ -344,7 +349,12 @@ const strings = {
     "hudPanel": "Panel",
     "hudMoveAction": "Move",
     "hotkeyHoldHint": "Hold the shortcut to record. Change your shortcuts below.",
-    "hotkeyTapHint": "Press to toggle recording. Change shortcuts below."
+    "hotkeyTapHint": "Press to toggle recording. Change shortcuts below.",
+    "hudIdle": "Hold your hotkey to speak",
+    "hotkeyAssign": "Bind key",
+    "hotkeyListening": "Press keys…",
+    "hotkeyCaptureHint": "Press one key or a combination. Esc cancels. Changes save automatically.",
+    "hotkeyCapsNote": "Caps Lock remains a system key and may toggle uppercase typing in Windows."
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -445,7 +455,7 @@ const strings = {
     "exit": "Quitter",
     "copyName": "Réplique",
     "hotkeyTitle": "Raccourcis clavier",
-    "hotkeyDesc": "Choisissez les raccourcis pour la voix, le panneau et le déplacement. Enregistrez pour appliquer.",
+    "hotkeyDesc": "Choisissez Attribuer puis appuyez sur la touche souhaitée. Sauvegarde automatique.",
     "hotkeyRecord": "Enregistrer la voix",
     "hotkeyPanel": "Afficher le panneau",
     "hotkeyMove": "Déplacer le HUD",
@@ -455,7 +465,12 @@ const strings = {
     "hudPanel": "Panneau",
     "hudMoveAction": "Déplacer",
     "hotkeyHoldHint": "Maintenez le raccourci pour enregistrer. Modifiez-le ci-dessous.",
-    "hotkeyTapHint": "Appuyez pour basculer l'enregistrement. Modifiez les raccourcis ci-dessous."
+    "hotkeyTapHint": "Appuyez pour basculer l'enregistrement. Modifiez les raccourcis ci-dessous.",
+    "hudIdle": "Maintenez la touche pour parler",
+    "hotkeyAssign": "Attribuer",
+    "hotkeyListening": "Appuyez…",
+    "hotkeyCaptureHint": "Appuyez sur une touche ou une combinaison. Échap annule. Enregistrement immédiat.",
+    "hotkeyCapsNote": "Verr. Maj reste une touche système et peut activer les majuscules dans Windows."
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -556,7 +571,7 @@ const strings = {
     "exit": "Salir",
     "copyName": "Mensaje",
     "hotkeyTitle": "Atajos de teclado",
-    "hotkeyDesc": "Personaliza las teclas para grabar, abrir el panel y mover el HUD. Guarda para aplicar.",
+    "hotkeyDesc": "Pulsa Asignar y luego la tecla o combinación. Se guarda al instante.",
     "hotkeyRecord": "Grabar voz",
     "hotkeyPanel": "Mostrar panel",
     "hotkeyMove": "Mover HUD",
@@ -566,7 +581,12 @@ const strings = {
     "hudPanel": "Panel",
     "hudMoveAction": "Mover",
     "hotkeyHoldHint": "Mantén pulsado el atajo para grabar. Cámbialo abajo.",
-    "hotkeyTapHint": "Pulsa para alternar la grabación. Cambia los atajos abajo."
+    "hotkeyTapHint": "Pulsa para alternar la grabación. Cambia los atajos abajo.",
+    "hudIdle": "Mantén la tecla para hablar",
+    "hotkeyAssign": "Asignar",
+    "hotkeyListening": "Pulsa teclas…",
+    "hotkeyCaptureHint": "Pulsa una tecla o combinación. Esc cancela. Se guarda automáticamente.",
+    "hotkeyCapsNote": "Bloq Mayús sigue siendo una tecla del sistema y puede activar las mayúsculas en Windows."
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -667,7 +687,7 @@ const strings = {
     "exit": "Beenden",
     "copyName": "Nachricht",
     "hotkeyTitle": "Tastenkombinationen",
-    "hotkeyDesc": "Lege Tasten für Aufnahme, Fenster und HUD-Bewegung fest. Speichern zum Anwenden.",
+    "hotkeyDesc": "Zuweisen wählen, dann Taste oder Kombination drücken. Sofort gespeichert.",
     "hotkeyRecord": "Stimme aufnehmen",
     "hotkeyPanel": "Fenster anzeigen",
     "hotkeyMove": "HUD verschieben",
@@ -677,7 +697,12 @@ const strings = {
     "hudPanel": "Fenster",
     "hudMoveAction": "Verschieben",
     "hotkeyHoldHint": "Zum Aufnehmen die Tasten gedrückt halten. Unten anpassen.",
-    "hotkeyTapHint": "Zum Starten/Stoppen drücken. Unten anpassen."
+    "hotkeyTapHint": "Zum Starten/Stoppen drücken. Unten anpassen.",
+    "hudIdle": "Hotkey gedrückt halten",
+    "hotkeyAssign": "Zuweisen",
+    "hotkeyListening": "Tasten drücken…",
+    "hotkeyCaptureHint": "Eine Taste oder Kombination drücken. Esc bricht ab. Wird sofort gespeichert.",
+    "hotkeyCapsNote": "Caps Lock bleibt eine Systemtaste und kann die Großschreibung in Windows umschalten."
   }
 } as const;
 

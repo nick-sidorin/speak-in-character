@@ -249,3 +249,21 @@ select:focus-visible { border-color:var(--accent); outline:2px solid rgba(154,19
 .record-action { background:#293b3f; color:#f17b78; border:1px solid #526a6b; }
 .record-action:hover:enabled { background:#364b4d; color:#ff9893; }
 .record-action.stop-action { background:#653536; color:#fff0ee; border-color:#a45d5e; }
+
+/* 0.5 – minimal two-line HUD, no hotkey badges in the gameplay overlay. */
+.hud { padding:13px 15px; gap:13px; align-items:center; }
+.hud-brand { font-size:11px; font-weight:800; letter-spacing:.14em; color:#a6d7c8; }
+.hud-main { margin-top:8px; color:#e3efeb; font-size:12px; font-weight:650; white-space:nowrap; }
+.hud-status { width:32px; height:40px; align-self:center; }
+.hud-text { display:flex; flex-direction:column; justify-content:center; }
+.target-language { display:grid; grid-template-columns:120px minmax(0,1fr); align-items:center; gap:12px; }
+.target-language label { margin:0; }
+.target-language input { max-width:none; flex:none; height:37px; }
+.hotkey-setting-row { display:grid; grid-template-columns:minmax(0,1fr) auto 95px; gap:10px; min-height:48px; align-items:center; }
+.hotkey-setting-row .key-caps { justify-self:end; }
+.hotkey-setting-row label { min-width:0; }
+.shortcut-assign-btn { display:flex; justify-content:center; align-items:center; width:95px; min-height:34px; border-radius:8px; border:1px solid #70897f; background:#293c3b; color:#c8e8dc; font-weight:650; font-size:11px; white-space:nowrap; }
+.shortcut-assign-btn:hover:enabled { border-color:#add9c8; background:#344c48; }
+.shortcut-assign-btn.capturing { color:#1a3530; background:#a2d3c2; border-color:#a2d3c2; }
+.settings-section .hotkey-capture-hint { font-size:11px; color:#a7d9c7; }
+@media (max-width:500px) { .hotkey-setting-row { grid-template-columns:1fr auto; } .hotkey-setting-row label { grid-column:1/-1; } }

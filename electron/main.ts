@@ -69,6 +69,10 @@ function validateShortcuts(input: ShortcutSettings): ShortcutSettings {
     move: normalizeShortcut(input.move),
   };
   if (new Set(Object.values(next)).size !== 3) throw new Error('У разных действий должны быть разные клавиши.');
+  const primaryKeys = Object.values(next).map(value => value.split('+').at(-1));
+  if (new Set(primaryKeys).size !== 3) {
+    throw new Error('Для разных действий используй разные основные клавиши, чтобы сочетания не срабатывали одновременно.');
+  }
   return next;
 }
 
@@ -290,6 +294,12 @@ function registerToggleFallback() {
   shortcutStatus.hold = false;
   shortcutStatus.recording = globalShortcut.register(shortcuts.record, () => {
     if (!shortcutCaptureActive) overlay?.webContents.send('recording:toggle');
+  });
+  shortcutStatus.panel = globalShortcut.register(shortcuts.panel, () => {
+    if (!shortcutCaptureActive) changeMode(mode === 'hud' ? 'panel' : 'hud');
+  });
+  shortcutStatus.move = globalShortcut.register(shortcuts.move, () => {
+    if (!shortcutCaptureActive) toggleHudMoveMode();
   });
   reportShortcutStatus();
 }
