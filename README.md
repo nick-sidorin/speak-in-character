@@ -2,74 +2,69 @@
 
 **Speak naturally. Stay in character.**
 
-InCharacter is a Windows voice companion for roleplayers. Hold a key chord while you speak in Russian, English or both. It transcribes your speech, turns your intended message into natural English, and copies the draft to your clipboard for manual pasting into game chat.
+InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while you speak naturally in Russian, English or a mixture. OpenAI transcribes the audio, turns the intended message into a natural sentence in your selected **reply language**, and copies it to the clipboard. You review and paste it into the game chat yourself.
 
-This is **v0.3.0 — first UX / push-to-talk prototype**. The Windows binary is built by GitHub Actions. It has not yet been playtested against the user's actual WoW installation.
+## Windows build
 
-## Windows download and launch
+1. Open [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions) and choose the latest **successful** Windows build.
+2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
+3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-1. Open [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions).
-2. Select the newest **successful Windows build** workflow.
-3. Download the **InCharacter-Windows** artifact ZIP, extract its contents into one folder, then run `InCharacter.exe`.
-4. Start WoW in **Windowed (Fullscreen)** / borderless mode for reliable overlay display.
-5. Open the panel with **Ctrl + Shift + O**. Go to **Настройки** and add an OpenAI API key (OpenAI Platform billing is separate from ChatGPT).
-6. Optionally provide your character and situation (names or places) on the **Реплика** tab.
-7. Hold **Ctrl + Shift + Space**, speak, then release it. The translated English text is automatically copied to the clipboard once ready.
-8. Press **Enter** in the game chat, paste with **Ctrl + V**, review and send manually.
+**v0.4.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
-You do **not** need to install Visual Studio, .NET SDK or Node.js to run the GitHub-built Windows archive.
+## What it does
 
-## Controls
+- **Push-to-talk:** hold the recording shortcut, speak, release to stop.
+- **One-at-a-time processing:** recording stays locked until OpenAI has processed the current message.
+- **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
+- **Reply language:** pick one of 27 common languages, or type another; English by default. **Input speech can be in another language or mixed languages.**
+- **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.
+- **Game context:** character / style and situation fields accept natural language, including localized names and Russian prompts. They are hints for interpreting the user's words, not content for the model to invent.
+- **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
+- **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
+- **Settings:** protected API key, audio processing, move HUD and shortcut editor.
+- **Compact click-through HUD:** ready, recording, processing and success indicators with customizable keycap hints.
+- **Position persistence:** separate HUD and panel positions on disk.
 
-| Shortcut | Behavior |
+## Customizable shortcuts
+
+Initial settings:
+
+| Action | Default |
 | --- | --- |
-| Ctrl + Shift + Space | **Hold** to record; release to stop and process |
-| Ctrl + Shift + O | Show / hide control panel |
-| Ctrl + Shift + M | Enable HUD move mode; drag with mouse, then press again or click ✓ |
+| Hold to speak | Ctrl + Shift + Space |
+| Open/close panel | Ctrl + Shift + O |
+| Move HUD | Ctrl + Shift + M |
 
-In production builds on Windows, a tiny helper checks **only Ctrl, Shift, and Space** with the Windows `GetAsyncKeyState` API. It does not use a keyboard hook, log keys, automate the game, read process memory, or generate game input. If the helper is unavailable, the app falls back to **toggle recording** (press once to start; again to stop) and displays that mode in Settings.
+Customize all three from the **Settings** tab using modifier and key dropdowns; save to apply immediately. Choices include Ctrl, Alt, Shift and combinations, plus letters, numbers, Space and F1–F12. All shortcuts must be distinct. A shortcut occupied by another app will be rejected and the previous configuration restored.
 
-Starting another recording is disabled until the current OpenAI processing finishes. Key auto-repeat does not restart a recording.
+Hold-to-talk uses a tiny Windows helper at `native/hotkey.cs`; it polls only the configured combination via `GetAsyncKeyState` and reports key down/up. It does not log keys, read game memory or interact with gameplay. If the helper is unavailable, recording falls back to toggle mode.
 
-## Interface
+## Position and focus
 
-- **Реплика** — optional character and situation prompts, microphone status, original transcript, English line, retranslate and copy.
-- **История** — the 15 most recent recordings of this session, one row of playback controls with a small download icon, and a way to reopen any previous draft.
-- **Настройки** — API key, microphone signal processing toggle, move mode and an **estimated session cost** with a link to OpenAI Usage.
+The Windows app uses a **non-transparent, frameless** window with native rounded corners (where supported) to work around Electron / DWM focus-loss artifacts. The HUD ignores mouse clicks until move mode is enabled. The positioning fix is experimental and needs user testing on Windows 11.
 
-The small HUD shows a red dot for recording, a large spinner for requests and a green check once the text is ready. The HUD is click-through by default, so it won't block interactions in WoW. The panel is interactive.
+Both positions are stored in Electron's application data folder as `window-positions.json`. Shortcut settings use `shortcuts.json`. API keys are stored encrypted using Electron `safeStorage` on Windows (DPAPI).
 
-The mini-HUD and main panel are both movable. Their locations are saved to `window-positions.json` inside Electron's Windows user-data folder. They are restored at startup (clamped to visible monitors).
+## Costs / privacy
 
-## Audio quality
+Without an API key, audio recording and playback stay local. With a configured key, completed recordings are uploaded to OpenAI for transcription, then the transcript and configured context are sent for rewriting. The current session cost estimate assumes ~$0.006 per transcription minute plus billed text tokens; actual charges are shown in [OpenAI Usage](https://platform.openai.com/usage).
 
-By default, browser microphone noise suppression, echo cancellation and automatic gain control are disabled. Enable them in **Настройки** if necessary. The operating system or microphone driver may still apply its own processing.
-
-## Costs and security
-
-The current speech model is `gpt-4o-transcribe`, listed at **about $0.006 per minute**. Rewriting uses `gpt-4.1-mini`, with text token costs. The app estimates the audio cost by duration and estimates the rewriting cost using the text token counts from OpenAI's response. These are **estimates** and do not replace the actual costs at https://platform.openai.com/usage.
-
-Without an API key, microphone recording and session playback work locally. Once an API key is saved, finishing a recording sends it to OpenAI and automatically runs an English rewrite. The key is stored encrypted with Windows DPAPI via Electron's `safeStorage`, not included in source control. No analytics or telemetry; no game automation. The app never sends your message into WoW; you paste and send it manually.
+No telemetry. No automatic game input or sending chats on your behalf. The generated line is copied to your clipboard for manual review and pasting.
 
 ## Development
 
-Requires Node.js 22+ for source builds:
+Requires Node.js 22+. Source commands:
 
-```bash
+```sh
 npm install
-npm run dev
 npm run typecheck
-npm run dist:win
+npm run build
+npm run dev
 ```
 
-The `dist:win` script packages the compiled Windows application to `release/win-unpacked`. For the native push-to-talk helper, compile `native/hotkey.cs` with the .NET Framework C# compiler (the GitHub Actions workflow already handles it). The compiled `hotkey.exe` goes into app resources via `extraResources` in `package.json`.
+On Windows you can package with `npm run dist:win`; a locally built Windows helper is required in `native/hotkey.exe`. GitHub Actions compiles the helper and packages a Windows x64 application automatically when the workflow is manually triggered or a `build/*` branch is created.
 
-App design:
-
-- `electron/main.ts`: windows, safe IPC, shortcuts, file saving and native helper lifecycle.
-- `electron/ai.ts`: OpenAI transcription and rewriting, encrypted key, clipboard.
-- `native/hotkey.cs`: emits DOWN and UP for Ctrl + Shift + Space.
-- `src/App.tsx`, `src/styles.css`: React UI, session recordings and status indicators.
-- `.github/workflows/windows.yml`: portable unpacked Windows build.
+**CI builds do not run on every commit to `main`.** We intentionally avoid noisy failing-build notifications while iterating.
 
 Licensed under MIT.

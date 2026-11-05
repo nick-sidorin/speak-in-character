@@ -287,7 +287,7 @@ function startHoldHelper(): boolean {
     child.stdout.on('data', (data: Buffer) => {
       buffer += data.toString('utf8');
       let index: number;
-      while ((index = buffer.indexOf('\\n')) !== -1) {
+      while ((index = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, index).trim();
         buffer = buffer.slice(index + 1);
         if (line === 'DOWN' || line === 'UP') {

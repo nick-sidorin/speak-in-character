@@ -1,8 +1,12 @@
 name: Windows build
 
-# Builds are deliberately manual while iterating, to avoid noisy failed-build emails.
+# Main branch pushes never auto-build. To request a test binary, create a build/* branch
+# at the desired commit, or run this workflow manually from the GitHub UI.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'build/**'
 
 permissions:
   contents: read

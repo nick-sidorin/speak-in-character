@@ -574,7 +574,7 @@ export default function App() {
         </div>
 
         <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
-          <div className="status-figure"><StateIcon phase={phase} /></div>
+          <div className="status-figure"><StateIcon phase={phase} language={uiLanguage} /></div>
           <div className="record-label">
             <strong>{phaseLabel(phase, shortcuts.hold, uiLanguage)}</strong>
             <small>{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</small>
@@ -666,7 +666,7 @@ export default function App() {
           </select>
         </div>
         <div className="settings-section">
-          <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\\s*/, '')}</span></div>
+          <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\s*/, '')}</span></div>
           <p>{tr('apiKeyInfo')}</p>
           <div className="key-input-row">
             <input type="password" value={keyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
