@@ -10,12 +10,13 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
 3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-**v0.8.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+**v0.8.1** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
 ## What it does
 
 - **Push-to-talk:** hold the recording shortcut, speak, release to stop.
 - **One-at-a-time processing:** recording stays locked until OpenAI has processed the current message.
+- **Accidental-tap protection:** recordings shorter than **700 ms** are discarded immediately after stopping. For longer recordings (at least 1.2 seconds) with confidently silent microphone levels, InCharacter also skips processing. Skipped audio never goes into history, never creates a saved file or audio URL, and never reaches OpenAI, so it costs $0. Existing draft text stays intact. The local silence check is a simple conservative signal-level heuristic, not a speech recognizer: quiet speech or background noise can affect it. No model downloads or external services required.
 - **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
 - **Reply language:** type any target language into a plain text field; English by default. **Input speech can be in another language or mixed languages.**
 - **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.

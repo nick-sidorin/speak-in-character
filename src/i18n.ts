@@ -259,7 +259,9 @@ const strings = {
     "phaseHoldVerb": "Удерживай",
     "phaseTapVerb": "Нажми",
     "historyEmptyAction": "Запиши первую реплику:",
-    "hudMoveShort": "Перетащи окно"
+    "hudMoveShort": "Перетащи окно",
+    "msgRecordingTooShort": "Слишком короткое нажатие — запись отброшена.",
+    "msgRecordingSilent": "Похоже, в записи тишина — она не отправлена."
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -396,7 +398,9 @@ const strings = {
     "phaseHoldVerb": "Hold",
     "phaseTapVerb": "Press",
     "historyEmptyAction": "Record your first line:",
-    "hudMoveShort": "Drag to move"
+    "hudMoveShort": "Drag to move",
+    "msgRecordingTooShort": "Too short — recording discarded.",
+    "msgRecordingSilent": "No audible speech detected — recording discarded."
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -533,7 +537,9 @@ const strings = {
     "phaseHoldVerb": "Maintenez",
     "phaseTapVerb": "Appuyez sur",
     "historyEmptyAction": "Enregistrez votre première réplique :",
-    "hudMoveShort": "Faites glisser"
+    "hudMoveShort": "Faites glisser",
+    "msgRecordingTooShort": "Trop court — enregistrement ignoré.",
+    "msgRecordingSilent": "Aucune voix détectée — enregistrement ignoré."
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -670,7 +676,9 @@ const strings = {
     "phaseHoldVerb": "Mantén",
     "phaseTapVerb": "Pulsa",
     "historyEmptyAction": "Graba tu primer mensaje:",
-    "hudMoveShort": "Arrastra para mover"
+    "hudMoveShort": "Arrastra para mover",
+    "msgRecordingTooShort": "Demasiado corta — grabación descartada.",
+    "msgRecordingSilent": "No se detectó voz — grabación descartada."
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -807,7 +815,9 @@ const strings = {
     "phaseHoldVerb": "Halten:",
     "phaseTapVerb": "Drücken:",
     "historyEmptyAction": "Erste Nachricht aufnehmen:",
-    "hudMoveShort": "Zum Verschieben ziehen"
+    "hudMoveShort": "Zum Verschieben ziehen",
+    "msgRecordingTooShort": "Zu kurz – Aufnahme verworfen.",
+    "msgRecordingSilent": "Keine hörbare Sprache erkannt – Aufnahme verworfen."
   }
 } as const;
 
