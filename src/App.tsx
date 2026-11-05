@@ -34,7 +34,7 @@ type RecordEntry = {
 const TRANSCRIPTION_PER_MINUTE = 0.006;
 const MAX_HISTORY = 15;
 // Short accidental taps never create a history entry or incur API charges.
-const MIN_RECORDING_MS = 700;
+const MIN_RECORDING_MS = 250;
 // A deliberately conservative local silence gate: it detects near-silence,
 // not actual words. Anything ambiguous is still sent to transcription.
 const SILENCE_CHECK_MIN_MS = 1200;
@@ -676,7 +676,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.8.1</span></div>
+        <div className="brand-name">InCharacter <span>0.8.2</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>

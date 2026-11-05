@@ -2,94 +2,89 @@
 
 **Speak naturally. Stay in character.**
 
-InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while you speak naturally in Russian, English or a mixture. OpenAI transcribes the audio, turns the intended message into a natural sentence in your selected **reply language**, and copies it to the clipboard. You review and paste it into the game chat yourself.
+InCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-## Windows build
+> **Current development version: 0.8.2** · Windows x64 · unsigned prototype
 
-1. Open [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions) and choose the latest **successful** Windows build.
-2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
-3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
+## Download and run
 
-**v0.8.1** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+1. Open [Windows builds on GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions/workflows/windows.yml), open the **latest successful** run for the version you want, and download its `InCharacter-Windows` artifact.
+2. Extract the **whole ZIP** to a directory and launch `InCharacter.exe`. Visual Studio and Node.js are **not** needed to run this build.
+3. For overlays over games, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
+4. Open the panel using **Ctrl + Shift + O**. In **Settings**, add your own OpenAI API key, which has separate billing from ChatGPT.
+5. Hold **Caps Lock** (default), speak, and release. When processing finishes, the translated line is copied to the clipboard. Review it and paste with **Ctrl + V** into your chat, then send it yourself.
 
-## What it does
+Unsigned builds may trigger a Windows SmartScreen warning. This project is still undergoing testing on real Windows/game setups.
 
-- **Push-to-talk:** hold the recording shortcut, speak, release to stop.
-- **One-at-a-time processing:** recording stays locked until OpenAI has processed the current message.
-- **Accidental-tap protection:** recordings shorter than **700 ms** are discarded immediately after stopping. For longer recordings (at least 1.2 seconds) with confidently silent microphone levels, InCharacter also skips processing. Skipped audio never goes into history, never creates a saved file or audio URL, and never reaches OpenAI, so it costs $0. Existing draft text stays intact. The local silence check is a simple conservative signal-level heuristic, not a speech recognizer: quiet speech or background noise can affect it. No model downloads or external services required.
-- **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
-- **Reply language:** type any target language into a plain text field; English by default. **Input speech can be in another language or mixed languages.**
-- **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.
-- **Additional context:** one optional multiline field for any situational prompt, character description, game terms or contextual notes. Existing character and situation values are migrated into it automatically on first launch of v0.7.0. The neutral core prompt stays independent of any game.
+## How it works
 
-**Speech presets:** select a preset on the **Reply** screen. Preset management (open folder / reload) is in Settings. An optional JSON preset provides a stylistic voice for the final output. Presets never rewrite the original transcript and must not change the content of what was said. Bundled examples include Dwarven voice, Pirate voice and Courtly speech. No preset is the default.
+- **Push-to-talk:** hold the configured hotkey to record, release to finish.
+- **Recording guard:** accidental presses under **250 ms** are discarded. No audio Blob, recording history entry or OpenAI request is created for these taps. A quick word such as *«давай»* can still be processed.
+- **Conservative silence detection:** on recordings of **1.2 seconds or more**, InCharacter measures the microphone signal **locally**. If there is consistently almost no audio signal, it discards the recording before upload. This is **not a speech recognizer or voice-activity model**: background noise may pass through; exceptionally quiet speech could be discarded. Recordings between 250 ms and 1.2 seconds are **not** rejected by the silence check.
+- **Draft protection:** discarded recordings do not replace the previous transcript/reply or appear in History. No API charges are incurred for skipped recordings.
+- **One request at a time:** while OpenAI is processing, a new recording cannot begin.
+- **Transcription:** `gpt-4o-transcribe` recognizes speech in its original language(s).
+- **Rewrite:** `gpt-4.1-mini` generates one natural message in the selected **reply language**. The field is plain text, default **English**; input speech may use other languages.
+- **Additional context:** one optional multi-line prompt for the character, speaker quirks, game terms, scene and other disambiguating background. Existing separate character/situation fields are migrated when upgrading.
+- **Presets:** optional JSON speech-style presets (Dwarven, Pirate, Courtly). Select the active preset on the **Reply** screen.
+- **Style precedence:** preserve the original meaning first; use the chosen preset as a baseline; **Additional context overrides conflicting preset style instructions**, while compatible traits combine. For example, a pirate who stutters can sound both pirate-like and stuttered, but the original transcript is not stylized.
+- **Session history:** up to 15 recent recordings, their audio and drafts, a save-audio action and estimated session costs. Cleared on app exit.
+- **UI languages:** Russian, English, French, Spanish, German, set independently from the reply language.
+- **HUD:** a tiny, translucent (~254 × 54 px) click-through status panel with a recording indicator, spinner and completion check. Its position and the main panel's position persist between launches.
 
-**Style precedence:** the core translator preserves the spoken meaning. An optional preset sets the baseline voice, and the **Additional context** field takes precedence over the preset when it adds a specific character trait. Compatible instructions blend together: a pirate who stutters frequently should sound like a pirate **and** visibly stutter in the finished line. No trait should be silently dropped just because a preset is active. The original transcription is not stylized.
-- **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
-- **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
-- **Settings:** protected API key, audio processing, **speech presets**, move HUD and shortcut editor.
-- **Compact click-through HUD:** tiny ~254×54 px two-line status with recording/processing/success indicator. On Windows, native window shaping clips opaque corner pixels, and a reduced window opacity makes the HUD translucent without disturbing the main editor's full opacity.
-- **Position persistence:** separate HUD and panel positions on disk.
-
-## Customizable shortcuts
-
-Initial settings:
+## Hotkeys and Windows behavior
 
 | Action | Default |
 | --- | --- |
-| Hold to speak | Caps Lock |
-| Open/close panel | Ctrl + Shift + O |
-| Move HUD | Ctrl + Shift + M |
+| Hold to record | **Caps Lock** |
+| Show/hide panel | **Ctrl + Shift + O** |
+| Move HUD | **Ctrl + Shift + M** |
 
-Customize all three from **Settings**: click **Assign**, then press any supported keyboard key or combination. The binding is saved instantly, without a Save button. Press **Escape** while assigning to cancel. Standalone keys such as Caps Lock, Space, letters and F1–F12 are supported; modifiers Ctrl/Alt/Shift can be combined with them. Standalone Ctrl/Alt/Shift and OS-reserved shortcuts are not supported. Primary keys must differ across actions to avoid simultaneous triggers. Existing installations that still use all three original default shortcuts automatically migrate the record key to Caps Lock; user-customized bindings are preserved.
+Change them in **Settings → Keyboard shortcuts**: select **Assign**, press a single key or combination, and it's saved immediately. **Esc** cancels assignment. Single keys like Caps Lock and F1–F12 can be used, as can modifier combinations (Ctrl, Shift, Alt plus a primary key). The same primary key cannot be assigned to two different actions.
 
-**Global shortcut interception (Windows):** A low-level keyboard hook (`WH_KEYBOARD_LL`) consumes only the three assigned shortcut **primary keys** while their modifier combinations match. Caps Lock no longer toggles typing case while bound to recording; Ctrl+Shift+O no longer opens browser pages. Unrelated keys and modifiers pass through. Hook interception is paused during shortcut assignment and removed when the helper closes.
+The Windows helper in `native/hotkey.cs` uses a limited `WH_KEYBOARD_LL` hook to **suppress only assigned shortcuts**: Caps Lock should not toggle typing case; Ctrl + Shift + O should not also activate the browser's shortcut. This behavior needs testing with your particular game and keyboard setup. Other software using the same shortcut (for example Whisper Flow on Caps Lock), elevated applications, secure desktop or games using raw input can conflict. Do not rely on one app always taking precedence.
 
-**Conflict caution:** if Whisper Flow is also bound to Caps Lock, both applications cannot be guaranteed priority. Disable/rebind the key in one app for reliable use. Elevated windows, secure desktop and games using raw input can also behave differently.
+The helper reports only shortcut actions to Electron; it does not log keystrokes, synthesize game input or read game memory. Interception pauses while assigning a new binding.
 
-**Privacy:** InCharacter does not log keystrokes, inject input into the game or send keyboard data over the network. The helper only signals recording/panel/move events.
+## Manage speech presets
 
-Hold-to-talk uses a small Windows helper at `native/hotkey.cs` with scoped suppression of only the three assigned key combinations, and reports record key down/up and panel/move actions. All unrelated keys pass through. If the helper is unavailable, shortcuts fall back to Electron global shortcuts where supported, with recording in toggle mode.
-
-## Custom speech presets
-
-Built-in presets are **individual JSON files** in the `presets/` directory, packaged with the application. The core rewrite prompt in `electron/ai.ts` is deliberately neutral: it has no hard-coded WoW, dwarf or pirate assumptions.
-
-To add your own preset without rebuilding the app:
+The neutral core prompt has **no hardcoded World of Warcraft or dwarf assumptions**. Each style is a JSON file bundled in [`presets/`](presets). To add your own without rebuilding:
 
 1. Open **Settings → Speech presets → Open folder**.
-2. Place a UTF-8 `.json` file inside the opened personal presets directory.
-3. Click **Reload presets** and select it from the list.
+2. Add a UTF-8 `.json` file to the personal presets folder.
+3. Press **Reload presets** and select the preset on **Reply**.
 
-You can also override a bundled preset by using the same `id` in a personal file. Presets remain local except that the **selected preset instructions and optional recognition hints are sent to OpenAI when making a request**.
+A personal preset with the same `id` overrides the bundled one. See [the schema and example](presets/README.md). Presets are kept locally until selected; when processing, the chosen preset's instructions and recognition hints are sent to OpenAI.
 
-Each JSON file contains `schemaVersion`, `id`, `name`, `description`, `instructions` and optional `recognitionHints`. See [presets/README.md](presets/README.md) for a complete editable example. The user-editable folder is inside the Electron application data directory (`%APPDATA%\\InCharacter\\presets` on a typical Windows installation).
+## Privacy and costs
 
-## Position and focus
+- **Without an API key:** microphone recording and playback remain local.
+- **With an API key:** completed, accepted recordings go to OpenAI for transcription; the transcript, additional context and selected style instructions go to OpenAI for rewriting.
+- **Clipboard:** the result is copied locally; InCharacter **does not** send messages into games or chats automatically.
+- **API billing:** independent from ChatGPT. The app shows an estimate using the approximate `gpt-4o-transcribe` rate of **$0.006 per minute** plus text token usage for `gpt-4.1-mini`. Check actual charges in [OpenAI Usage](https://platform.openai.com/usage).
+- **Key storage:** Electron `safeStorage`/Windows DPAPI. No API key in the repository. No built-in telemetry or analytics.
 
-The Windows app uses a **non-transparent, frameless** window with native rounded-region clipping via Electron `setShape` and adjusted opacity per mode. The HUD is deliberately translucent; the main panel stays opaque. This avoids relying on the problematic fully transparent Windows 11 window mode. The HUD ignores mouse clicks until move mode is enabled. The positioning fix is experimental and needs user testing on Windows 11.
+## Windows implementation
 
-Both positions are stored in Electron's application data folder as `window-positions.json`. Shortcut settings use `shortcuts.json`. API keys are stored encrypted using Electron `safeStorage` on Windows (DPAPI).
+- Electron + React + TypeScript.
+- `electron/main.ts` — windows, positioning, keyboard-helper lifecycle and IPC.
+- `electron/ai.ts` — transcription, rewrite prompt and API key handling.
+- `electron/presets.ts` — file-based speech presets.
+- `native/hotkey.cs` — Windows keyboard shortcut interception, including a routing self-test.
+- `src/App.tsx` and `src/styles.css` — recorder, conservative signal-level silence check, history and UI.
+- `.github/workflows/windows.yml` — Windows CI build with native helper tests.
 
-## Costs / privacy
+To develop from source, install Node.js 22+ and run:
 
-Without an API key, audio recording and playback stay local. With a configured key, completed recordings are uploaded to OpenAI for transcription, then the transcript and configured context are sent for rewriting. The current session cost estimate assumes ~$0.006 per transcription minute plus billed text tokens; actual charges are shown in [OpenAI Usage](https://platform.openai.com/usage).
-
-No telemetry. No automatic game input or sending chats on your behalf. The generated line is copied to your clipboard for manual review and pasting.
-
-## Development
-
-Requires Node.js 22+. Source commands:
-
-```sh
+```bash
 npm install
 npm run typecheck
 npm run build
 npm run dev
 ```
 
-On Windows you can package with `npm run dist:win`; a locally built Windows helper is required in `native/hotkey.exe`. GitHub Actions compiles the helper and packages a Windows x64 application automatically when the workflow is manually triggered or a `build/*` branch is created.
+To package on Windows: compile `native/hotkey.cs` into `native/hotkey.exe` using the .NET Framework C# compiler, then run `npm run dist:win`. The GitHub Actions Windows workflow performs those steps for you.
 
-**CI builds do not run on every commit to `main`.** We intentionally avoid noisy failing-build notifications while iterating.
+**CI policy:** regular commits to `main` do **not** trigger a build. Windows test builds are created only when specifically requested. During development, a temporary `build/vX.Y.Z` branch may carry a one-off push trigger; `main` remains manual-only.
 
 Licensed under MIT.
