@@ -3,6 +3,16 @@ import { contextBridge, ipcRenderer } from 'electron';
 type ViewMode = 'hud' | 'panel';
 
 contextBridge.exposeInMainWorld('inCharacter', {
+  onHoldKeyDown: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('hotkey:down', listener);
+    return () => ipcRenderer.removeListener('hotkey:down', listener);
+  },
+  onHoldKeyUp: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('hotkey:up', listener);
+    return () => ipcRenderer.removeListener('hotkey:up', listener);
+  },
   onToggleRecording: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('recording:toggle', listener);
@@ -18,7 +28,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
     ipcRenderer.on('overlay:move-mode', listener);
     return () => ipcRenderer.removeListener('overlay:move-mode', listener);
   },
-  onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean }) => void) => {
+  onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean; hold: boolean }) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
       status: { recording: boolean; panel: boolean; move: boolean },
@@ -35,6 +45,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
   processVoice: (payload: { bytes: Uint8Array; mimeType: string; character: string; situation: string }): Promise<{transcript: string; translated: string}> => ipcRenderer.invoke('ai:process', payload),
   rewriteSpeech: (transcript: string, context: {character:string;situation:string}): Promise<string> => ipcRenderer.invoke('ai:rewrite', transcript, context),
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
+  openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
   setHudMoveMode: (enabled: boolean) => ipcRenderer.send('overlay:move-hud', enabled),
   saveRecording: (payload: { bytes: Uint8Array; extension: 'webm' | 'ogg' }) =>
     ipcRenderer.invoke('recording:save', payload),

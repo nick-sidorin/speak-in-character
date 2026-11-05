@@ -6,7 +6,9 @@ import {
   ipcMain,
   screen,
   session,
+  shell,
 } from 'electron';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { copyToClipboard, hasApiKey, processVoice, rewriteSpeech, setApiKey } from './ai';
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -16,14 +18,16 @@ type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 const HUD = { width: 330, height: 92 };
-const PANEL = { width: 500, height: 790 };
+const PANEL = { width: 520, height: 705 };
 const SHORTCUT_RECORD = 'CommandOrControl+Shift+Space';
 const SHORTCUT_PANEL = 'CommandOrControl+Shift+O';
 const SHORTCUT_MOVE = 'CommandOrControl+Shift+M';
 
 let overlay: BrowserWindow | null = null;
 let mode: ViewMode = 'hud';
-let shortcutStatus = { recording: false, panel: false, move: false };
+let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
+let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
+let isQuitting = false;
 let hudMoveEnabled = false;
 let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
@@ -84,7 +88,14 @@ function windowBounds(view: ViewMode) {
       const overlapY = Math.max(0, Math.min(saved.y + size.height, workArea.y + workArea.height) - Math.max(saved.y, workArea.y));
       return overlapX >= Math.min(120, size.width) && overlapY >= Math.min(60, size.height);
     });
-    if (visible) return { ...saved, ...size };
+    if (visible) {
+      const { workArea: work } = screen.getDisplayMatching({ ...saved, ...size });
+      return {
+        x: Math.max(work.x, Math.min(saved.x, work.x + Math.max(0, work.width - size.width))),
+        y: Math.max(work.y, Math.min(saved.y, work.y + Math.max(0, work.height - size.height))),
+        ...size,
+      };
+    }
   }
   return defaultBounds(size);
 }
@@ -143,13 +154,15 @@ function changeMode(next: ViewMode) {
 function createOverlay() {
   overlay = new BrowserWindow({
     ...windowBounds('hud'),
-    title: 'InCharacter',
+    title: '',
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     resizable: false,
     movable: true,
     thickFrame: false,
+    hasShadow: false,
+    roundedCorners: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
@@ -162,6 +175,8 @@ function createOverlay() {
     },
   });
 
+  overlay.setMenuBarVisibility(false);
+  overlay.setHasShadow(false);
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
   overlay.setFocusable(false);
@@ -184,13 +199,59 @@ function createOverlay() {
   overlay.on('closed', () => { overlay = null; });
 }
 
-function registerShortcuts() {
-  shortcutStatus = {
-    recording: globalShortcut.register(SHORTCUT_RECORD, () => {
-      if (overlay && !overlay.isDestroyed()) {
-        overlay.webContents.send('recording:toggle');
+function registerToggleFallback() {
+  if (!shortcutStatus.hold || isQuitting) return;
+  shortcutStatus.hold = false;
+  shortcutStatus.recording = globalShortcut.register(SHORTCUT_RECORD, () => {
+    overlay?.webContents.send('recording:toggle');
+  });
+  overlay?.webContents.send('app:shortcuts', shortcutStatus);
+}
+
+function startHoldHelper(): boolean {
+  if (process.platform !== 'win32') return false;
+  const binary = app.isPackaged
+    ? join(process.resourcesPath, 'native', 'hotkey.exe')
+    : join(__dirname, '../native/hotkey.exe');
+  if (!existsSync(binary)) return false;
+
+  try {
+    const child = spawn(binary, [], { windowsHide: true });
+    hotkeyHelper = child;
+    let buffer = '';
+    child.stdout.on('data', (data: Buffer) => {
+      buffer += data.toString('utf8');
+      let index: number;
+      while ((index = buffer.indexOf('\\n')) !== -1) {
+        const line = buffer.slice(0, index).trim();
+        buffer = buffer.slice(index + 1);
+        if (line === 'DOWN' || line === 'UP') {
+          overlay?.webContents.send(line === 'DOWN' ? 'hotkey:down' : 'hotkey:up');
+        }
       }
+    });
+    child.on('error', error => {
+      console.error('Push-to-talk helper failed:', error);
+      registerToggleFallback();
+    });
+    child.on('exit', () => {
+      hotkeyHelper = null;
+      registerToggleFallback();
+    });
+    return true;
+  } catch (error) {
+    console.error('Unable to start push-to-talk helper:', error);
+    return false;
+  }
+}
+
+function registerShortcuts() {
+  const hold = startHoldHelper();
+  shortcutStatus = {
+    recording: hold || globalShortcut.register(SHORTCUT_RECORD, () => {
+      overlay?.webContents.send('recording:toggle');
     }),
+    hold,
     panel: globalShortcut.register(SHORTCUT_PANEL, () => {
       changeMode(mode === 'hud' ? 'panel' : 'hud');
     }),
@@ -226,14 +287,16 @@ app.whenReady().then(() => {
   ipcMain.on('overlay:drag-move', () => {
     if (!dragAnchor || !hudMoveEnabled || !overlay || overlay.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
-    overlay.setPosition(
-      Math.round(dragAnchor.position.x + cursor.x - dragAnchor.cursor.x),
-      Math.round(dragAnchor.position.y + cursor.y - dragAnchor.cursor.y),
-    );
+    overlay.setBounds({
+      x: Math.round(dragAnchor.position.x + cursor.x - dragAnchor.cursor.x),
+      y: Math.round(dragAnchor.position.y + cursor.y - dragAnchor.cursor.y),
+      width: HUD.width, height: HUD.height,
+    }, false);
   });
   ipcMain.on('overlay:drag-end', () => {
     dragAnchor = null;
     rememberPosition();
+    flushPositions();
   });
 
   // All network requests, secrets and clipboard writes stay in the privileged main process.
@@ -242,6 +305,7 @@ app.whenReady().then(() => {
   ipcMain.handle('ai:process', (_event, payload: Parameters<typeof processVoice>[0]) => processVoice(payload));
   ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {character:string;situation:string}) => rewriteSpeech(transcript, context));
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
+  ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
 
   ipcMain.on('app:quit', () => app.quit());
 
@@ -273,7 +337,12 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  isQuitting = true;
   if (saveTimer) flushPositions();
+  if (hotkeyHelper) {
+    hotkeyHelper.removeAllListeners('exit');
+    hotkeyHelper.kill();
+  }
   globalShortcut.unregisterAll();
 });
 app.on('window-all-closed', () => app.quit());
