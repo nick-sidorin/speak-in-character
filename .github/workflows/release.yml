@@ -1,0 +1,103 @@
+name: Publish Windows release
+
+# Manual by default. One-off release branches may add a temporary push trigger
+# to publish without requiring manual UI work.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag, e.g. v0.8.2'
+        required: true
+        default: 'v0.8.2'
+      build_run_id:
+        description: 'Successful Windows build workflow run ID'
+        required: true
+        default: '42119238383'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Publish portable Windows ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v4
+
+      - name: Validate release inputs
+        id: config
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version || 'v0.8.2' }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || '42119238383' }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version"; exit 1; }
+          [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid build run ID"; exit 1; }
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "run_id=$BUILD_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Retrieve successfully built Windows application
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.config.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" --name InCharacter-Windows --dir staging
+          exe="$(find staging -type f -name InCharacter.exe -print -quit)"
+          if [[ -z "$exe" ]]; then
+            echo "No InCharacter.exe found in the selected build artifact"
+            exit 1
+          fi
+          echo "Windows executable found: $exe"
+
+      - name: Make a user-friendly portable ZIP with checksums
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ steps.config.outputs.version }}
+        run: |
+          set -euo pipefail
+          exe="$(find staging -type f -name InCharacter.exe -print -quit)"
+          directory="$(dirname "$exe")"
+          archive="InCharacter-${VERSION}-Windows-x64-portable.zip"
+          (cd "$directory" && zip -q -r "$GITHUB_WORKSPACE/$archive" .)
+          unzip -l "$archive" | grep -q "InCharacter.exe"
+          sha256sum "$archive" > SHA256SUMS.txt
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "Packed $archive"
+
+      - name: Publish public GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.config.outputs.version }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          set -euo pipefail
+          target_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          if gh release view "$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$VERSION" "$ARCHIVE" SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --clobber
+          else
+            notes=".github/release-notes/$VERSION.md"
+            if [[ -f "$notes" ]]; then
+              gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
+                -R "$GITHUB_REPOSITORY" \
+                --target "$target_sha" \
+                --title "InCharacter $VERSION — Windows Preview" \
+                --prerelease \
+                --notes-file "$notes"
+            else
+              gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
+                -R "$GITHUB_REPOSITORY" \
+                --target "$target_sha" \
+                --title "InCharacter $VERSION — Windows Preview" \
+                --prerelease --generate-notes
+            fi
+          fi
+          gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json url,assets --jq '.url'

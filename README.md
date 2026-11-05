@@ -8,11 +8,15 @@ InCharacter is a Windows voice companion for roleplay and everyday chat. Speak i
 
 ## Download and run
 
-1. Open [Windows builds on GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions/workflows/windows.yml), open the **latest successful** run for the version you want, and download its `InCharacter-Windows` artifact.
-2. Extract the **whole ZIP** to a directory and launch `InCharacter.exe`. Visual Studio and Node.js are **not** needed to run this build.
-3. For overlays over games, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
-4. Open the panel using **Ctrl + Shift + O**. In **Settings**, add your own OpenAI API key, which has separate billing from ChatGPT.
-5. Hold **Caps Lock** (default), speak, and release. When processing finishes, the translated line is copied to the clipboard. Review it and paste with **Ctrl + V** into your chat, then send it yourself.
+**[Download the latest Windows Preview from GitHub Releases](https://github.com/nick-sidorin/speak-in-character/releases/latest)** — no GitHub Actions navigation required.
+
+1. Download the `InCharacter-v0.8.2-Windows-x64-portable.zip` asset from the release page.
+2. **Extract the whole ZIP** to a folder and launch `InCharacter.exe`. Visual Studio and Node.js are **not** needed.
+3. For game overlays, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
+4. Open the panel with **Ctrl + Shift + O** and configure your personal OpenAI API key in **Settings**. API billing is separate from ChatGPT.
+5. Hold **Caps Lock**, speak, then release. The translated line goes to the clipboard; review and paste it with **Ctrl + V** into chat, then send manually.
+
+Development builds are also available on [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions/workflows/windows.yml), but public downloads should use **Releases**.
 
 Unsigned builds may trigger a Windows SmartScreen warning. This project is still undergoing testing on real Windows/game setups.
 
