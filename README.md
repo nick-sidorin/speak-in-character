@@ -19,7 +19,7 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 - **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
 - **Reply language:** type any target language into a plain text field; English by default. **Input speech can be in another language or mixed languages.**
 - **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.
-- **Game context:** character / style and situation fields accept natural language, including localized names and Russian prompts. They are hints for interpreting the user's words, not content for the model to invent.
+- **Game context and character voice:** character/style and situation fields accept natural language, including Russian prompts and localized names. A described manner of speaking (for example, cheerful dwarven slang) is applied to the **final generated line only**, while transcription remains faithful to what was spoken. The model may change wording for voice, but must not invent facts, actions or a different message.
 - **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
 - **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
 - **Settings:** protected API key, audio processing, move HUD and shortcut editor.
