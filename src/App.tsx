@@ -1,425 +1,575 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
-type Phase = 'idle' | 'requesting' | 'recording' | 'ready' | 'error';
 type ViewMode = 'hud' | 'panel';
+type Tab = 'rp' | 'history' | 'settings';
+type Phase = 'idle' | 'requesting' | 'recording' | 'finalizing' | 'processing' | 'ready' | 'error';
 
-function timeLabel(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+type RecordEntry = {
+  id: number;
+  createdAt: number;
+  blob: Blob;
+  url: string;
+  durationMs: number;
+  transcript: string;
+  english: string;
+  estimatedTextCostUsd: number;
+  transcriptionCostUsd: number;
+};
+
+const TRANSCRIPTION_PER_MINUTE = 0.006;
+const MAX_HISTORY = 15;
+
+function clock(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
 }
 
-function formatSize(size: number): string {
-  return size < 1_000_000 ? `${(size / 1_000).toFixed(0)} KB` : `${(size / 1_000_000).toFixed(1)} MB`;
+function amount(usd: number): string {
+  return '$' + usd.toFixed(5);
 }
 
-function errorMessage(error: unknown): string {
+function errorText(error: unknown): string {
   if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-    return 'Нет доступа к микрофону. Разреши его в настройках конфиденциальности Windows.';
+    return 'Нет доступа к микрофону. Проверь разрешения Windows.';
   }
-  if (error instanceof Error) return error.message;
-  return 'Не удалось начать запись. Проверь микрофон.';
+  return error instanceof Error ? error.message : 'Неизвестная ошибка. Попробуй ещё раз.';
+}
+
+function phaseLabel(phase: Phase, hold: boolean): string {
+  if (phase === 'recording') return 'Записываю речь';
+  if (phase === 'requesting') return 'Подключаю микрофон';
+  if (phase === 'finalizing') return 'Завершаю запись';
+  if (phase === 'processing') return 'Распознаю и перевожу…';
+  if (phase === 'ready') return 'Реплика готова';
+  if (phase === 'error') return 'Нужна проверка';
+  return hold ? 'Удерживай Ctrl + Shift + Space' : 'Нажми Ctrl + Shift + Space';
+}
+
+function StateIcon({ phase }: { phase: Phase }) {
+  if (phase === 'processing' || phase === 'requesting' || phase === 'finalizing') {
+    return <span className="state-spinner" aria-label="Обработка" />;
+  }
+  if (phase === 'ready') return <span className="state-check" aria-label="Готово">✓</span>;
+  if (phase === 'error') return <span className="state-error" aria-label="Ошибка">!</span>;
+  return <span className={phase === 'recording' ? 'state-dot recording' : 'state-dot'} />;
 }
 
 export default function App() {
   const [view, setView] = useState<ViewMode>('hud');
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [tab, setTab] = useState<Tab>('rp');
+  const [phase, setPhaseState] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [fileSize, setFileSize] = useState(0);
-  const [notice, setNotice] = useState('');
-  const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true });
-  const [hudMoveMode, setHudMoveMode] = useState(false);
-  const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
   const [hasKey, setHasKey] = useState(false);
   const [keyDraft, setKeyDraft] = useState('');
-  const [showSettings, setShowSettings] = useState(false);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
   const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
   const [situation, setSituation] = useState(() => localStorage.getItem('situation') || '');
-  const [transcript, setTranscript] = useState('');
+  const [original, setOriginal] = useState('');
   const [english, setEnglish] = useState('');
-  const [aiStatus, setAiStatus] = useState<'idle' | 'processing' | 'ready' | 'error'>('idle');
-  const hasKeyRef = useRef(false);
-  const characterRef = useRef('');
-  const situationRef = useRef('');
-  const processRef = useRef<(blob: Blob) => Promise<void>>(async () => {});
-  hasKeyRef.current = hasKey;
-  characterRef.current = character;
-  situationRef.current = situation;
+  const [history, setHistory] = useState<RecordEntry[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [message, setMessage] = useState('Готов к разговору.');
+  const [moveEnabled, setMoveEnabled] = useState(false);
+  const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
 
   const phaseRef = useRef<Phase>('idle');
+  const processingRef = useRef(false);
+  const hasKeyRef = useRef(false);
+  const contextRef = useRef({ character, situation });
+  const micRef = useRef(micProcessing);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const blobRef = useRef<Blob | null>(null);
-  const urlRef = useRef<string | null>(null);
   const startedRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingReleaseRef = useRef(false);
+  const holdActiveRef = useRef(false);
+  const recordingViaHoldRef = useRef(false);
+  const idCounterRef = useRef(0);
+  const urlsRef = useRef<Set<string>>(new Set());
+  const activeIdRef = useRef<number | null>(null);
 
-  const updatePhase = (next: Phase) => {
+  const startRef = useRef<() => Promise<void>>(async () => {});
+  const stopRef = useRef<() => void>(() => {});
+  const toggleRef = useRef<() => void>(() => {});
+  const downRef = useRef<() => void>(() => {});
+  const upRef = useRef<() => void>(() => {});
+  const processRef = useRef<(blob: Blob, id: number, duration: number) => Promise<void>>(async () => {});
+
+  contextRef.current = { character, situation };
+  micRef.current = micProcessing;
+  hasKeyRef.current = hasKey;
+
+  function setPhase(next: Phase) {
     phaseRef.current = next;
-    setPhase(next);
-  };
+    setPhaseState(next);
+  }
 
-  const clearTimer = () => {
+  function stopClock() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
-  };
+  }
 
-  const stop = useCallback(() => {
-    if (phaseRef.current !== 'recording') return;
-    if (!recorderRef.current || recorderRef.current.state === 'inactive') return;
-    setElapsed(Date.now() - startedRef.current);
-    clearTimer();
-    recorderRef.current.stop();
-    streamRef.current?.getTracks().forEach(track => track.stop());
-    streamRef.current = null;
-    updatePhase('ready');
-    setNotice('Обработка записи…');
-  }, []);
+  function changeEntry(id: number, changes: Partial<RecordEntry>) {
+    setHistory(previous => previous.map(entry => entry.id === id ? { ...entry, ...changes } : entry));
+  }
 
-  const start = useCallback(async () => {
-    if (phaseRef.current === 'recording' || phaseRef.current === 'requesting') return;
-    updatePhase('requesting');
-    setNotice('Запрашиваю доступ к микрофону…');
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Микрофон недоступен в этом окружении.');
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: micProcessing, noiseSuppression: micProcessing, autoGainControl: micProcessing },
-        video: false,
-      });
-      streamRef.current = stream;
-
-      const supported = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
-        .find(mime => MediaRecorder.isTypeSupported(mime));
-      const recorder = new MediaRecorder(stream, supported ? { mimeType: supported } : undefined);
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = event => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
-      recorder.onerror = () => {
-        clearTimer();
-        stream.getTracks().forEach(track => track.stop());
-        updatePhase('error');
-        setNotice('Ошибка записи с микрофона.');
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-        if (blob.size > 0) {
-          blobRef.current = blob;
-          const url = URL.createObjectURL(blob);
-          urlRef.current = url;
-          setAudioUrl(url);
-          setFileSize(blob.size);
-          if (hasKeyRef.current) {
-            void processRef.current(blob);
-          } else {
-            setNotice('Запись готова. Добавь OpenAI API-ключ для распознавания.');
-          }
-        } else {
-          updatePhase('error');
-          setNotice('Запись пуста. Проверь выбранный микрофон.');
-        }
-      };
-
-      recorderRef.current = recorder;
-      if (urlRef.current) {
-        URL.revokeObjectURL(urlRef.current);
-        urlRef.current = null;
-      }
-      blobRef.current = null;
-      setAudioUrl(null);
-      setFileSize(0);
-      setElapsed(0);
-      recorder.start(250);
-      startedRef.current = Date.now();
-      updatePhase('recording');
-      setNotice('Идёт запись…');
-      timerRef.current = setInterval(() => setElapsed(Date.now() - startedRef.current), 200);
-    } catch (error) {
-      clearTimer();
-      streamRef.current?.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-      updatePhase('error');
-      setNotice(errorMessage(error));
+  processRef.current = async (blob: Blob, id: number, duration: number) => {
+    if (!hasKeyRef.current) {
+      setPhase('ready');
+      setMessage('Аудио записано. Подключи OpenAI в настройках, чтобы распознать речь.');
+      return;
     }
-  }, [micProcessing]);
+    processingRef.current = true;
+    setPhase('processing');
+    setMessage('Обработка в OpenAI…');
+    changeEntry(id, { transcriptionCostUsd: duration / 60000 * TRANSCRIPTION_PER_MINUTE });
 
-  processRef.current = async (blob: Blob) => {
-    setAiStatus('processing');
-    setNotice('Распознаю речь и готовлю английскую реплику…');
-    setTranscript('');
-    setEnglish('');
     try {
       const result = await window.inCharacter.processVoice({
         bytes: new Uint8Array(await blob.arrayBuffer()),
         mimeType: blob.type,
-        character: characterRef.current,
-        situation: situationRef.current,
+        ...contextRef.current,
       });
-      setTranscript(result.transcript);
-      setEnglish(result.translated);
+      changeEntry(id, {
+        transcript: result.transcript,
+        english: result.translated,
+        estimatedTextCostUsd: result.estimatedTextCostUsd,
+      });
+      if (activeIdRef.current === id) {
+        setOriginal(result.transcript);
+        setEnglish(result.translated);
+      }
       if (!result.translated) {
-        setAiStatus('error');
-        setNotice('Речь распознана, но перевод не получился. Проверь API и нажми «Перевести ещё раз».');
+        setPhase('error');
+        setMessage('Речь распознана, но перевод не получен. Исправь текст и повтори перевод.');
       } else {
-        setAiStatus('ready');
-        setNotice('Реплика готова и скопирована в буфер обмена. Можно вставлять в WoW!');
+        setPhase('ready');
+        setMessage('Готово! Английская реплика уже в буфере обмена.');
       }
     } catch (error) {
-      setAiStatus('error');
-      setNotice(`Ошибка ИИ: ${errorMessage(error)}`);
+      setPhase('error');
+      setMessage('OpenAI: ' + errorText(error));
+    } finally {
+      processingRef.current = false;
     }
   };
 
-  const saveKey = async () => {
-    if (!keyDraft.trim()) {
-      setNotice('Вставь OpenAI API-ключ в поле.');
+  stopRef.current = () => {
+    if (phaseRef.current === 'requesting') {
+      pendingReleaseRef.current = true;
       return;
     }
+    if (phaseRef.current !== 'recording') return;
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+
+    setElapsed(Date.now() - startedRef.current);
+    stopClock();
+    setPhase('finalizing');
+    recorder.stop();
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+  };
+
+  startRef.current = async () => {
+    if (processingRef.current || ['recording', 'requesting', 'processing', 'finalizing'].includes(phaseRef.current)) return;
+    pendingReleaseRef.current = false;
+    setOriginal('');
+    setEnglish('');
+    setElapsed(0);
+    setPhase('requesting');
+    setMessage('Запрашиваю доступ к микрофону…');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          noiseSuppression: micRef.current,
+          echoCancellation: micRef.current,
+          autoGainControl: micRef.current,
+        },
+        video: false,
+      });
+      streamRef.current = stream;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+        .find(value => MediaRecorder.isTypeSupported(value));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorderRef.current = recorder;
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recorder.onerror = () => {
+        stopClock();
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        processingRef.current = false;
+        setPhase('error');
+        setMessage('Ошибка записи микрофона.');
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        if (!blob.size) {
+          setPhase('error');
+          setMessage('Запись пустая, попробуй ещё раз.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        urlsRef.current.add(url);
+        const id = ++idCounterRef.current;
+        const duration = Date.now() - startedRef.current;
+        const item: RecordEntry = {
+          id,
+          url,
+          blob,
+          createdAt: Date.now(),
+          durationMs: duration,
+          transcript: '',
+          english: '',
+          estimatedTextCostUsd: 0,
+          transcriptionCostUsd: 0,
+        };
+        setHistory(previous => [item, ...previous].slice(0, MAX_HISTORY));
+        activeIdRef.current = id;
+        setActiveId(id);
+        setMessage('Запись готова.');
+        void processRef.current(blob, id, duration);
+      };
+      recorder.start(250);
+      startedRef.current = Date.now();
+      setPhase('recording');
+      setMessage('Записываю…');
+      timerRef.current = setInterval(() => setElapsed(Date.now() - startedRef.current), 120);
+      if (pendingReleaseRef.current) {
+        setTimeout(() => stopRef.current(), 160);
+      }
+    } catch (error) {
+      stopClock();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+      setPhase('error');
+      setMessage(errorText(error));
+    }
+  };
+
+  toggleRef.current = () => {
+    if (phaseRef.current === 'recording' || phaseRef.current === 'requesting') stopRef.current();
+    else if (!processingRef.current) {
+      recordingViaHoldRef.current = false;
+      void startRef.current();
+    }
+  };
+
+  downRef.current = () => {
+    if (holdActiveRef.current) return;
+    holdActiveRef.current = true;
+    if (processingRef.current || ['recording', 'requesting', 'processing', 'finalizing'].includes(phaseRef.current)) return;
+    recordingViaHoldRef.current = true;
+    void startRef.current();
+  };
+
+  upRef.current = () => {
+    if (!holdActiveRef.current) return;
+    holdActiveRef.current = false;
+    if (recordingViaHoldRef.current) {
+      recordingViaHoldRef.current = false;
+      stopRef.current();
+    }
+  };
+
+  useEffect(() => {
+    window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
+    const offToggle = window.inCharacter.onToggleRecording(() => toggleRef.current());
+    const offDown = window.inCharacter.onHoldKeyDown(() => downRef.current());
+    const offUp = window.inCharacter.onHoldKeyUp(() => upRef.current());
+    const offMode = window.inCharacter.onViewModeChanged(mode => setView(mode));
+    const offMove = window.inCharacter.onHudMoveModeChanged(value => setMoveEnabled(value));
+    const offShortcuts = window.inCharacter.onShortcutStatus(value => setShortcuts(value));
+    return () => {
+      offToggle();
+      offDown();
+      offUp();
+      offMode();
+      offMove();
+      offShortcuts();
+      stopClock();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      urlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  async function saveKey() {
+    if (!keyDraft.trim()) return;
+    setKeyBusy(true);
     try {
       await window.inCharacter.saveApiKey(keyDraft);
       setKeyDraft('');
       setHasKey(true);
-      hasKeyRef.current = true;
-      setNotice('Ключ сохранён в защищённом хранилище Windows.');
-      setShowSettings(false);
+      setMessage('API-ключ сохранён в защищённом хранилище Windows.');
     } catch (error) {
-      setNotice(`Не удалось сохранить ключ: ${errorMessage(error)}`);
+      setMessage('Не удалось сохранить ключ: ' + errorText(error));
+    } finally {
+      setKeyBusy(false);
     }
-  };
+  }
 
-  const translateEdited = async () => {
-    if (!transcript.trim()) return;
-    setAiStatus('processing');
-    setNotice('Перевожу исправленную расшифровку…');
+  async function rewrite() {
+    if (!original.trim() || processingRef.current) return;
+    processingRef.current = true;
+    setPhase('processing');
+    setMessage('Перевожу исправленный текст…');
     try {
-      const text = await window.inCharacter.rewriteSpeech(transcript, { character, situation });
-      setEnglish(text);
-      setAiStatus('ready');
-      setNotice('Реплика обновлена и скопирована в буфер.');
+      const result = await window.inCharacter.rewriteSpeech(original, contextRef.current);
+      setEnglish(result.text);
+      if (activeIdRef.current !== null) {
+        const item = history.find(entry => entry.id === activeIdRef.current);
+        changeEntry(activeIdRef.current, {
+          english: result.text,
+          transcript: original,
+          estimatedTextCostUsd: (item?.estimatedTextCostUsd || 0) + result.estimatedTextCostUsd,
+        });
+      }
+      setPhase('ready');
+      setMessage('Перевод обновлён и скопирован.');
     } catch (error) {
-      setAiStatus('error');
-      setNotice(`Не получилось перевести: ${errorMessage(error)}`);
+      setPhase('error');
+      setMessage('Перевод: ' + errorText(error));
+    } finally {
+      processingRef.current = false;
     }
-  };
+  }
 
-  const copyEnglish = async () => {
+  async function copyReply() {
+    if (!english.trim()) return;
+    await window.inCharacter.copyText(english);
+    setMessage('Реплика скопирована. Вставь её в чат WoW через Ctrl+V.');
+  }
+
+  function selectHistoryItem(item: RecordEntry) {
+    activeIdRef.current = item.id;
+    setActiveId(item.id);
+    setOriginal(item.transcript);
+    setEnglish(item.english);
+    setTab('rp');
+  }
+
+  async function saveEntry(item: RecordEntry) {
     try {
-      await window.inCharacter.copyText(english);
-      setNotice('Английская реплика скопирована в буфер.');
+      const extension = item.blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const result = await window.inCharacter.saveRecording({
+        bytes: new Uint8Array(await item.blob.arrayBuffer()),
+        extension,
+      });
+      if (!result.canceled) setMessage('Запись сохранена: ' + result.filePath);
     } catch (error) {
-      setNotice(errorMessage(error));
+      setMessage('Сохранение: ' + errorText(error));
     }
-  };
+  }
 
-  const dragHudStart = (event: PointerEvent<HTMLDivElement>) => {
-    if (!hudMoveMode || (event.target as HTMLElement).closest('button')) return;
+  const dragWindowStart = (event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     window.inCharacter.startHudDrag();
   };
-  const dragHudMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (hudMoveMode && event.currentTarget.hasPointerCapture(event.pointerId)) {
-      window.inCharacter.moveHudDrag();
-    }
+  const dragWindowMove = (event: PointerEvent<HTMLElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) window.inCharacter.moveHudDrag();
   };
-  const dragHudEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+  const dragWindowEnd = (event: PointerEvent<HTMLElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
       window.inCharacter.endHudDrag();
     }
   };
 
-  const toggleRef = useRef<() => void>(() => {});
-  toggleRef.current = () => {
-    if (phaseRef.current === 'recording') stop();
-    else if (phaseRef.current !== 'requesting') void start();
-  };
+  const sessionCost = history.reduce((sum, entry) =>
+    sum + entry.transcriptionCostUsd + entry.estimatedTextCostUsd, 0);
+  const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
+  const inProgress = phase === 'recording' || isBusy;
 
-  useEffect(() => {
-    window.inCharacter.hasApiKey().then(available => {
-      hasKeyRef.current = available;
-      setHasKey(available);
-      if (!available) setShowSettings(true);
-    }).catch(() => setShowSettings(true));
-    const unsubscribeRecord = window.inCharacter.onToggleRecording(() => toggleRef.current());
-    const unsubscribeMode = window.inCharacter.onViewModeChanged(mode => setView(mode));
-    const unsubscribeMove = window.inCharacter.onHudMoveModeChanged(enabled => setHudMoveMode(enabled));
-    const unsubscribeShortcuts = window.inCharacter.onShortcutStatus(status => setShortcuts(status));
-    return () => {
-      unsubscribeRecord();
-      unsubscribeMode();
-      unsubscribeMove();
-      unsubscribeShortcuts();
-      clearTimer();
-      streamRef.current?.getTracks().forEach(track => track.stop());
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    };
-  }, []);
-
-  const updateMicProcessing = (enabled: boolean) => {
-    setMicProcessing(enabled);
-    localStorage.setItem('mic-processing', String(enabled));
-  };
-
-  const save = async () => {
-    const blob = blobRef.current;
-    if (!blob) return;
-    try {
-      const extension = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const result = await window.inCharacter.saveRecording({
-        bytes: new Uint8Array(await blob.arrayBuffer()),
-        extension,
-      });
-      if (!result.canceled) setNotice(`Сохранено: ${result.filePath}`);
-    } catch (error) {
-      setNotice(`Не удалось сохранить: ${errorMessage(error)}`);
-    }
-  };
-
-  return view === 'hud' ? (
-    <div
-      className={`hud ${hudMoveMode ? 'hud-move' : ''}`}
-      role="status"
-      aria-live="polite"
-      onPointerDown={dragHudStart}
-      onPointerMove={dragHudMove}
-      onPointerUp={dragHudEnd}
-      onPointerCancel={dragHudEnd}
+  if (view === 'hud') {
+    return <div
+      className={'hud ' + (moveEnabled ? 'hud-move' : '')}
+      onPointerDown={moveEnabled ? dragWindowStart : undefined}
+      onPointerMove={moveEnabled ? dragWindowMove : undefined}
+      onPointerUp={moveEnabled ? dragWindowEnd : undefined}
+      onPointerCancel={moveEnabled ? dragWindowEnd : undefined}
     >
-      <div className={`hud-icon ${phase === 'recording' ? 'pulsing' : ''}`}>●</div>
-      <div className="hud-copy">
-        <div className="hud-title">INCHARACTER <span className="hud-beta">PREVIEW</span></div>
-        <div className="hud-state">
-          {phase === 'recording' ? `Recording · ${timeLabel(elapsed)}`
-            : aiStatus === 'processing' ? 'Processing speech…'
-              : aiStatus === 'ready' ? 'Reply copied to clipboard'
-                : aiStatus === 'error' ? 'AI issue — open panel'
-                  : phase === 'ready' ? `Recording ready · ${timeLabel(elapsed)}`
-              : phase === 'requesting' ? 'Connecting microphone…'
-                : phase === 'error' ? 'Microphone issue — open panel'
-                  : 'Ready to capture'}
+      <div className="hud-status"><StateIcon phase={phase} /></div>
+      <div className="hud-text">
+        <div className="hud-brand">INCHARACTER <span>PREVIEW</span></div>
+        <div className="hud-main">
+          {moveEnabled ? 'Перетащи окно · закрепи ✓' : phaseLabel(phase, shortcuts.hold)}
+          {phase === 'recording' && <span className="hud-timer">{clock(elapsed)}</span>}
         </div>
-        <div className="hud-help">{hudMoveMode ? 'Перетащи окно · Ctrl + Shift + M — закрепить' : 'Ctrl + Shift + Space · Record　 |　 Ctrl + Shift + O · Panel'}</div>
+        <div className="hud-hint">{moveEnabled ? 'Ctrl + Shift + M · Закрепить' : 'Ctrl + Shift + Space · Голос  |  Ctrl + Shift + O · Панель'}</div>
       </div>
-      {hudMoveMode && <button className="hud-done" type="button" title="Закрепить оверлей" onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
-    </div>
-  ) : (
-    <div className="panel">
-      <header className="panel-header">
-        <div className="brand-mark">IC</div>
-        <div className="header-titles">
-          <span className="brand-title">InCharacter</span>
-          <span className="brand-subtitle">Speak naturally. Stay in character.</span>
+      {moveEnabled && <button type="button" className="hud-lock" title="Закрепить" onClick={() => window.inCharacter.setHudMoveMode(false)}>✓</button>}
+    </div>;
+  }
+
+  return <div className="shell">
+    <header
+      className="topbar"
+      onPointerDown={dragWindowStart}
+      onPointerMove={dragWindowMove}
+      onPointerUp={dragWindowEnd}
+      onPointerCancel={dragWindowEnd}
+    >
+      <div className="monogram">ic</div>
+      <div className="brand">
+        <div className="brand-name">InCharacter <span>0.3.0</span></div>
+        <div className="brand-tag">Speak naturally. Stay in character.</div>
+      </div>
+      <button className="window-close" title="Скрыть панель" type="button" onClick={() => window.inCharacter.setViewMode('hud')}>×</button>
+    </header>
+
+    <nav className="tabs" aria-label="Разделы">
+      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}>✦ <span>Реплика</span></button>
+      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}>◷ <span>История</span>{history.length > 0 && <small>{history.length}</small>}</button>
+      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}>⚙ <span>Настройки</span></button>
+    </nav>
+
+    <main className="content">
+      {tab === 'rp' && <div className="rp-screen">
+        <div className="section-intro">
+          <h1>Говори свободно.</h1>
+          <p>Русский, English или всё сразу — реплика получится на английском.</p>
         </div>
-        <button className="icon-button" onClick={() => window.inCharacter.setViewMode('hud')} title="Свернуть панель">×</button>
-      </header>
-      <main className="panel-content">
-        <div className="eyebrow">VOICE TO RP · 0.2.0</div>
-        <h1>Говори свободно.</h1>
-        <p className="intro">Говори по-русски, по-английски или вперемешку. ИИ подготовит реплику для RP-чата.</p>
 
-        <section className={`record-surface ${phase === 'recording' ? 'record-active' : ''}`}>
-          <div className="record-topline">
-            <span className={`status-dot ${phase === 'recording' ? 'active' : ''}`} />
-            <span>{phase === 'recording' ? 'ЗАПИСЫВАЕМ' : phase === 'requesting' ? 'ПОДКЛЮЧАЕМ' : 'МИКРОФОН'}</span>
-            <strong className="record-time">{timeLabel(elapsed)}</strong>
-          </div>
-          <button
-            className={`record-button ${phase === 'recording' ? 'stop-button' : ''}`}
-            disabled={phase === 'requesting'}
-            onClick={() => toggleRef.current()}
-          >
-            <span className="button-symbol">{phase === 'recording' ? '■' : '●'}</span>
-            {phase === 'recording' ? 'Остановить запись' : phase === 'requesting' ? 'Подключение…' : 'Начать запись'}
-          </button>
-          <div className="shortcut-note">или <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd> в любой момент</div>
-          <label className="processing-option">
-            <input
-              type="checkbox"
-              checked={micProcessing}
-              disabled={phase === 'recording' || phase === 'requesting'}
-              onChange={event => updateMicProcessing(event.target.checked)}
-            />
-            Подавление шума и эха
+        <div className="context-fields">
+          <label>
+            <span>Персонаж / манера речи</span>
+            <input value={character} placeholder="Corvin Sidwell, human, Stormwind…" onChange={event => {
+              setCharacter(event.target.value);
+              localStorage.setItem('character', event.target.value);
+            }} />
           </label>
-        </section>
-        <button className="move-hud-button" type="button" onClick={() => window.inCharacter.setHudMoveMode(true)}>
-          ↔ Переместить оверлей <span>Ctrl + Shift + M</span>
-        </button>
+          <label>
+            <span>Ситуация / названия</span>
+            <input value={situation} placeholder="Goldshire, talking to Borin…" onChange={event => {
+              setSituation(event.target.value);
+              localStorage.setItem('situation', event.target.value);
+            }} />
+          </label>
+        </div>
 
-        <section className="ai-settings">
-          <div className="section-heading">
-            <span>OpenAI API</span>
-            <button className="settings-link" onClick={() => setShowSettings(!showSettings)}>{hasKey ? (showSettings ? 'Скрыть' : 'Сменить ключ') : 'Подключить'}</button>
+        <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
+          <div className="status-figure"><StateIcon phase={phase} /></div>
+          <div className="record-label">
+            <strong>{phaseLabel(phase, shortcuts.hold)}</strong>
+            <small>{shortcuts.hold ? 'Отпусти сочетание, чтобы закончить запись' : 'Нажми сочетание ещё раз, чтобы закончить'}</small>
           </div>
-          {showSettings && <div className="settings-editor">
-            <label htmlFor="api-key">API-ключ (хранится защищённым Windows)</label>
-            <div className="key-row">
-              <input id="api-key" type="password" value={keyDraft} placeholder="sk-…" autoComplete="off" onChange={event => setKeyDraft(event.target.value)}/>
-              <button onClick={() => void saveKey()}>Сохранить</button>
-            </div>
-            <div className="tiny-note">После настройки запись автоматически отправляется в OpenAI для распознавания и перевода. API оплачивается отдельно от ChatGPT.</div>
+          <span className="record-timer">{clock(elapsed)}</span>
+          <button
+            type="button"
+            className={'record-action ' + (phase === 'recording' ? 'stop-action' : '')}
+            disabled={isBusy}
+            onClick={() => toggleRef.current()}
+            title={phase === 'recording' ? 'Завершить запись' : 'Записать голос'}
+          >{phase === 'recording' ? '■' : '●'}</button>
+        </div>
+        <div className="record-shortcut">Горячая клавиша: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd></div>
+
+        <div className="drafts">
+          <div className="draft-header">
+            <span>Твоя речь</span>
+            <small>Расшифровку можно исправить</small>
+          </div>
+          <textarea
+            rows={3}
+            value={original}
+            placeholder="После записи здесь появятся твои слова…"
+            onChange={event => {
+              setOriginal(event.target.value);
+              if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { transcript: event.target.value });
+            }}
+          />
+          <div className="draft-header english-header">
+            <span>Реплика на английском</span>
+            <small>{phase === 'processing' ? 'Перевожу…' : 'Можно отредактировать'}</small>
+          </div>
+          <textarea
+            rows={4}
+            value={english}
+            placeholder="Ready for the conversation…"
+            onChange={event => {
+              setEnglish(event.target.value);
+              if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { english: event.target.value });
+            }}
+          />
+          <div className="draft-actions">
+            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>↻ Перевести снова</button>
+            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}>▣ Копировать для WoW</button>
+          </div>
+        </div>
+      </div>}
+
+      {tab === 'history' && <section className="history-screen">
+        <div className="screen-title">
+          <h1>История сессии</h1>
+          <p>Последние записи и реплики. История исчезнет после выхода из приложения.</p>
+        </div>
+        {history.length === 0 ? <div className="empty-state">◷<p>Здесь пока нет записей.</p><span>Произнеси первую реплику через Ctrl + Shift + Space.</span></div>
+          : <div className="history-list">
+            {history.map(item => <div className={'history-item ' + (activeId === item.id ? 'current' : '')} key={item.id}>
+              <div className="history-row">
+                <div className="history-title">
+                  <strong>{new Date(item.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</strong>
+                  <span>{clock(item.durationMs)} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)} приблизительно</span>
+                </div>
+                <button className="history-restore" type="button" onClick={() => selectHistoryItem(item)}>Открыть реплику</button>
+              </div>
+              <div className="history-preview">{item.english || item.transcript || 'Аудиозапись без текста'}</div>
+              <div className="history-audio">
+                <audio controls src={item.url} preload="metadata" aria-label="Прослушать запись" />
+                <button type="button" className="save-icon" title="Сохранить аудиозапись" onClick={() => void saveEntry(item)}>↓</button>
+              </div>
+            </div>)}
           </div>}
-          <div className="context-grid">
-            <label>Персонаж / манера речи
-              <input
-                value={character}
-                placeholder="Corvin Sidwell, human, Stormwind…"
-                onChange={event => { setCharacter(event.target.value); localStorage.setItem('character', event.target.value); }}
-              />
-            </label>
-            <label>Контекст / игровые названия
-              <input
-                value={situation}
-                placeholder="Goldshire, talking with Borin about Ironforge…"
-                onChange={event => { setSituation(event.target.value); localStorage.setItem('situation', event.target.value); }}
-              />
-            </label>
+      </section>}
+
+      {tab === 'settings' && <section className="settings-screen">
+        <div className="screen-title">
+          <h1>Настройки</h1>
+          <p>Настраивай один раз, а потом просто разговаривай.</p>
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>OpenAI API</strong><span className={hasKey ? 'connected' : 'disconnected'}>{hasKey ? '● Подключено' : '○ Не подключено'}</span></div>
+          <p>Ключ сохраняется локально в защищённом хранилище Windows.</p>
+          <div className="key-input-row">
+            <input type="password" value={keyDraft} placeholder={hasKey ? 'Введите новый ключ для замены' : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
+            <button type="button" disabled={!keyDraft.trim() || keyBusy} onClick={() => void saveKey()}>Сохранить</button>
           </div>
-          {blobRef.current && hasKey && aiStatus !== 'processing' && (
-            <button className="secondary-button" onClick={() => void processRef.current(blobRef.current!)}>
-              Распознать последнюю запись ещё раз
-            </button>
-          )}
-        </section>
-        {(transcript || english || aiStatus === 'processing') && (
-          <section className="transcription">
-            <div className="section-heading"><span>Реплика для RP</span><span>{aiStatus === 'processing' ? 'Обрабатываю…' : english ? 'Готова' : 'Нужна проверка'}</span></div>
-            <label>Твоя речь — можно исправить распознавание
-              <textarea rows={3} value={transcript} onChange={event => setTranscript(event.target.value)} placeholder="Оригинальная расшифровка…" />
-            </label>
-            <button className="secondary-button" disabled={!hasKey || !transcript.trim() || aiStatus === 'processing'} onClick={() => void translateEdited()}>
-              Перевести исправленный текст
-            </button>
-            <label>Английская реплика — можно отредактировать
-              <textarea className="english-output" rows={3} value={english} onChange={event => setEnglish(event.target.value)} placeholder="Готовая реплика появится здесь…" />
-            </label>
-            <button className="copy-button" disabled={!english.trim()} onClick={() => void copyEnglish()}>Скопировать для WoW (Ctrl+V)</button>
-          </section>
-        )}
-        <section className="playback">
-          <div className="section-heading"><span>Последняя запись</span><span>{fileSize ? formatSize(fileSize) : 'Пока пусто'}</span></div>
-          {audioUrl ? (
-            <>
-              <audio key={audioUrl} controls src={audioUrl} preload="metadata" />
-              <button className="secondary-button" onClick={() => void save()}>Сохранить аудиофайл</button>
-            </>
-          ) : (
-            <div className="empty-recording">Здесь появится возможность прослушать свою запись.</div>
-          )}
-        </section>
-        {notice && <div className="notice" title={notice}>{notice}</div>}
-        {(!shortcuts.panel || !shortcuts.recording || !shortcuts.move) && (
-          <div className="warning">Одна из горячих клавиш занята другой программой. Попробуй кнопку записи или освободи сочетание.</div>
-        )}
-      </main>
-      <footer className="panel-footer">
-        <span>🔒 Аудио локально без ключа · с ключом → OpenAI</span>
-        <button className="quit-button" onClick={() => window.inCharacter.quit()}>Выйти</button>
-      </footer>
-    </div>
-  );
+          <p className="tiny">Записи отправляются в OpenAI только после добавления ключа. Оплата API отдельно от ChatGPT.</p>
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>Микрофон</strong></div>
+          <label className="toggle-line">
+            <input type="checkbox" checked={micProcessing} disabled={inProgress} onChange={event => {
+              setMicProcessing(event.target.checked);
+              localStorage.setItem('mic-processing', String(event.target.checked));
+            }} />
+            <span>Подавление шума, эха и автоусиление<small>По умолчанию выключено — голос звучит естественнее.</small></span>
+          </label>
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>Оверлей</strong></div>
+          <div className="setting-row"><div>Переместить индикатор<small>Позиция сохранится после перезапуска.</small></div>
+            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}>Переместить ↗</button>
+          </div>
+          <div className="keyboard-description">{shortcuts.hold ? 'Удерживай' : 'Нажимай'} Ctrl + Shift + Space для записи. Ctrl + Shift + O открывает панель, Ctrl + Shift + M перемещает HUD.</div>
+          {!shortcuts.hold && <p className="tiny warning-text">Windows-компонент удержания недоступен: используется режим переключения записи.</p>}
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>Стоимость текущей сессии</strong></div>
+          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{history.length} записей</span></div>
+          <p>Оценка: аудио по $0.006/мин + фактическое число текстовых токенов. Окончательные списания смотри в OpenAI Usage.</p>
+          <button className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>Открыть OpenAI Usage ↗</button>
+        </div>
+      </section>}
+    </main>
+    <footer className="bottom-bar">
+      <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message}</span>
+      <button type="button" title="Завершить приложение" onClick={() => window.inCharacter.quit()}>Выйти</button>
+    </footer>
+  </div>;
 }
