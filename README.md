@@ -10,7 +10,7 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 2. Download the **InCharacter-Windows** artifact ZIP, extract the complete folder and launch `InCharacter.exe`.
 3. Use borderless/fullscreen-windowed mode for predictable overlays. The app requires no locally installed Visual Studio or Node.js.
 
-**v0.6.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
+**v0.7.0** is a development build, not a signed release. Microphone, Windows display behavior and hotkeys still need real-machine testing. SmartScreen may display an unknown-publisher warning.
 
 ## What it does
 
@@ -19,13 +19,13 @@ InCharacter is a Windows voice companion for roleplayers. Hold a shortcut while 
 - **OpenAI voice processing:** `gpt-4o-transcribe` + `gpt-4.1-mini`. A valid separate OpenAI API key and API billing are required for processing.
 - **Reply language:** type any target language into a plain text field; English by default. **Input speech can be in another language or mixed languages.**
 - **Interface language:** Russian, English, French, Spanish or German. Independent of the reply language.
-- **Character and situation:** these fields accept natural language (including Russian and local game terminology). They provide context for name recognition and clarify the speaker's intent. There is no hardcoded game setting or dialect in the core prompt.
+- **Additional context:** one optional multiline field for any situational prompt, character description, game terms or contextual notes. Existing character and situation values are migrated into it automatically on first launch of v0.7.0. The neutral core prompt stays independent of any game.
 
-**Speech presets:** a selected optional JSON preset provides a stylistic voice for the final output. Presets never rewrite the original transcript and must not change the content of what was said. Bundled examples include Dwarven voice, Pirate voice and Courtly speech. No preset is the default.
+**Speech presets:** select a preset on the **Reply** screen. Preset management (open folder / reload) is in Settings. An optional JSON preset provides a stylistic voice for the final output. Presets never rewrite the original transcript and must not change the content of what was said. Bundled examples include Dwarven voice, Pirate voice and Courtly speech. No preset is the default.
 - **Draft editor:** review original transcription and final RP sentence, correct them and manually copy.
 - **History:** the last 15 recordings (audio, text, estimated cost) in this session. History is cleared when the application quits.
 - **Settings:** protected API key, audio processing, **speech presets**, move HUD and shortcut editor.
-- **Compact click-through HUD:** two text lines (product name and dynamic status) with recording/processing/success indicator.
+- **Compact click-through HUD:** tiny ~254×54 px two-line status with recording/processing/success indicator. On Windows, native window shaping clips opaque corner pixels, and a reduced window opacity makes the HUD translucent without disturbing the main editor's full opacity.
 - **Position persistence:** separate HUD and panel positions on disk.
 
 ## Customizable shortcuts
@@ -60,7 +60,7 @@ Each JSON file contains `schemaVersion`, `id`, `name`, `description`, `instructi
 
 ## Position and focus
 
-The Windows app uses a **non-transparent, frameless** window with native rounded corners (where supported) to work around Electron / DWM focus-loss artifacts. The HUD ignores mouse clicks until move mode is enabled. The positioning fix is experimental and needs user testing on Windows 11.
+The Windows app uses a **non-transparent, frameless** window with native rounded-region clipping via Electron `setShape` and adjusted opacity per mode. The HUD is deliberately translucent; the main panel stays opaque. This avoids relying on the problematic fully transparent Windows 11 window mode. The HUD ignores mouse clicks until move mode is enabled. The positioning fix is experimental and needs user testing on Windows 11.
 
 Both positions are stored in Electron's application data folder as `window-positions.json`. Shortcut settings use `shortcuts.json`. API keys are stored encrypted using Electron `safeStorage` on Windows (DPAPI).
 

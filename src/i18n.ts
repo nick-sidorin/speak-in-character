@@ -251,7 +251,15 @@ const strings = {
     "presetFolderError": "Не удалось открыть папку пресетов: ",
     "presetLoadError": "Не удалось загрузить пресеты: ",
     "presetMissing": "Выбранный пресет не найден. Обнови список или выбери другой.",
-    "presetActive": "Активный пресет"
+    "presetActive": "Активный пресет",
+    "additionalContextLabel": "Дополнительный контекст",
+    "additionalContextPlaceholder": "Например: я весёлый дворф, говорю с давним знакомым. Используй имена и названия из текущего разговора. Можешь написать здесь любой ситуативный промпт.",
+    "presetLabel": "Манера речи",
+    "presetManageHint": "Здесь можно добавить свои JSON-пресеты. Активный пресет выбирается на экране «Реплика».",
+    "phaseHoldVerb": "Удерживай",
+    "phaseTapVerb": "Нажми",
+    "historyEmptyAction": "Запиши первую реплику:",
+    "hudMoveShort": "Перетащи окно"
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -380,7 +388,15 @@ const strings = {
     "presetFolderError": "Couldn't open presets folder: ",
     "presetLoadError": "Couldn't load presets: ",
     "presetMissing": "Selected preset not found. Reload or choose another.",
-    "presetActive": "Active preset"
+    "presetActive": "Active preset",
+    "additionalContextLabel": "Additional context",
+    "additionalContextPlaceholder": "For example: I'm a cheerful dwarf, talking to an old friend. Add any situational notes or character instructions.",
+    "presetLabel": "Speaking style",
+    "presetManageHint": "Add your own JSON presets here. Choose the active preset on the Reply screen.",
+    "phaseHoldVerb": "Hold",
+    "phaseTapVerb": "Press",
+    "historyEmptyAction": "Record your first line:",
+    "hudMoveShort": "Drag to move"
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -509,7 +525,15 @@ const strings = {
     "presetFolderError": "Impossible d'ouvrir le dossier : ",
     "presetLoadError": "Impossible de charger les styles : ",
     "presetMissing": "Style introuvable. Actualisez ou changez-le.",
-    "presetActive": "Style actif"
+    "presetActive": "Style actif",
+    "additionalContextLabel": "Contexte supplémentaire",
+    "additionalContextPlaceholder": "Par exemple : je suis un nain joyeux et je parle à un vieil ami. Ajoutez vos instructions de contexte.",
+    "presetLabel": "Style de parole",
+    "presetManageHint": "Ajoutez vos presets JSON ici. Choisissez le style actif sur l'écran Réplique.",
+    "phaseHoldVerb": "Maintenez",
+    "phaseTapVerb": "Appuyez sur",
+    "historyEmptyAction": "Enregistrez votre première réplique :",
+    "hudMoveShort": "Faites glisser"
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -638,7 +662,15 @@ const strings = {
     "presetFolderError": "No se pudo abrir la carpeta: ",
     "presetLoadError": "No se pudieron cargar los estilos: ",
     "presetMissing": "Estilo no encontrado. Actualiza o elige otro.",
-    "presetActive": "Estilo activo"
+    "presetActive": "Estilo activo",
+    "additionalContextLabel": "Contexto adicional",
+    "additionalContextPlaceholder": "Por ejemplo: soy un enano alegre hablando con un viejo amigo. Añade notas o instrucciones.",
+    "presetLabel": "Estilo de habla",
+    "presetManageHint": "Añade tus presets JSON aquí. Elige el estilo activo en Mensaje.",
+    "phaseHoldVerb": "Mantén",
+    "phaseTapVerb": "Pulsa",
+    "historyEmptyAction": "Graba tu primer mensaje:",
+    "hudMoveShort": "Arrastra para mover"
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -767,7 +799,15 @@ const strings = {
     "presetFolderError": "Preset-Ordner konnte nicht geöffnet werden: ",
     "presetLoadError": "Presets konnten nicht geladen werden: ",
     "presetMissing": "Preset nicht gefunden. Neu laden oder anderes wählen.",
-    "presetActive": "Aktives Preset"
+    "presetActive": "Aktives Preset",
+    "additionalContextLabel": "Zusätzlicher Kontext",
+    "additionalContextPlaceholder": "Zum Beispiel: Ich bin ein fröhlicher Zwerg und spreche mit einem alten Freund. Zusätzliche Hinweise.",
+    "presetLabel": "Sprechstil",
+    "presetManageHint": "Hier eigene JSON-Presets hinzufügen. Das aktive Preset auf der Nachrichtenseite wählen.",
+    "phaseHoldVerb": "Halten:",
+    "phaseTapVerb": "Drücken:",
+    "historyEmptyAction": "Erste Nachricht aufnehmen:",
+    "hudMoveShort": "Zum Verschieben ziehen"
   }
 } as const;
 
