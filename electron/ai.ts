@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePreset } from './presets';
 
-type AiContext = { character: string; situation: string; targetLanguage: string; presetId: string };
+type AiContext = { additionalContext: string; targetLanguage: string; presetId: string };
 export type RewriteResult = { text: string; estimatedTextCostUsd: number };
 export type VoiceResult = { transcript: string; translated: string; estimatedTextCostUsd: number };
 export type VoicePayload = AiContext & { bytes: Uint8Array; mimeType: string };
@@ -60,8 +60,8 @@ function instructions(targetLanguage: string): string {
     `Turn the speaker's transcribed words into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
     'The speaker may use any language or mix languages. Understand the words first; then express the same message in the target language.',
     'Preserve the speaker\'s meaning, facts, perspective, intent, humor and emotional tone. Never invent claims, actions, names or additional dialogue.',
-    'Character description and an optional style preset define the VOICE of the finished message: vocabulary, register, idioms and contractions. If a style preset is selected, apply it distinctly and recognizably in the final wording rather than only slightly changing formality. Still prioritize natural readability and do not change content.',
-    'The situation field helps disambiguate proper nouns, places and terminology; it must not supply a new story or change the meaning of the input.',
+    'The optional additional context may describe the character, speaking style, conversation, or important words. When it specifies a style, apply it to the final message. A selected style preset may further define vocabulary, register, idioms and contractions; make that style recognizable without distorting meaning or readability.',
+    'Additional context helps disambiguate proper nouns, places and terminology; it must not supply a new story or change the meaning of the input.',
     'Use established canonical localized proper names only when confidently known. If uncertain, preserve the original name rather than invent a translation.',
     'No default dialect, game lore or character stereotype. Without style guidance, use natural language matching the original register.',
     'Output only the final message, with no prefacing, explanation or surrounding quotation marks.',
@@ -87,8 +87,7 @@ export async function rewriteSpeech(
       messages: [
         { role: 'system', content: instructions(targetLanguage) },
         { role: 'user', content: JSON.stringify({
-          character: cleanContext(context.character, 700),
-          situation: cleanContext(context.situation, 700),
+          additionalContext: cleanContext(context.additionalContext, 1600),
           targetLanguage,
           stylePreset: preset ? {
             name: preset.name.en,
@@ -129,8 +128,7 @@ export async function processVoice(payload: VoicePayload): Promise<VoiceResult> 
   form.append('prompt', [
     'Speech may be in any language, or a mixture. Transcribe it in the original language(s). Preserve code-switching; do not translate.',
     preset?.recognitionHints || '',
-    cleanContext(payload.character, 400),
-    cleanContext(payload.situation, 400),
+    cleanContext(payload.additionalContext, 650),
   ].filter(Boolean).join(' ').slice(0, 1000));
   const response = await openAiFetch('https://api.openai.com/v1/audio/transcriptions', key, {
     method: 'POST',
