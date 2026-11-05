@@ -114,8 +114,13 @@ export default function App() {
   const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [keyBusy, setKeyBusy] = useState(false);
   const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
-  const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
-  const [situation, setSituation] = useState(() => localStorage.getItem('situation') || '');
+  const [additionalContext, setAdditionalContext] = useState(() => {
+    const saved = localStorage.getItem('additional-context');
+    if (saved !== null) return saved;
+    // Preserve prompts from previous InCharacter versions.
+    return [localStorage.getItem('character'), localStorage.getItem('situation')]
+      .map(value => value?.trim()).filter(Boolean).join('\n');
+  });
   const [presetId, setPresetId] = useState(() => localStorage.getItem('speech-preset') || '');
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [presetError, setPresetError] = useState('');
@@ -146,7 +151,7 @@ export default function App() {
   const phaseRef = useRef<Phase>('idle');
   const processingRef = useRef(false);
   const hasKeyRef = useRef(false);
-  const contextRef = useRef({ character, situation, targetLanguage: replyLanguage, presetId });
+  const contextRef = useRef({ additionalContext, targetLanguage: replyLanguage, presetId });
   const micRef = useRef(micProcessing);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -166,7 +171,7 @@ export default function App() {
   const upRef = useRef<() => void>(() => {});
   const processRef = useRef<(blob: Blob, id: number, duration: number) => Promise<void>>(async () => {});
 
-  contextRef.current = { character, situation, targetLanguage: replyLanguage, presetId };
+  contextRef.current = { additionalContext, targetLanguage: replyLanguage, presetId };
   micRef.current = micProcessing;
   hasKeyRef.current = hasKey;
 
@@ -354,6 +359,9 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (localStorage.getItem('additional-context') === null) {
+      localStorage.setItem('additional-context', additionalContext);
+    }
     window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
     void window.inCharacter.listPresets().then(values => {
       setPresets(values);
@@ -580,7 +588,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.6.0</span></div>
+        <div className="brand-name">InCharacter <span>0.7.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
@@ -613,32 +621,45 @@ export default function App() {
             }}
           />
         </div>
-        <div className="context-fields">
-          <label>
-            <span>{tr('charLabel')}</span>
-            <input value={character} placeholder="Corvin Sidwell, human, Stormwind…" onChange={event => {
-              setCharacter(event.target.value);
-              localStorage.setItem('character', event.target.value);
-            }} />
-          </label>
-          <label>
-            <span>{tr('situLabel')}</span>
-            <input value={situation} placeholder="Goldshire, talking to Borin…" onChange={event => {
-              setSituation(event.target.value);
-              localStorage.setItem('situation', event.target.value);
-            }} />
-          </label>
+        <div className="rp-preset-row">
+          <label htmlFor="speech-preset">{tr('presetLabel')}</label>
+          <select
+            id="speech-preset"
+            value={presetId}
+            onChange={event => selectPreset(event.target.value)}
+          >
+            <option value="">{tr('presetNone')}</option>
+            {presets.map(preset => (
+              <option key={preset.id} value={preset.id}>
+                {localizedPresetText(preset.name, uiLanguage)}
+              </option>
+            ))}
+            {presetId && !selectedPreset && !presetsLoading &&
+              <option value={presetId}>{tr('presetMissing')}</option>}
+          </select>
         </div>
-        {selectedPreset && <div className="active-preset-note">
-          <span>{tr('presetActive')}:</span> {localizedPresetText(selectedPreset.name, uiLanguage)}
-        </div>}
-        {presetId && !selectedPreset && !presetsLoading &&
-          <div className="preset-missing">{tr('presetMissing')}</div>}
-
+        <div className="additional-context">
+          <label htmlFor="additional-context">{tr('additionalContextLabel')}</label>
+          <textarea
+            id="additional-context"
+            rows={3}
+            value={additionalContext}
+            placeholder={tr('additionalContextPlaceholder')}
+            onChange={event => {
+              setAdditionalContext(event.target.value);
+              localStorage.setItem('additional-context', event.target.value);
+            }}
+          />
+        </div>
         <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
           <div className="status-figure"><StateIcon phase={phase} language={uiLanguage} /></div>
           <div className="record-label">
-            <strong>{phaseLabel(phase, shortcuts.hold, uiLanguage)}</strong>
+            <strong className="record-main-status">
+              {phase === 'idle' ? <>
+                {tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb')}
+                <KeyCaps value={keyBindings.record}/>
+              </> : phaseLabel(phase, shortcuts.hold, uiLanguage)}
+            </strong>
             <small>{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</small>
           </div>
           <span className="record-timer">{clock(elapsed)}</span>
@@ -691,7 +712,7 @@ export default function App() {
           <h1>{tr('historyTitle')}</h1>
           <p>{tr('historySub')}</p>
         </div>
-        {history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span>{tr('historyEmptyHint')}</span></div>
+        {history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span className="empty-history-shortcut">{tr('historyEmptyAction')} <KeyCaps value={keyBindings.record}/></span></div>
           : <div className="history-list">
             {history.map(item => <div className={'history-item ' + (activeId === item.id ? 'current' : '')} key={item.id}>
               <div className="history-row">
@@ -729,29 +750,7 @@ export default function App() {
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('presetTitle')}</strong></div>
-          <p>{tr('presetIntro')}</p>
-          <div className="preset-options">
-            <button type="button" className={'preset-option ' + (!presetId ? 'chosen' : '')}
-              onClick={() => selectPreset('')}>
-              <span className="preset-option-text">
-                <strong>{tr('presetNone')}</strong>
-                <small>{tr('presetNoneDesc')}</small>
-              </span>
-              {!presetId && <Check size={17} strokeWidth={2.5}/>}
-            </button>
-            {presets.map(preset => <button type="button" key={preset.id}
-              className={'preset-option ' + (presetId === preset.id ? 'chosen' : '')}
-              onClick={() => selectPreset(preset.id)}>
-              <span className="preset-option-text">
-                <strong>{localizedPresetText(preset.name, uiLanguage)}</strong>
-                <small>{localizedPresetText(preset.description, uiLanguage)}</small>
-              </span>
-              <span className="preset-option-right">
-                <small>{tr(preset.source === 'custom' ? 'presetCustom' : 'presetBuiltIn')}</small>
-                {presetId === preset.id && <Check size={17} strokeWidth={2.5}/>}
-              </span>
-            </button>)}
-          </div>
+          <p>{tr('presetManageHint')}</p>
           <div className="preset-actions">
             <button type="button" className="outline-btn" onClick={() => void openPresetsFolder()}>
               {tr('presetFolder')}
