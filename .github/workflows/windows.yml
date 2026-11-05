@@ -1,8 +1,7 @@
 name: Windows build
 
+# Builds are deliberately manual while iterating, to avoid noisy failed-build emails.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
