@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
   onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean; hold: boolean }) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
-      status: { recording: boolean; panel: boolean; move: boolean },
+      status: { recording: boolean; panel: boolean; move: boolean; hold: boolean },
     ) => callback(status);
     ipcRenderer.on('app:shortcuts', listener);
     return () => ipcRenderer.removeListener('app:shortcuts', listener);
