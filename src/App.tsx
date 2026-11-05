@@ -6,6 +6,17 @@ type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
 type Phase = 'idle' | 'requesting' | 'recording' | 'finalizing' | 'processing' | 'ready' | 'error';
 
+type PresetInfo = {
+  id: string;
+  name: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+  description: { en: string; ru?: string; fr?: string; es?: string; de?: string };
+  source: 'built-in' | 'custom';
+};
+
+function localizedPresetText(text: PresetInfo['name'], language: InterfaceLanguage): string {
+  return text[language] || text.en;
+}
+
 type RecordEntry = {
   id: number;
   createdAt: number;
@@ -15,6 +26,7 @@ type RecordEntry = {
   transcript: string;
   english: string;
   targetLanguage: string;
+  presetId: string;
   estimatedTextCostUsd: number;
   transcriptionCostUsd: number;
 };
@@ -104,6 +116,10 @@ export default function App() {
   const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
   const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
   const [situation, setSituation] = useState(() => localStorage.getItem('situation') || '');
+  const [presetId, setPresetId] = useState(() => localStorage.getItem('speech-preset') || '');
+  const [presets, setPresets] = useState<PresetInfo[]>([]);
+  const [presetError, setPresetError] = useState('');
+  const [presetsLoading, setPresetsLoading] = useState(true);
   const [uiLanguage, setUiLanguage] = useState<InterfaceLanguage>(() => {
     const stored = localStorage.getItem('interface-language');
     return INTERFACE_LANGUAGES.find(item => item.value === stored)?.value ?? 'ru';
@@ -130,7 +146,7 @@ export default function App() {
   const phaseRef = useRef<Phase>('idle');
   const processingRef = useRef(false);
   const hasKeyRef = useRef(false);
-  const contextRef = useRef({ character, situation, targetLanguage: replyLanguage });
+  const contextRef = useRef({ character, situation, targetLanguage: replyLanguage, presetId });
   const micRef = useRef(micProcessing);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -150,7 +166,7 @@ export default function App() {
   const upRef = useRef<() => void>(() => {});
   const processRef = useRef<(blob: Blob, id: number, duration: number) => Promise<void>>(async () => {});
 
-  contextRef.current = { character, situation, targetLanguage: replyLanguage };
+  contextRef.current = { character, situation, targetLanguage: replyLanguage, presetId };
   micRef.current = micProcessing;
   hasKeyRef.current = hasKey;
 
@@ -285,6 +301,7 @@ export default function App() {
           transcript: '',
           english: '',
           targetLanguage: contextRef.current.targetLanguage,
+          presetId: contextRef.current.presetId,
           estimatedTextCostUsd: 0,
           transcriptionCostUsd: 0,
         };
@@ -338,6 +355,11 @@ export default function App() {
 
   useEffect(() => {
     window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
+    void window.inCharacter.listPresets().then(values => {
+      setPresets(values);
+      setPresetError('');
+    }).catch(error => setPresetError(error instanceof Error ? error.message : String(error)))
+      .finally(() => setPresetsLoading(false));
     void window.inCharacter.getShortcuts().then(result => {
       setKeyBindings(result.shortcuts);
       setShortcuts(result.status);
@@ -367,6 +389,33 @@ export default function App() {
       urlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
+
+  async function reloadPresets() {
+    setPresetsLoading(true);
+    try {
+      const items = await window.inCharacter.listPresets();
+      setPresets(items);
+      setPresetError('');
+      setMessage(tr('presetReloaded'));
+    } catch (error) {
+      setPresetError(tr('presetLoadError') + errorText(error, uiLanguage));
+    } finally {
+      setPresetsLoading(false);
+    }
+  }
+
+  async function openPresetsFolder() {
+    try {
+      await window.inCharacter.openPresetsFolder();
+    } catch (error) {
+      setPresetError(tr('presetFolderError') + errorText(error, uiLanguage));
+    }
+  }
+
+  function selectPreset(id: string) {
+    setPresetId(id);
+    localStorage.setItem('speech-preset', id);
+  }
 
   async function saveKey() {
     if (!apiKeyDraft.trim()) return;
@@ -464,6 +513,7 @@ export default function App() {
     setEnglish(item.english);
     setReplyLanguageInput(item.targetLanguage);
     localStorage.setItem('reply-language', item.targetLanguage);
+    selectPreset(item.presetId || '');
     setTab('rp');
   }
 
@@ -495,6 +545,7 @@ export default function App() {
     }
   };
 
+  const selectedPreset = presets.find(item => item.id === presetId);
   const sessionCost = history.reduce((sum, entry) =>
     sum + entry.transcriptionCostUsd + entry.estimatedTextCostUsd, 0);
   const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
@@ -529,7 +580,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.5.0</span></div>
+        <div className="brand-name">InCharacter <span>0.6.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
@@ -578,6 +629,11 @@ export default function App() {
             }} />
           </label>
         </div>
+        {selectedPreset && <div className="active-preset-note">
+          <span>{tr('presetActive')}:</span> {localizedPresetText(selectedPreset.name, uiLanguage)}
+        </div>}
+        {presetId && !selectedPreset && !presetsLoading &&
+          <div className="preset-missing">{tr('presetMissing')}</div>}
 
         <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
           <div className="status-figure"><StateIcon phase={phase} language={uiLanguage} /></div>
@@ -670,6 +726,41 @@ export default function App() {
           }}>
             {INTERFACE_LANGUAGES.map(language => <option value={language.value} key={language.value}>{language.label}</option>)}
           </select>
+        </div>
+        <div className="settings-section">
+          <div className="settings-heading"><strong>{tr('presetTitle')}</strong></div>
+          <p>{tr('presetIntro')}</p>
+          <div className="preset-options">
+            <button type="button" className={'preset-option ' + (!presetId ? 'chosen' : '')}
+              onClick={() => selectPreset('')}>
+              <span className="preset-option-text">
+                <strong>{tr('presetNone')}</strong>
+                <small>{tr('presetNoneDesc')}</small>
+              </span>
+              {!presetId && <Check size={17} strokeWidth={2.5}/>}
+            </button>
+            {presets.map(preset => <button type="button" key={preset.id}
+              className={'preset-option ' + (presetId === preset.id ? 'chosen' : '')}
+              onClick={() => selectPreset(preset.id)}>
+              <span className="preset-option-text">
+                <strong>{localizedPresetText(preset.name, uiLanguage)}</strong>
+                <small>{localizedPresetText(preset.description, uiLanguage)}</small>
+              </span>
+              <span className="preset-option-right">
+                <small>{tr(preset.source === 'custom' ? 'presetCustom' : 'presetBuiltIn')}</small>
+                {presetId === preset.id && <Check size={17} strokeWidth={2.5}/>}
+              </span>
+            </button>)}
+          </div>
+          <div className="preset-actions">
+            <button type="button" className="outline-btn" onClick={() => void openPresetsFolder()}>
+              {tr('presetFolder')}
+            </button>
+            <button type="button" className="outline-btn" disabled={presetsLoading} onClick={() => void reloadPresets()}>
+              <RefreshCw size={14} strokeWidth={2}/>{tr('presetReload')}
+            </button>
+          </div>
+          {presetError && <p className="preset-error">{presetError}</p>}
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\s*/, '')}</span></div>
