@@ -33,6 +33,61 @@ type RecordEntry = {
 
 const TRANSCRIPTION_PER_MINUTE = 0.006;
 const MAX_HISTORY = 15;
+// Short accidental taps never create a history entry or incur API charges.
+const MIN_RECORDING_MS = 700;
+// A deliberately conservative local silence gate: it detects near-silence,
+// not actual words. Anything ambiguous is still sent to transcription.
+const SILENCE_CHECK_MIN_MS = 1200;
+const MIN_SIGNAL_RMS = 0.0045;
+type AudioLevelSummary = { samples: number; audibleSamples: number; maxRms: number };
+
+function startAudioLevelMonitor(stream: MediaStream):
+  { summary: AudioLevelSummary; stop: () => void } | null {
+  try {
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser); // Do not connect to speakers.
+    const samples = new Float32Array(analyser.fftSize);
+    const summary: AudioLevelSummary = { samples: 0, audibleSamples: 0, maxRms: 0 };
+    const interval = setInterval(() => {
+      if (context.state !== 'running') return;
+      analyser.getFloatTimeDomainData(samples);
+      let energy = 0;
+      for (let index = 0; index < samples.length; index++) {
+        energy += samples[index] * samples[index];
+      }
+      const rms = Math.sqrt(energy / samples.length);
+      summary.samples++;
+      summary.maxRms = Math.max(summary.maxRms, rms);
+      if (rms >= MIN_SIGNAL_RMS) summary.audibleSamples++;
+    }, 45);
+    void context.resume().catch(() => {
+      // If audio analysis is unavailable, leave the decision to transcription.
+    });
+    return {
+      summary,
+      stop: () => {
+        clearInterval(interval);
+        source.disconnect();
+        void context.close().catch(() => {});
+      },
+    };
+  } catch (error) {
+    console.warn('Microphone level analysis unavailable:', error);
+    return null;
+  }
+}
+
+function shouldDiscardSilentRecording(durationMs: number, summary: AudioLevelSummary | null): boolean {
+  // If the browser suspended its AudioContext, do not discard unanalysed speech.
+  return durationMs >= SILENCE_CHECK_MIN_MS &&
+    summary !== null &&
+    summary.samples >= 8 &&
+    summary.audibleSamples === 0 &&
+    summary.maxRms < MIN_SIGNAL_RMS;
+}
 
 function clock(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -156,6 +211,9 @@ export default function App() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startedRef = useRef(0);
+  const recordedDurationRef = useRef(0);
+  const audioLevelMonitorRef = useRef<ReturnType<typeof startAudioLevelMonitor>>(null);
+  const draftRef = useRef({ original, english });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingReleaseRef = useRef(false);
   const holdActiveRef = useRef(false);
@@ -174,6 +232,7 @@ export default function App() {
   contextRef.current = { additionalContext, targetLanguage: replyLanguage, presetId };
   micRef.current = micProcessing;
   hasKeyRef.current = hasKey;
+  draftRef.current = { original, english };
 
   function setPhase(next: Phase) {
     phaseRef.current = next;
@@ -183,6 +242,18 @@ export default function App() {
   function stopClock() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
+  }
+
+  function stopAudioLevelMonitor() {
+    audioLevelMonitorRef.current?.stop();
+    audioLevelMonitorRef.current = null;
+  }
+
+  function discardUnusableRecording(reason: TranslationKey) {
+    // Do not replace the player's previous draft or add anything to history.
+    setPhase(draftRef.current.english.trim() ? 'ready' : 'idle');
+    setMessage(tr(reason));
+    setElapsed(0);
   }
 
   function changeEntry(id: number, changes: Partial<RecordEntry>) {
@@ -239,9 +310,11 @@ export default function App() {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
 
-    setElapsed(Date.now() - startedRef.current);
+    recordedDurationRef.current = Date.now() - startedRef.current;
+    setElapsed(recordedDurationRef.current);
     stopClock();
     setPhase('finalizing');
+    stopAudioLevelMonitor();
     recorder.stop();
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
@@ -255,8 +328,7 @@ export default function App() {
       return;
     }
     pendingReleaseRef.current = false;
-    setOriginal('');
-    setEnglish('');
+    recordedDurationRef.current = 0;
     setElapsed(0);
     setPhase('requesting');
     setMessage(tr('msgMicAccess'));
@@ -276,10 +348,14 @@ export default function App() {
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recorderRef.current = recorder;
       const chunks: Blob[] = [];
+      audioLevelMonitorRef.current = startAudioLevelMonitor(stream);
+      // Retain the collected levels after the microphone is released.
+      const levels = audioLevelMonitorRef.current?.summary ?? null;
 
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
       recorder.onerror = () => {
         stopClock();
+        stopAudioLevelMonitor();
         stream.getTracks().forEach(track => track.stop());
         streamRef.current = null;
         processingRef.current = false;
@@ -287,16 +363,26 @@ export default function App() {
         setMessage(tr('msgMicError'));
       };
       recorder.onstop = () => {
+        const duration = recordedDurationRef.current || (Date.now() - startedRef.current);
+        // These checks happen BEFORE Blob creation, history insertion, and OpenAI.
+        if (duration < MIN_RECORDING_MS) {
+          discardUnusableRecording('msgRecordingTooShort');
+          return;
+        }
+        if (shouldDiscardSilentRecording(duration, levels)) {
+          discardUnusableRecording('msgRecordingSilent');
+          return;
+        }
         const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
         if (!blob.size) {
-          setPhase('error');
-          setMessage(tr('msgEmpty'));
+          discardUnusableRecording('msgEmpty');
           return;
         }
         const url = URL.createObjectURL(blob);
         urlsRef.current.add(url);
         const id = ++idCounterRef.current;
-        const duration = Date.now() - startedRef.current;
+        setOriginal('');
+        setEnglish('');
         const item: RecordEntry = {
           id,
           url,
@@ -326,6 +412,7 @@ export default function App() {
       }
     } catch (error) {
       stopClock();
+      stopAudioLevelMonitor();
       streamRef.current?.getTracks().forEach(track => track.stop());
       streamRef.current = null;
       setPhase('error');
@@ -393,6 +480,7 @@ export default function App() {
       offMove();
       offShortcuts();
       stopClock();
+      stopAudioLevelMonitor();
       streamRef.current?.getTracks().forEach(track => track.stop());
       urlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
@@ -588,7 +676,7 @@ export default function App() {
     >
       <div className="monogram">ic</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.8.0</span></div>
+        <div className="brand-name">InCharacter <span>0.8.1</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
