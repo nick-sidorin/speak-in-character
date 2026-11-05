@@ -17,10 +17,15 @@ import { join } from 'node:path';
 type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
-const HUD = { width: 370, height: 116 };
+const HUD = { width: 314, height: 84 };
 const PANEL = { width: 520, height: 705 };
 type ShortcutSettings = { record: string; panel: string; move: string };
 const DEFAULT_SHORTCUTS: ShortcutSettings = {
+  record: 'CapsLock',
+  panel: 'Ctrl+Shift+O',
+  move: 'Ctrl+Shift+M',
+};
+const LEGACY_SHORTCUTS: ShortcutSettings = {
   record: 'Ctrl+Shift+Space',
   panel: 'Ctrl+Shift+O',
   move: 'Ctrl+Shift+M',
@@ -28,9 +33,15 @@ const DEFAULT_SHORTCUTS: ShortcutSettings = {
 let shortcuts: ShortcutSettings = { ...DEFAULT_SHORTCUTS };
 const shortcutFile = join(app.getPath('userData'), 'shortcuts.json');
 
+const STANDARD_KEYS = new Set([
+  'Space','CapsLock','Tab','Enter','Backspace','Escape',
+  'Delete','Insert','Home','End','PageUp','PageDown',
+  'ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
+]);
+
 function normalizeShortcut(input: string): string {
-  if (typeof input !== 'string') throw new Error('Неверное сочетание клавиш.');
-  const parts = input.split('+').map(part => part.trim());
+  if (typeof input !== 'string' || input.length > 64) throw new Error('Некорректное сочетание клавиш.');
+  const parts = input.split('+').map(part => part.trim()).filter(Boolean);
   const modifiers = new Set<string>();
   let key = '';
   for (const part of parts) {
@@ -38,29 +49,38 @@ function normalizeShortcut(input: string): string {
     if (lowered === 'ctrl' || lowered === 'control') modifiers.add('Ctrl');
     else if (lowered === 'shift') modifiers.add('Shift');
     else if (lowered === 'alt') modifiers.add('Alt');
-    else if (!key && (/^[A-Za-z0-9]$/.test(part) || /^F(?:[1-9]|1[0-2])$/i.test(part) || lowered === 'space')) {
-      key = lowered === 'space' ? 'Space' : part.toUpperCase();
-    } else throw new Error('Сочетание должно состоять из модификатора и одной клавиши A–Z, 0–9, F1–F12 или Space.');
+    else if (!key && (/^[a-z0-9]$/i.test(part) || /^f(?:[1-9]|1[0-2])$/i.test(part))) {
+      key = part.toUpperCase();
+    } else if (!key && [...STANDARD_KEYS].some(k => k.toLowerCase() === lowered)) {
+      key = [...STANDARD_KEYS].find(k => k.toLowerCase() === lowered)!;
+    } else {
+      throw new Error('Используй одну клавишу или сочетание с Ctrl, Alt и Shift.');
+    }
   }
-  if (!modifiers.size || !key) throw new Error('Нужно указать модификатор и основную клавишу.');
-  return [...['Ctrl','Alt','Shift'].filter(v=>modifiers.has(v)),key].join('+');
+  if (!key) throw new Error('Назначь основную клавишу (одиночные Ctrl/Alt/Shift не поддерживаются).');
+  return [...['Ctrl','Alt','Shift'].filter(v => modifiers.has(v)),key].join('+');
 }
 
 function validateShortcuts(input: ShortcutSettings): ShortcutSettings {
-  if (!input || typeof input !== 'object') throw new Error('Некорректные настройки горячих клавиш.');
-  const result = {
+  if (!input || typeof input !== 'object') throw new Error('Некорректные настройки клавиш.');
+  const next = {
     record: normalizeShortcut(input.record),
     panel: normalizeShortcut(input.panel),
     move: normalizeShortcut(input.move),
   };
-  if (new Set(Object.values(result)).size !== 3) throw new Error('Для трёх действий нужны разные сочетания клавиш.');
-  return result;
+  if (new Set(Object.values(next)).size !== 3) throw new Error('У разных действий должны быть разные клавиши.');
+  return next;
 }
 
 function loadShortcuts() {
   try {
     if (existsSync(shortcutFile)) {
       shortcuts = validateShortcuts(JSON.parse(readFileSync(shortcutFile, 'utf8')));
+      if (Object.keys(shortcuts).every(action =>
+        shortcuts[action as keyof ShortcutSettings] === LEGACY_SHORTCUTS[action as keyof ShortcutSettings])) {
+        shortcuts = { ...DEFAULT_SHORTCUTS };
+        storeShortcuts();
+      }
     }
   } catch (error) {
     console.warn('Invalid saved shortcuts, using defaults:', error);
@@ -79,6 +99,7 @@ let mode: ViewMode = 'hud';
 let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
 let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
 let isQuitting = false;
+let shortcutCaptureActive = false;
 let hudMoveEnabled = false;
 let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
@@ -268,7 +289,7 @@ function registerToggleFallback() {
   if (!shortcutStatus.hold || isQuitting) return;
   shortcutStatus.hold = false;
   shortcutStatus.recording = globalShortcut.register(shortcuts.record, () => {
-    overlay?.webContents.send('recording:toggle');
+    if (!shortcutCaptureActive) overlay?.webContents.send('recording:toggle');
   });
   reportShortcutStatus();
 }
@@ -281,22 +302,24 @@ function startHoldHelper(): boolean {
   if (!existsSync(binary)) return false;
 
   try {
-    const child = spawn(binary, [shortcuts.record], { windowsHide: true });
+    const child = spawn(binary, [shortcuts.record, shortcuts.panel, shortcuts.move], { windowsHide: true });
     hotkeyHelper = child;
     let buffer = '';
     child.stdout.on('data', (data: Buffer) => {
       buffer += data.toString('utf8');
       let index: number;
       while ((index = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, index).trim();
+        const event = buffer.slice(0, index).trim();
         buffer = buffer.slice(index + 1);
-        if (line === 'DOWN' || line === 'UP') {
-          overlay?.webContents.send(line === 'DOWN' ? 'hotkey:down' : 'hotkey:up');
-        }
+        if (shortcutCaptureActive) continue;
+        if (event === 'RECORD_DOWN') overlay?.webContents.send('hotkey:down');
+        else if (event === 'RECORD_UP') overlay?.webContents.send('hotkey:up');
+        else if (event === 'PANEL_DOWN') changeMode(mode === 'hud' ? 'panel' : 'hud');
+        else if (event === 'MOVE_DOWN') toggleHudMoveMode();
       }
     });
     child.on('error', error => {
-      console.error('Push-to-talk helper error:', error);
+      console.error('Hotkey helper error:', error);
       if (hotkeyHelper === child) {
         hotkeyHelper = null;
         registerToggleFallback();
@@ -310,7 +333,7 @@ function startHoldHelper(): boolean {
     });
     return true;
   } catch (error) {
-    console.error('Unable to launch push-to-talk helper:', error);
+    console.error('Unable to launch hotkey helper:', error);
     return false;
   }
 }
@@ -321,13 +344,15 @@ function registerShortcuts() {
   const hold = startHoldHelper();
   shortcutStatus = {
     recording: hold || globalShortcut.register(shortcuts.record, () => {
-      overlay?.webContents.send('recording:toggle');
+      if (!shortcutCaptureActive) overlay?.webContents.send('recording:toggle');
     }),
     hold,
-    panel: globalShortcut.register(shortcuts.panel, () => {
-      changeMode(mode === 'hud' ? 'panel' : 'hud');
+    panel: hold || globalShortcut.register(shortcuts.panel, () => {
+      if (!shortcutCaptureActive) changeMode(mode === 'hud' ? 'panel' : 'hud');
     }),
-    move: globalShortcut.register(shortcuts.move, toggleHudMoveMode),
+    move: hold || globalShortcut.register(shortcuts.move, () => {
+      if (!shortcutCaptureActive) toggleHudMoveMode();
+    }),
   };
   reportShortcutStatus();
 }
@@ -402,6 +427,10 @@ app.whenReady().then(() => {
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
   ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
+  ipcMain.on('shortcuts:capture', (_event, active: boolean) => {
+    shortcutCaptureActive = active === true;
+    if (shortcutCaptureActive) overlay?.webContents.send('hotkey:up');
+  });
 
   ipcMain.on('app:quit', () => app.quit());
 

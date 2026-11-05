@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
   openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
   getShortcuts: () => ipcRenderer.invoke('shortcuts:get'),
+  setShortcutCapture: (active: boolean) => ipcRenderer.send('shortcuts:capture', active),
   setShortcuts: (value: {record:string;panel:string;move:string}) => ipcRenderer.invoke('shortcuts:set', value),
   setHudMoveMode: (enabled: boolean) => ipcRenderer.send('overlay:move-hud', enabled),
   saveRecording: (payload: { bytes: Uint8Array; extension: 'webm' | 'ogg' }) =>
