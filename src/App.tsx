@@ -94,7 +94,7 @@ export default function App() {
   const [phase, setPhaseState] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [hasKey, setHasKey] = useState(false);
-  const [keyDraft, setKeyDraft] = useState('');
+  const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [keyBusy, setKeyBusy] = useState(false);
   const [micProcessing, setMicProcessing] = useState(() => localStorage.getItem('mic-processing') === 'true');
   const [character, setCharacter] = useState(() => localStorage.getItem('character') || '');
@@ -359,11 +359,11 @@ export default function App() {
   }, []);
 
   async function saveKey() {
-    if (!keyDraft.trim()) return;
+    if (!apiKeyDraft.trim()) return;
     setKeyBusy(true);
     try {
-      await window.inCharacter.saveApiKey(keyDraft);
-      setKeyDraft('');
+      await window.inCharacter.saveApiKey(apiKeyDraft);
+      setApiKeyDraft('');
       setHasKey(true);
       setMessage(tr('msgKeySaved'));
     } catch (error) {
@@ -669,8 +669,8 @@ export default function App() {
           <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\s*/, '')}</span></div>
           <p>{tr('apiKeyInfo')}</p>
           <div className="key-input-row">
-            <input type="password" value={keyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setKeyDraft(event.target.value)} />
-            <button type="button" disabled={!keyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</button>
+            <input type="password" value={apiKeyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setApiKeyDraft(event.target.value)} />
+            <button type="button" disabled={!apiKeyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</button>
           </div>
           <p className="tiny">{tr('apiKeyDisclaimer')}</p>
         </div>
