@@ -244,3 +244,8 @@ select:focus-visible { border-color:var(--accent); outline:2px solid rgba(154,19
 }
 .shortcut-save-btn:hover:enabled { background:#a3d2c3; }
 .settings-section .hotkey-error { color:#efb0a7; font-size:11px; }
+
+/* Record has its own red glyph, rather than a dark text bullet on a gold/mint button. */
+.record-action { background:#293b3f; color:#f17b78; border:1px solid #526a6b; }
+.record-action:hover:enabled { background:#364b4d; color:#ff9893; }
+.record-action.stop-action { background:#653536; color:#fff0ee; border-color:#a45d5e; }
