@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "courtly-voice",
+  "name": {
+    "en": "Courtly speech",
+    "ru": "Учтивая речь",
+    "fr": "Langage courtois",
+    "es": "Habla cortesana",
+    "de": "Höfische Sprache"
+  },
+  "description": {
+    "en": "Polite, measured speech suitable for a noble, diplomat or scholar.",
+    "ru": "Сдержанная, благородная манера без вычурного пафоса.",
+    "fr": "Style poli et mesuré, sans emphase excessive.",
+    "es": "Estilo educado y mesurado sin teatralidad excesiva.",
+    "de": "Höflicher, bedachter Stil ohne übertriebenes Pathos."
+  },
+  "instructions": "Render the final message in a polite, articulate, gently formal register, fitting a noble, diplomat or thoughtful scholar. Make sentence structure elegant but understandable. Avoid archaic 'thee/thou', flowery filler and invented formal greetings unless they genuinely match the input. Preserve exactly what the player meant; change only the style of expression.",
+  "recognitionHints": "Court, noble, diplomacy, scholar, audience, lord, lady."
+}

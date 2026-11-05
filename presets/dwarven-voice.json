@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "dwarven-voice",
+  "name": {
+    "en": "Dwarven voice",
+    "ru": "Дворфийская речь",
+    "fr": "Voix naine",
+    "es": "Habla enana",
+    "de": "Zwergische Sprache"
+  },
+  "description": {
+    "en": "Friendly, boisterous fantasy-dwarf speech with restrained dialect flavor.",
+    "ru": "Весёлые дворфийские обороты, жаргон и умеренный акцент.",
+    "fr": "Parler nain chaleureux, expressif et légèrement dialectal.",
+    "es": "Habla enana alegre, vivaz y con un toque dialectal.",
+    "de": "Herzhaftes, freundliches Zwergisch mit etwas Dialekt."
+  },
+  "instructions": "Make this roleplaying character sound like an outgoing, good-humored fantasy dwarf. Preserve the exact meaning and emotional energy of the player's words. In ENGLISH use recognizable but restrained dwarf-style colloquialisms when they fit, such as 'aye', 'ye', 'lad', 'lass', 'dinnae', 'ain't', or an occasional dropped -g. Do not pile them up; prioritize naturalness and readability. In OTHER target languages, use suitable casual, hearty language and local contractions rather than blindly copying English dialect tokens. Do not invent lore, alter names, intensify threats, or turn simple lines into theatrical monologues.",
+  "recognitionHints": "Dwarf, dwarven, dwarves, lad, lass, aye, ye, Ironforge, Стальгорн, fantasy tavern talk, roleplaying."
+}

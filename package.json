@@ -1,6 +1,6 @@
 {
   "name": "speak-in-character",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "InCharacter — a voice companion for roleplayers",
   "main": "dist-electron/main.js",
@@ -54,7 +54,19 @@
       ],
       "artifactName": "InCharacter-${version}-Windows-${arch}.${ext}"
     },
-    "extraResources": [{ "from": "native/hotkey.exe", "to": "native/hotkey.exe" }],
+    "extraResources": [
+      {
+        "from": "native/hotkey.exe",
+        "to": "native/hotkey.exe"
+      },
+      {
+        "from": "presets",
+        "to": "presets",
+        "filter": [
+          "*.json"
+        ]
+      }
+    ],
     "npmRebuild": false
   }
 }
