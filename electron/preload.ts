@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('inCharacter', {
   rewriteSpeech: (transcript: string, context: {character:string;situation:string;targetLanguage:string}): Promise<{text: string; estimatedTextCostUsd: number}> => ipcRenderer.invoke('ai:rewrite', transcript, context),
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
   openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
+  getShortcuts: () => ipcRenderer.invoke('shortcuts:get'),
+  setShortcuts: (value: {record:string;panel:string;move:string}) => ipcRenderer.invoke('shortcuts:set', value),
   setHudMoveMode: (enabled: boolean) => ipcRenderer.send('overlay:move-hud', enabled),
   saveRecording: (payload: { bytes: Uint8Array; extension: 'webm' | 'ogg' }) =>
     ipcRenderer.invoke('recording:save', payload),

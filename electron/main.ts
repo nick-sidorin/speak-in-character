@@ -17,11 +17,62 @@ import { join } from 'node:path';
 type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
-const HUD = { width: 330, height: 92 };
+const HUD = { width: 370, height: 116 };
 const PANEL = { width: 520, height: 705 };
-const SHORTCUT_RECORD = 'CommandOrControl+Shift+Space';
-const SHORTCUT_PANEL = 'CommandOrControl+Shift+O';
-const SHORTCUT_MOVE = 'CommandOrControl+Shift+M';
+type ShortcutSettings = { record: string; panel: string; move: string };
+const DEFAULT_SHORTCUTS: ShortcutSettings = {
+  record: 'Ctrl+Shift+Space',
+  panel: 'Ctrl+Shift+O',
+  move: 'Ctrl+Shift+M',
+};
+let shortcuts: ShortcutSettings = { ...DEFAULT_SHORTCUTS };
+const shortcutFile = join(app.getPath('userData'), 'shortcuts.json');
+
+function normalizeShortcut(input: string): string {
+  if (typeof input !== 'string') throw new Error('Неверное сочетание клавиш.');
+  const parts = input.split('+').map(part => part.trim());
+  const modifiers = new Set<string>();
+  let key = '';
+  for (const part of parts) {
+    const lowered = part.toLowerCase();
+    if (lowered === 'ctrl' || lowered === 'control') modifiers.add('Ctrl');
+    else if (lowered === 'shift') modifiers.add('Shift');
+    else if (lowered === 'alt') modifiers.add('Alt');
+    else if (!key && (/^[A-Za-z0-9]$/.test(part) || /^F(?:[1-9]|1[0-2])$/i.test(part) || lowered === 'space')) {
+      key = lowered === 'space' ? 'Space' : part.toUpperCase();
+    } else throw new Error('Сочетание должно состоять из модификатора и одной клавиши A–Z, 0–9, F1–F12 или Space.');
+  }
+  if (!modifiers.size || !key) throw new Error('Нужно указать модификатор и основную клавишу.');
+  return [...['Ctrl','Alt','Shift'].filter(v=>modifiers.has(v)),key].join('+');
+}
+
+function validateShortcuts(input: ShortcutSettings): ShortcutSettings {
+  if (!input || typeof input !== 'object') throw new Error('Некорректные настройки горячих клавиш.');
+  const result = {
+    record: normalizeShortcut(input.record),
+    panel: normalizeShortcut(input.panel),
+    move: normalizeShortcut(input.move),
+  };
+  if (new Set(Object.values(result)).size !== 3) throw new Error('Для трёх действий нужны разные сочетания клавиш.');
+  return result;
+}
+
+function loadShortcuts() {
+  try {
+    if (existsSync(shortcutFile)) {
+      shortcuts = validateShortcuts(JSON.parse(readFileSync(shortcutFile, 'utf8')));
+    }
+  } catch (error) {
+    console.warn('Invalid saved shortcuts, using defaults:', error);
+    shortcuts = { ...DEFAULT_SHORTCUTS };
+  }
+}
+
+function storeShortcuts() {
+  mkdirSync(app.getPath('userData'), { recursive: true });
+  writeFileSync(shortcutFile, JSON.stringify(shortcuts, null, 2), 'utf8');
+}
+
 
 let overlay: BrowserWindow | null = null;
 let mode: ViewMode = 'hud';
@@ -103,7 +154,8 @@ function windowBounds(view: ViewMode) {
 function setHudMoveMode(enabled: boolean) {
   if (!overlay || overlay.isDestroyed() || mode !== 'hud') return;
   hudMoveEnabled = enabled;
-  overlay.setFocusable(enabled);
+  // Keep the window focusable to avoid Windows redraws of native decorations.
+  // Click-through is controlled only via ignoreMouseEvents.
   if (!enabled) dragAnchor = null;
   if (enabled) {
     overlay.setIgnoreMouseEvents(false);
@@ -136,14 +188,12 @@ function changeMode(next: ViewMode) {
   if (mode === 'hud' && hudMoveEnabled) setHudMoveMode(false);
   mode = next;
   if (next === 'panel') {
-    overlay.setFocusable(true);
     overlay.setIgnoreMouseEvents(false);
     overlay.setBounds(windowBounds('panel'));
     overlay.show();
     overlay.focus();
   } else {
     overlay.setIgnoreMouseEvents(true, { forward: true });
-    overlay.setFocusable(false);
     overlay.setBounds(windowBounds('hud'));
     overlay.showInactive();
   }
@@ -156,13 +206,14 @@ function createOverlay() {
     ...windowBounds('hud'),
     title: '',
     frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
+    // Opaque frameless windows avoid a known Windows 11 inactive DWM decoration bug.
+    transparent: false,
+    backgroundColor: '#171c20',
     resizable: false,
     movable: true,
     thickFrame: false,
     hasShadow: false,
-    roundedCorners: false,
+    roundedCorners: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
@@ -179,7 +230,6 @@ function createOverlay() {
   overlay.setHasShadow(false);
   overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setIgnoreMouseEvents(true, { forward: true });
-  overlay.setFocusable(false);
 
   overlay.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   overlay.webContents.on('did-finish-load', () => {
@@ -199,13 +249,28 @@ function createOverlay() {
   overlay.on('closed', () => { overlay = null; });
 }
 
+function stopHoldHelper() {
+  const child = hotkeyHelper;
+  hotkeyHelper = null;
+  if (child) {
+    child.removeAllListeners('error');
+    child.removeAllListeners('exit');
+    child.stdout.removeAllListeners('data');
+    child.kill();
+  }
+}
+
+function reportShortcutStatus() {
+  overlay?.webContents.send('app:shortcuts', shortcutStatus);
+}
+
 function registerToggleFallback() {
   if (!shortcutStatus.hold || isQuitting) return;
   shortcutStatus.hold = false;
-  shortcutStatus.recording = globalShortcut.register(SHORTCUT_RECORD, () => {
+  shortcutStatus.recording = globalShortcut.register(shortcuts.record, () => {
     overlay?.webContents.send('recording:toggle');
   });
-  overlay?.webContents.send('app:shortcuts', shortcutStatus);
+  reportShortcutStatus();
 }
 
 function startHoldHelper(): boolean {
@@ -216,13 +281,13 @@ function startHoldHelper(): boolean {
   if (!existsSync(binary)) return false;
 
   try {
-    const child = spawn(binary, [], { windowsHide: true });
+    const child = spawn(binary, [shortcuts.record], { windowsHide: true });
     hotkeyHelper = child;
     let buffer = '';
     child.stdout.on('data', (data: Buffer) => {
       buffer += data.toString('utf8');
       let index: number;
-      while ((index = buffer.indexOf('\n')) !== -1) {
+      while ((index = buffer.indexOf('\\n')) !== -1) {
         const line = buffer.slice(0, index).trim();
         buffer = buffer.slice(index + 1);
         if (line === 'DOWN' || line === 'UP') {
@@ -231,37 +296,65 @@ function startHoldHelper(): boolean {
       }
     });
     child.on('error', error => {
-      console.error('Push-to-talk helper failed:', error);
-      registerToggleFallback();
+      console.error('Push-to-talk helper error:', error);
+      if (hotkeyHelper === child) {
+        hotkeyHelper = null;
+        registerToggleFallback();
+      }
     });
     child.on('exit', () => {
-      hotkeyHelper = null;
-      registerToggleFallback();
+      if (hotkeyHelper === child) {
+        hotkeyHelper = null;
+        registerToggleFallback();
+      }
     });
     return true;
   } catch (error) {
-    console.error('Unable to start push-to-talk helper:', error);
+    console.error('Unable to launch push-to-talk helper:', error);
     return false;
   }
 }
 
 function registerShortcuts() {
+  globalShortcut.unregisterAll();
+  stopHoldHelper();
   const hold = startHoldHelper();
   shortcutStatus = {
-    recording: hold || globalShortcut.register(SHORTCUT_RECORD, () => {
+    recording: hold || globalShortcut.register(shortcuts.record, () => {
       overlay?.webContents.send('recording:toggle');
     }),
     hold,
-    panel: globalShortcut.register(SHORTCUT_PANEL, () => {
+    panel: globalShortcut.register(shortcuts.panel, () => {
       changeMode(mode === 'hud' ? 'panel' : 'hud');
     }),
-    move: globalShortcut.register(SHORTCUT_MOVE, toggleHudMoveMode),
+    move: globalShortcut.register(shortcuts.move, toggleHudMoveMode),
   };
-  overlay?.webContents.send('app:shortcuts', shortcutStatus);
+  reportShortcutStatus();
+}
+
+function updateShortcuts(input: ShortcutSettings) {
+  const previous = { ...shortcuts };
+  const proposed = validateShortcuts(input);
+  shortcuts = proposed;
+  registerShortcuts();
+  if (!shortcutStatus.recording || !shortcutStatus.panel || !shortcutStatus.move) {
+    shortcuts = previous;
+    registerShortcuts();
+    throw new Error('Не удалось зарегистрировать сочетание: оно, возможно, занято другой программой.');
+  }
+  try {
+    storeShortcuts();
+  } catch (error) {
+    shortcuts = previous;
+    registerShortcuts();
+    throw error;
+  }
+  return { shortcuts: { ...shortcuts }, status: { ...shortcutStatus } };
 }
 
 app.whenReady().then(() => {
   loadPositions();
+  loadShortcuts();
   app.setAppUserModelId('io.incharacter.speak');
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
@@ -307,6 +400,8 @@ app.whenReady().then(() => {
   ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {character:string;situation:string}) => rewriteSpeech(transcript, context));
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
+  ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
+  ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
 
   ipcMain.on('app:quit', () => app.quit());
 
@@ -340,10 +435,7 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   isQuitting = true;
   if (saveTimer) flushPositions();
-  if (hotkeyHelper) {
-    hotkeyHelper.removeAllListeners('exit');
-    hotkeyHelper.kill();
-  }
+  stopHoldHelper();
   globalShortcut.unregisterAll();
 });
 app.on('window-all-closed', () => app.quit());

@@ -22,6 +22,8 @@ declare global {
       rewriteSpeech: (transcript: string, context: {character: string; situation: string; targetLanguage: string}) => Promise<{text: string; estimatedTextCostUsd: number}>;
       copyText: (value: string) => Promise<void>;
       openUsage: () => Promise<void>;
+      getShortcuts: () => Promise<{shortcuts: {record:string;panel:string;move:string};status: {recording:boolean;panel:boolean;move:boolean;hold:boolean}}>;
+      setShortcuts: (value: {record:string;panel:string;move:string}) => Promise<{shortcuts: {record:string;panel:string;move:string};status: {recording:boolean;panel:boolean;move:boolean;hold:boolean}}>;
       setHudMoveMode: (enabled: boolean) => void;
       saveRecording: (payload: {
         bytes: Uint8Array;
