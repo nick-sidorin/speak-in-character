@@ -27,6 +27,14 @@ contextBridge.exposeInMainWorld('inCharacter', {
     return () => ipcRenderer.removeListener('app:shortcuts', listener);
   },
   setViewMode: (mode: ViewMode) => ipcRenderer.send('overlay:set-mode', mode),
+  startHudDrag: () => ipcRenderer.send('overlay:drag-start'),
+  moveHudDrag: () => ipcRenderer.send('overlay:drag-move'),
+  endHudDrag: () => ipcRenderer.send('overlay:drag-end'),
+  hasApiKey: (): Promise<boolean> => ipcRenderer.invoke('ai:key-status'),
+  saveApiKey: (key: string): Promise<boolean> => ipcRenderer.invoke('ai:save-key', key),
+  processVoice: (payload: { bytes: Uint8Array; mimeType: string; character: string; situation: string }): Promise<{transcript: string; translated: string}> => ipcRenderer.invoke('ai:process', payload),
+  rewriteSpeech: (transcript: string, context: {character:string;situation:string}): Promise<string> => ipcRenderer.invoke('ai:rewrite', transcript, context),
+  copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
   setHudMoveMode: (enabled: boolean) => ipcRenderer.send('overlay:move-hud', enabled),
   saveRecording: (payload: { bytes: Uint8Array; extension: 'webm' | 'ogg' }) =>
     ipcRenderer.invoke('recording:save', payload),

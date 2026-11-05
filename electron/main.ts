@@ -7,6 +7,7 @@ import {
   screen,
   session,
 } from 'electron';
+import { copyToClipboard, hasApiKey, processVoice, rewriteSpeech, setApiKey } from './ai';
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +16,7 @@ type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 const HUD = { width: 330, height: 92 };
-const PANEL = { width: 462, height: 610 };
+const PANEL = { width: 500, height: 790 };
 const SHORTCUT_RECORD = 'CommandOrControl+Shift+Space';
 const SHORTCUT_PANEL = 'CommandOrControl+Shift+O';
 const SHORTCUT_MOVE = 'CommandOrControl+Shift+M';
@@ -24,6 +25,7 @@ let overlay: BrowserWindow | null = null;
 let mode: ViewMode = 'hud';
 let shortcutStatus = { recording: false, panel: false, move: false };
 let hudMoveEnabled = false;
+let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
 type SavedPosition = { x: number; y: number };
 type SavedPositions = Partial<Record<ViewMode, SavedPosition>>;
@@ -91,6 +93,7 @@ function setHudMoveMode(enabled: boolean) {
   if (!overlay || overlay.isDestroyed() || mode !== 'hud') return;
   hudMoveEnabled = enabled;
   overlay.setFocusable(enabled);
+  if (!enabled) dragAnchor = null;
   if (enabled) {
     overlay.setIgnoreMouseEvents(false);
     overlay.showInactive();
@@ -146,6 +149,7 @@ function createOverlay() {
     backgroundColor: '#00000000',
     resizable: false,
     movable: true,
+    thickFrame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
@@ -214,6 +218,30 @@ app.whenReady().then(() => {
     if (enabled && mode !== 'hud') changeMode('hud');
     setHudMoveMode(Boolean(enabled));
   });
+
+  ipcMain.on('overlay:drag-start', () => {
+    if (!hudMoveEnabled || mode !== 'hud' || !overlay || overlay.isDestroyed()) return;
+    dragAnchor = { cursor: screen.getCursorScreenPoint(), position: overlay.getPosition().reduce((p, v, i) => ({ ...p, [i === 0 ? 'x' : 'y']: v }), { x: 0, y: 0 }) };
+  });
+  ipcMain.on('overlay:drag-move', () => {
+    if (!dragAnchor || !hudMoveEnabled || !overlay || overlay.isDestroyed()) return;
+    const cursor = screen.getCursorScreenPoint();
+    overlay.setPosition(
+      Math.round(dragAnchor.position.x + cursor.x - dragAnchor.cursor.x),
+      Math.round(dragAnchor.position.y + cursor.y - dragAnchor.cursor.y),
+    );
+  });
+  ipcMain.on('overlay:drag-end', () => {
+    dragAnchor = null;
+    rememberPosition();
+  });
+
+  // All network requests, secrets and clipboard writes stay in the privileged main process.
+  ipcMain.handle('ai:key-status', () => hasApiKey());
+  ipcMain.handle('ai:save-key', (_event, key: string) => setApiKey(key));
+  ipcMain.handle('ai:process', (_event, payload: Parameters<typeof processVoice>[0]) => processVoice(payload));
+  ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {character:string;situation:string}) => rewriteSpeech(transcript, context));
+  ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
 
   ipcMain.on('app:quit', () => app.quit());
 
