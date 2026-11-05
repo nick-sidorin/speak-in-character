@@ -17,7 +17,7 @@ An early Windows voice companion for roleplayers. This is the **audio and overla
 
 ## Download the Windows executable
 
-Open [Actions](https://github.com/nick-sidorin/speak-in-character/actions), select the latest successful **Windows portable build**, then download the **InCharacter-Windows** artifact ZIP. Extract and run the `InCharacter-0.1.0-Windows-x64.exe` inside.
+Open [Actions](https://github.com/nick-sidorin/speak-in-character/actions), select the latest successful **Windows build**, then download the **InCharacter-Windows** artifact ZIP. Extract the ZIP to a folder, then run `InCharacter.exe` inside. Keep the extracted files together.
 
 The executable is **unsigned**. Windows SmartScreen may warn about an unknown publisher. The code is public so you can inspect it before running.
 
@@ -54,14 +54,14 @@ npm run build
 npm run dist:win
 ```
 
-The last command builds a Windows portable executable. For packaging, use Windows or the GitHub Actions workflow.
+The last command builds an unpacked Windows application folder (`release/win-unpacked/`). For packaging, use Windows or the GitHub Actions workflow.
 
 ## Architecture
 
 - **Electron main** (`electron/main.ts`): transparent always-on-top window, global shortcuts, permission handling, save dialog and filesystem.
 - **Electron preload** (`electron/preload.ts`): small typed IPC bridge, with context isolation.
 - **React renderer** (`src/App.tsx`): microphone capture using `getUserMedia` + `MediaRecorder`, recording controls, playback, status and overlay UI.
-- **GitHub Actions** (`.github/workflows/windows.yml`): Windows x64 portable binary build.
+- **GitHub Actions** (`.github/workflows/windows.yml`): Windows x64 application build.
 
 This does not inject into or automate the game. You remain in control of gameplay and chat messages.
 

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.electron.json",
     "build:electron": "tsc --project tsconfig.electron.json",
     "build": "npm run typecheck && npm run build:electron && vite build",
-    "dist:win": "npm run build && electron-builder --win portable --publish never"
+    "dist:win": "npm run build && electron-builder --win dir --publish never"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -45,7 +45,7 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "dir",
           "arch": [
             "x64"
           ]
