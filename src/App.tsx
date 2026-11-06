@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
-import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor } from 'lucide-react';
+import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
 import { MantineProvider, ActionIcon, Badge, Button, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput } from '@mantine/core';
 import { appTheme } from './theme';
 
@@ -21,10 +21,8 @@ function localizedPresetText(text: PresetInfo['name'], language: InterfaceLangua
 }
 
 type RecordEntry = {
-  id: number;
+  id: string;
   createdAt: number;
-  blob: Blob;
-  url: string;
   durationMs: number;
   transcript: string;
   english: string;
@@ -32,10 +30,30 @@ type RecordEntry = {
   presetId: string;
   estimatedTextCostUsd: number;
   transcriptionCostUsd: number;
+  recognizedWords: number;
+  extension: 'webm' | 'ogg';
+  audioBytes: number;
+  url?: string;
 };
-
+type HistoryNumbers = {
+  recordings: number;
+  durationMs: number;
+  words: number;
+  estimatedCostUsd: number;
+  audioBytes?: number;
+};
+type HistorySnapshot = {
+  entries: Omit<RecordEntry,'url'>[];
+  stored: HistoryNumbers;
+  lifetime: HistoryNumbers;
+};
+const EMPTY_HISTORY_NUMBERS: HistoryNumbers = {
+  recordings: 0, durationMs: 0, words: 0, estimatedCostUsd: 0, audioBytes: 0,
+};
+function readableSize(bytes: number): string {
+  return bytes < 1024 * 1024 ? (bytes / 1024).toFixed(0) + ' KB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 const TRANSCRIPTION_PER_MINUTE = 0.006;
-const MAX_HISTORY = 15;
 // Short accidental taps never create a history entry or incur API charges.
 const MIN_RECORDING_MS = 250;
 // A deliberately conservative local silence gate: it detects near-silence,
@@ -218,7 +236,14 @@ export default function App() {
   const [original, setOriginal] = useState('');
   const [english, setEnglish] = useState('');
   const [history, setHistory] = useState<RecordEntry[]>([]);
-  const [activeId, setActiveId] = useState<number | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [archiveStats, setArchiveStats] = useState<HistoryNumbers>(EMPTY_HISTORY_NUMBERS);
+  const [lifetimeStats, setLifetimeStats] = useState<HistoryNumbers>(EMPTY_HISTORY_NUMBERS);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [audioLoadingId, setAudioLoadingId] = useState<string | null>(null);
+  const [historyConfirm, setHistoryConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'age'; days: number } | { kind: 'all' } | null>(null);
+  const [historyDeleteAge, setHistoryDeleteAge] = useState<string>('30');
   const [message, setMessage] = useState('');
   const [moveEnabled, setMoveEnabled] = useState(false);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
@@ -242,16 +267,18 @@ export default function App() {
   const pendingReleaseRef = useRef(false);
   const holdActiveRef = useRef(false);
   const recordingViaHoldRef = useRef(false);
-  const idCounterRef = useRef(0);
   const urlsRef = useRef<Set<string>>(new Set());
-  const activeIdRef = useRef<number | null>(null);
+  const loadedAudioRef = useRef<Map<string,string>>(new Map());
+  const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingEditsRef = useRef<{ id: string; changes: { transcript?: string; english?: string } } | null>(null);
+  const activeIdRef = useRef<string | null>(null);
 
   const startRef = useRef<() => Promise<void>>(async () => {});
   const stopRef = useRef<() => void>(() => {});
   const toggleRef = useRef<() => void>(() => {});
   const downRef = useRef<() => void>(() => {});
   const upRef = useRef<() => void>(() => {});
-  const processRef = useRef<(blob: Blob, id: number, duration: number) => Promise<void>>(async () => {});
+  const processRef = useRef<(blob: Blob, id: string, duration: number) => Promise<void>>(async () => {});
 
   contextRef.current = { additionalContext, targetLanguage: replyLanguage, presetId };
   micRef.current = micProcessing;
@@ -280,11 +307,39 @@ export default function App() {
     setElapsed(0);
   }
 
-  function changeEntry(id: number, changes: Partial<RecordEntry>) {
+  function applyHistorySnapshot(snapshot: HistorySnapshot) {
+    setArchiveStats(snapshot.stored);
+    setLifetimeStats(snapshot.lifetime);
+    setHistory(snapshot.entries.map(entry => ({
+      ...entry,
+      url: loadedAudioRef.current.get(entry.id),
+    })));
+  }
+
+  function changeEntry(id: string, changes: Partial<RecordEntry>) {
     setHistory(previous => previous.map(entry => entry.id === id ? { ...entry, ...changes } : entry));
   }
 
-  processRef.current = async (blob: Blob, id: number, duration: number) => {
+  function flushPendingEdits() {
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = null;
+    const pending = pendingEditsRef.current;
+    pendingEditsRef.current = null;
+    if (!pending) return;
+    void window.inCharacter.historyEdit(pending.id, pending.changes)
+      .then(applyHistorySnapshot)
+      .catch(error => setMessage(tr('historyError') + errorText(error, uiLanguage)));
+  }
+
+  function scheduleEdit(id: string, changes: { transcript?: string; english?: string }) {
+    if (pendingEditsRef.current && pendingEditsRef.current.id !== id) flushPendingEdits();
+    const previous = pendingEditsRef.current;
+    pendingEditsRef.current = { id, changes: { ...(previous?.id === id ? previous.changes : {}), ...changes } };
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = setTimeout(flushPendingEdits, 350);
+  }
+
+  processRef.current = async (blob: Blob, id: string, duration: number) => {
     if (!hasKeyRef.current) {
       setPhase('ready');
       setMessage(tr('msgNoKey'));
@@ -293,7 +348,7 @@ export default function App() {
     processingRef.current = true;
     setPhase('processing');
     setMessage(tr('msgProcessing'));
-    changeEntry(id, { transcriptionCostUsd: duration / 60000 * TRANSCRIPTION_PER_MINUTE });
+    const approximateTranscriptionCost = duration / 60000 * TRANSCRIPTION_PER_MINUTE;
 
     try {
       const result = await window.inCharacter.processVoice({
@@ -301,11 +356,12 @@ export default function App() {
         mimeType: blob.type,
         ...contextRef.current,
       });
-      changeEntry(id, {
+      applyHistorySnapshot(await window.inCharacter.historyFinish(id, {
         transcript: result.transcript,
         english: result.translated,
+        transcriptionCostUsd: approximateTranscriptionCost,
         estimatedTextCostUsd: result.estimatedTextCostUsd,
-      });
+      }));
       if (activeIdRef.current === id) {
         setOriginal(result.transcript);
         setEnglish(result.translated);
@@ -318,6 +374,16 @@ export default function App() {
         setMessage(tr('msgCopiedReady'));
       }
     } catch (error) {
+      // An attempted transcription may still be billed even when it fails.
+      try {
+        applyHistorySnapshot(await window.inCharacter.historyFinish(id, {
+          transcript: '', english: '',
+          transcriptionCostUsd: approximateTranscriptionCost,
+          estimatedTextCostUsd: 0,
+        }));
+      } catch (storageError) {
+        console.error('Could not save recording failure:', storageError);
+      }
       setPhase('error');
       setMessage('OpenAI: ' + errorText(error, uiLanguage));
     } finally {
@@ -402,29 +468,30 @@ export default function App() {
           discardUnusableRecording('msgEmpty');
           return;
         }
-        const url = URL.createObjectURL(blob);
-        urlsRef.current.add(url);
-        const id = ++idCounterRef.current;
-        setOriginal('');
-        setEnglish('');
-        const item: RecordEntry = {
-          id,
-          url,
-          blob,
-          createdAt: Date.now(),
-          durationMs: duration,
-          transcript: '',
-          english: '',
-          targetLanguage: contextRef.current.targetLanguage,
-          presetId: contextRef.current.presetId,
-          estimatedTextCostUsd: 0,
-          transcriptionCostUsd: 0,
-        };
-        setHistory(previous => [item, ...previous].slice(0, MAX_HISTORY));
-        activeIdRef.current = id;
-        setActiveId(id);
-        setMessage(tr('msgAudioReady'));
-        void processRef.current(blob, id, duration);
+        // Persist the audio and metadata before any network processing.
+        // This prevents lost history after app restarts or API errors.
+        void (async () => {
+          try {
+            const snapshot = await window.inCharacter.historyAdd({
+              bytes: new Uint8Array(await blob.arrayBuffer()),
+              mimeType: blob.type,
+              durationMs: duration,
+              targetLanguage: contextRef.current.targetLanguage,
+              presetId: contextRef.current.presetId,
+            });
+            applyHistorySnapshot(snapshot);
+            const id = snapshot.entries[0].id;
+            activeIdRef.current = id;
+            setActiveId(id);
+            setOriginal('');
+            setEnglish('');
+            setMessage(tr('msgAudioReady'));
+            await processRef.current(blob, id, duration);
+          } catch (error) {
+            setPhase('error');
+            setMessage(tr('historyError') + errorText(error, uiLanguage));
+          }
+        })();
       };
       recorder.start(250);
       startedRef.current = Date.now();
@@ -494,6 +561,10 @@ export default function App() {
       setPresetError('');
     }).catch(error => setPresetError(error instanceof Error ? error.message : String(error)))
       .finally(() => setPresetsLoading(false));
+    void window.inCharacter.historyList()
+      .then(applyHistorySnapshot)
+      .catch(error => setMessage(tr('historyError') + errorText(error, uiLanguage)))
+      .finally(() => setHistoryLoading(false));
     void window.inCharacter.getShortcuts().then(result => {
       setKeyBindings(result.shortcuts);
       setShortcuts(result.status);
@@ -581,12 +652,9 @@ export default function App() {
       const result = await window.inCharacter.rewriteSpeech(original, contextRef.current);
       setEnglish(result.text);
       if (activeIdRef.current !== null) {
-        const item = history.find(entry => entry.id === activeIdRef.current);
-        changeEntry(activeIdRef.current, {
-          english: result.text,
-          transcript: original,
-          estimatedTextCostUsd: (item?.estimatedTextCostUsd || 0) + result.estimatedTextCostUsd,
-        });
+        flushPendingEdits();
+        const snapshot = await window.inCharacter.historyRewrite(activeIdRef.current, result.text, result.estimatedTextCostUsd);
+        applyHistorySnapshot(snapshot);
       }
       setPhase('ready');
       setMessage(tr('msgRewriteReady'));
@@ -642,6 +710,7 @@ export default function App() {
   }
 
   function selectHistoryItem(item: RecordEntry) {
+    flushPendingEdits();
     activeIdRef.current = item.id;
     setActiveId(item.id);
     setOriginal(item.transcript);
@@ -654,14 +723,61 @@ export default function App() {
 
   async function saveEntry(item: RecordEntry) {
     try {
-      const extension = item.blob.type.includes('ogg') ? 'ogg' : 'webm';
-      const result = await window.inCharacter.saveRecording({
-        bytes: new Uint8Array(await item.blob.arrayBuffer()),
-        extension,
-      });
+      const result = await window.inCharacter.historyExport(item.id);
       if (!result.canceled) setMessage(tr('msgSaved') + result.filePath);
     } catch (error) {
       setMessage(tr('msgSaveError') + errorText(error, uiLanguage));
+    }
+  }
+
+  async function loadHistoryAudio(id: string) {
+    if (loadedAudioRef.current.has(id) || audioLoadingId) return;
+    setAudioLoadingId(id);
+    try {
+      const result = await window.inCharacter.historyReadAudio(id);
+      const buffer = new ArrayBuffer(result.bytes.byteLength);
+      new Uint8Array(buffer).set(result.bytes);
+      const url = URL.createObjectURL(new Blob([buffer], { type: result.mimeType }));
+      loadedAudioRef.current.set(id, url);
+      urlsRef.current.add(url);
+      changeEntry(id, { url });
+    } catch (error) {
+      setMessage(tr('historyError') + errorText(error, uiLanguage));
+    } finally {
+      setAudioLoadingId(null);
+    }
+  }
+
+  async function confirmHistoryDeletion() {
+    if (!historyConfirm || historyBusy || inProgress) return;
+    setHistoryBusy(true);
+    try {
+      const target = historyConfirm;
+      const snapshot = target.kind === 'one'
+        ? await window.inCharacter.historyDelete(target.id)
+        : await window.inCharacter.historyClear(target.kind === 'age' ? target.days : null);
+      for (const [id, url] of loadedAudioRef.current) {
+        if (snapshot.entries.some(item => item.id === id)) continue;
+        URL.revokeObjectURL(url);
+        urlsRef.current.delete(url);
+        loadedAudioRef.current.delete(id);
+      }
+      if (activeIdRef.current && !snapshot.entries.some(item => item.id === activeIdRef.current)) {
+        activeIdRef.current = null;
+        setActiveId(null);
+        setOriginal('');
+        setEnglish('');
+        setPhase('idle');
+      }
+      applyHistorySnapshot(snapshot);
+      setMessage(tr('historyDeleted'));
+      setHistoryConfirm(null);
+    } catch (error) {
+      setMessage(tr('historyError') + errorText(error, uiLanguage));
+      // Partial cleanup may have succeeded. Reload the current persisted index.
+      void window.inCharacter.historyList().then(applyHistorySnapshot).catch(console.error);
+    } finally {
+      setHistoryBusy(false);
     }
   }
 
@@ -681,8 +797,7 @@ export default function App() {
   };
 
   const selectedPreset = presets.find(item => item.id === presetId);
-  const sessionCost = history.reduce((sum, entry) =>
-    sum + entry.transcriptionCostUsd + entry.estimatedTextCostUsd, 0);
+  const sessionCost = lifetimeStats.estimatedCostUsd;
   const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
   const inProgress = phase === 'recording' || isBusy;
 
@@ -716,7 +831,7 @@ export default function App() {
     >
       <div className="monogram">sc</div>
       <div className="brand">
-        <div className="brand-name">SpeakInCharacter <Badge size="xs" variant="light" color="iris">v0.9.0</Badge></div>
+        <div className="brand-name">SpeakInCharacter <Badge size="xs" variant="light" color="iris">v0.10.0</Badge></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <ActionIcon className="window-close" variant="subtle" color="gray" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></ActionIcon>
