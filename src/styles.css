@@ -28,73 +28,88 @@ button { cursor: pointer; }
   -webkit-user-select: text;
 }
 .sic-main {
-  height: 100dvh;
+  /* This is the ONLY scrolling surface. Its scrollbar begins just below
+     the header and ends above the footer, rather than sliding beneath them. */
+  position: absolute;
+  top: 110px;
+  right: 0;
+  bottom: 42px;
+  left: 0;
+  height: auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: var(--mantine-spacing-md);
   scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mantine-color-text) 38%, var(--mantine-color-body))
+                   color-mix(in srgb, var(--mantine-color-body) 92%, #000);
 }
+.sic-main::-webkit-scrollbar { width: 9px; }
+.sic-main::-webkit-scrollbar-track { background: color-mix(in srgb, var(--mantine-color-body) 92%, #000); }
+.sic-main::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mantine-color-text) 38%, var(--mantine-color-body));
+  border: 2px solid color-mix(in srgb, var(--mantine-color-body) 92%, #000);
+}
+.sic-footer { border-top: 1px solid var(--mantine-color-default-border); }
 .sic-drag { cursor: move; touch-action: none; }
 .sic-audio { flex: 1; min-width: 0; width: 100%; height: 34px; }
 
 /* The in-game HUD is intentionally NOT a Mantine AppShell.
    It must stay tiny, click-through and cheap to render. */
+/* Native HUD dynamically sizes to text. 2px outer margin keeps its
+   complete rounded border inside the transparent Windows client surface. */
 .hud {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  width: 100%;
-  height: 100%;
-  gap: 9px;
-  padding: 8px 11px;
-  overflow: hidden;
-  border-radius: 11px;
+  width: max-content;
+  max-width: 384px;
+  height: calc(100% - 4px);
+  min-height: 32px;
+  margin: 2px;
+  padding: 4px 9px;
+  gap: 7px;
+  white-space: nowrap;
+  border-radius: 10px;
+  border: 1px solid #63857f;
   background: #202a2e;
   color: #eaf0ed;
   user-select: none;
   -webkit-user-select: none;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
 }
 .hud-status {
-  flex: 0 0 22px;
-  width: 22px;
+  flex: 0 0 18px;
+  width: 18px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-.hud-text { flex: 1; min-width: 0; overflow: hidden; }
-.hud-brand {
-  font-size: 9.5px;
-  font-weight: 750;
-  letter-spacing: .055em;
-  color: #b3d8ce;
-  line-height: 1;
-  white-space: nowrap;
-}
 .hud-main {
-  font-size: 11px;
-  margin-top: 7px;
-  color: #f2f5f3;
-  font-weight: 600;
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 310px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 600;
 }
-.hud-move {
-  outline: 1px solid #a9d8c7;
-  outline-offset: -1px;
-  cursor: move;
-  touch-action: none;
-}
+.hud-move { cursor: move; touch-action: none; }
 .hud-lock {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   color: #b3d8ce;
   background: #2c4141;
   border: 1px solid #63877e;
-  border-radius: 7px;
+  border-radius: 6px;
   cursor: pointer;
 }
 .state-circle { display: flex; color: #899c9a; align-items: center; justify-content: center; }

@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.10.1 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.10.2 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -41,6 +41,8 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 - **Persistent local history:** recordings, audio, transcriptions, translated messages and estimated costs survive app restarts. History is not capped at 15 records; a generous safety limit applies (10,000 managed entries). Audio loads on demand to keep startup memory low. All archive data is stored locally inside the existing `InCharacter` user-data folder.
 - **UI languages:** Russian, English, French, Spanish, German, set independently from the reply language.
 - **HUD:** a tiny, translucent (~254 × 54 px) click-through status panel with a recording indicator, spinner and completion check. Its position and the main panel's position persist between launches.
+
+**HUD polish (v0.10.2):** compact one-line status, no product-name heading, dynamically measured width, and inside-the-window rounded border. The center panel is the only scrolling region: its scrollbar stays between the native Mantine header and footer. The footer has a subtle 1px divider. System language on Windows uses the actual Windows user UI language from `GetUserDefaultUILanguage`, which may differ from app language preferences; unsupported languages still fall back to English.
 
 ## Persistent history and speaking statistics (v0.10.0)
 
