@@ -61,6 +61,8 @@ internal static class Hotkeys
     private static extern IntPtr DispatchMessage(ref Msg message);
     [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
     private static extern IntPtr GetModuleHandle(string moduleName);
+    [DllImport("kernel32.dll")]
+    private static extern ushort GetUserDefaultUILanguage();
 
     private sealed class Binding {
         public readonly string Action;
@@ -267,6 +269,18 @@ internal static class Hotkeys
     }
 
     private static int Main(string[] args) {
+        if (args.Length == 1 && args[0] == "--system-language") {
+            // Win32 default UI language, not the region/number-format locale
+            // nor Chromium's preferred app language (often English).
+            ushort languageId = GetUserDefaultUILanguage();
+            try {
+                Console.WriteLine(System.Globalization.CultureInfo.GetCultureInfo((int)languageId).Name);
+                return 0;
+            } catch (System.Globalization.CultureNotFoundException) {
+                // Language Interface Packs can return a custom neutral LANGID.
+                return 6;
+            }
+        }
         if (args.Length == 1 && args[0] == "--self-test") return SelfTest();
         if (args.Length < 3 || args.Length > 4) return 2;
 
