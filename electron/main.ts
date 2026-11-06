@@ -238,46 +238,14 @@ function updateHudWidth(nextWidth: number) {
   rememberPosition();
 }
 
-/**
- * Clip only the *outside* of the CSS rounded corner.
- *
- * Windows 11 DWM can render an inactive rectangular decoration on fully
- * transparent frameless Electron windows. A native setShape mask blocks
- * painting there. Its outline is deliberately 2 px WIDER than the CSS
- * 14px panel / 10px HUD curve, so the visible antialiased contour remains
- * exclusively CSS-rendered instead of showing jagged native mask pixels.
- */
-function outerRoundedMask(width: number, height: number, radius: number) {
-  const rects: Array<{x:number; y:number; width:number; height:number}> = [];
-  let previousX = -1;
-  for (let y = 0; y < height; y++) {
-    const distance = Math.min(y + 0.5, height - y - 0.5);
-    const inset = distance >= radius
-      ? 0
-      : Math.max(0, Math.floor(radius - Math.sqrt(Math.max(0, radius * radius - (radius - distance) ** 2)) - 2));
-    if (inset === previousX) {
-      rects[rects.length - 1].height++;
-    } else {
-      rects.push({ x: inset, y, width: width - inset * 2, height: 1 });
-      previousX = inset;
-    }
-  }
-  return rects;
-}
-
+// Windows 11 provides antialiased native rounded corners for opaque frameless
+// windows. Do NOT use transparent:true here: Electron 35 on Windows draws a
+// phantom inactive title-bar rectangle behind CSS corners when focus changes.
+// Do NOT use setShape: integer rectangle regions produce visible jagged edges.
+let panelWindowBackground = '#242424';
 function applyWindowAppearance(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
-  overlay.setBackgroundColor('#00000000');
-  if (process.platform === 'win32') {
-    const {width, height} = overlay.getBounds();
-    try {
-      overlay.setShape(outerRoundedMask(width, height, next === 'panel' ? 14 : 12));
-    } catch (error) {
-      // Fall back to CSS clipping if this Windows/Chromium configuration
-      // rejects native shape masks.
-      console.warn('Windows rounded outer mask unavailable:', error);
-    }
-  }
+  overlay.setBackgroundColor(next === 'hud' ? '#202a2e' : panelWindowBackground);
   overlay.setOpacity(next === 'hud' ? 0.76 : 1.0);
 }
 
@@ -305,16 +273,16 @@ function createOverlay() {
     ...windowBounds('hud'),
     title: '',
     frame: false,
-    // Alpha channel for smooth CSS clipping in this frameless overlay.
-    transparent: true,
-    backgroundColor: '#00000000',
+    // Native Windows 11 rounded corners, without the transparent
+    // frameless DWM inactive-titlebar regression (Electron 35).
+    transparent: false,
+    backgroundColor: '#202a2e',
     resizable: false,
     movable: true,
     thickFrame: false,
     hasShadow: false,
-    // Windows can draw its own inactive DWM corner decoration over a
-    // transparent CSS-rounded window. Ask DWM NOT to draw native corners.
-    roundedCorners: false,
+    // Use Windows' own smoothly antialiased rounded border.
+    roundedCorners: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
@@ -573,9 +541,10 @@ app.whenReady().then(() => {
   ipcMain.handle('app:preferred-languages', () => getWindowsUILanguages());
   ipcMain.on('app:theme-background', (_event, scheme: string) => {
     if (scheme !== 'dark' && scheme !== 'light') return;
-    // Mantine controls the theme inside the renderer. Never set an opaque
-    // BrowserWindow background here: it would put square pixels back behind
-    // the CSS-rounded transparent window corners.
+    // The opaque native window background must match Mantine's content.
+    // Windows 11 masks its own antialiased rounded frame, no DWM alpha glitch.
+    panelWindowBackground = scheme === 'dark' ? '#242424' : '#ffffff';
+    if (mode === 'panel') applyWindowAppearance('panel');
   });
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
   ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));

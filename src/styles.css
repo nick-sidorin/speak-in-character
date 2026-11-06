@@ -59,16 +59,17 @@ button { cursor: pointer; }
 
 /* The in-game HUD is intentionally NOT a Mantine AppShell.
    It must stay tiny, click-through and cheap to render. */
-/* Native HUD dynamically sizes to text. 2px outer margin keeps its
-   complete rounded border inside the transparent Windows client surface. */
+/* Native HUD uses Windows' rounded, opacity-controlled window.
+   Fill the client area edge-to-edge so an old transparent margin cannot
+   reveal DWM's inactive nonclient paint behind it. */
 .hud {
   display: inline-flex;
   align-items: center;
   width: max-content;
   max-width: 384px;
-  height: calc(100% - 4px);
-  min-height: 32px;
-  margin: 2px;
+  height: 100%;
+  min-height: 40px;
+  margin: 0;
   padding: 4px 9px;
   gap: 7px;
   white-space: nowrap;

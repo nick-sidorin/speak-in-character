@@ -544,7 +544,7 @@ export default function App() {
     if (!element) return;
     // Measure the intrinsic width of a single line, not the viewport width.
     // Each locale/status/move-control change can resize the native window.
-    const measure = () => window.inCharacter.resizeHud(Math.ceil(element.getBoundingClientRect().width) + 4);
+    const measure = () => window.inCharacter.resizeHud(Math.ceil(element.getBoundingClientRect().width));
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     measure();
@@ -851,7 +851,7 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.3</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.4</Badge>
               </Group>
               <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>
