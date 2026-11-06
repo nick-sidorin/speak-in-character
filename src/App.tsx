@@ -842,7 +842,7 @@ export default function App() {
     <Tabs value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
       <AppShell className="sic-shell" header={{ height: 110 }} footer={{ height: 42 }} padding="md" withBorder={false}>
         <AppShell.Header>
-          <Group h={61} px="md" gap="sm" wrap="nowrap" className="sic-drag"
+          <Group h={60} px="md" gap="sm" wrap="nowrap" className="sic-drag"
             onPointerDown={dragWindowStart} onPointerMove={dragWindowMove}
             onPointerUp={dragWindowEnd} onPointerCancel={dragWindowEnd}>
             <ThemeIcon variant="filled" color="indigo" size={35} radius="md">
@@ -851,7 +851,7 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.2</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.3</Badge>
               </Group>
               <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>
@@ -860,7 +860,7 @@ export default function App() {
               <X size={18}/>
             </ActionIcon>
           </Group>
-          <Tabs.List grow px="sm">
+          <Tabs.List grow h={50} px="sm">
             <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16}/>}>{tr('tabReply')}</Tabs.Tab>
             <Tabs.Tab value="history" leftSection={<History size={16}/>}
               rightSection={history.length ? <Badge size="xs" circle variant="light" color="indigo">{history.length}</Badge> : undefined}>
@@ -870,7 +870,7 @@ export default function App() {
           </Tabs.List>
         </AppShell.Header>
 
-        <AppShell.Main className="sic-main">
+        <AppShell.Main key={tab} className="sic-main">
           {tab === 'rp' && <Stack gap="sm">
             <Box>
               <Title order={4}>{tr('tabReply')}</Title>

@@ -31,15 +31,17 @@ button { cursor: pointer; }
   /* This is the ONLY scrolling surface. Its scrollbar begins just below
      the header and ends above the footer, rather than sliding beneath them. */
   position: absolute;
-  top: 110px;
+  /* Exactly the Mantine AppShell header offset. The tab strip ends at this boundary. */
+  top: var(--app-shell-header-offset, 110px);
   right: 0;
-  bottom: 42px;
+  bottom: var(--app-shell-footer-offset, 42px);
   left: 0;
   height: auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--mantine-spacing-md);
+  scroll-padding-top: var(--mantine-spacing-sm);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--mantine-color-text) 38%, var(--mantine-color-body))
                    color-mix(in srgb, var(--mantine-color-body) 92%, #000);
