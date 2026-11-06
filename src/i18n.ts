@@ -262,7 +262,12 @@ const strings = {
     "hudMoveShort": "Перетащи окно",
     "msgRecordingTooShort": "Слишком короткое нажатие — запись отброшена.",
     "msgRecordingSilent": "Похоже, в записи тишина — она не отправлена.",
-    "languageSystem": "Язык Windows (автоматически)"
+    "languageSystem": "Язык Windows (автоматически)",
+    "themeTitle": "Оформление",
+    "themeDescription": "Системная тема меняется вместе с настройками Windows.",
+    "themeSystem": "Система",
+    "themeDark": "Тёмная",
+    "themeLight": "Светлая"
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -402,7 +407,12 @@ const strings = {
     "hudMoveShort": "Drag to move",
     "msgRecordingTooShort": "Too short — recording discarded.",
     "msgRecordingSilent": "No audible speech detected — recording discarded.",
-    "languageSystem": "System language (automatic)"
+    "languageSystem": "System language (automatic)",
+    "themeTitle": "Appearance",
+    "themeDescription": "System theme follows your Windows appearance settings.",
+    "themeSystem": "System",
+    "themeDark": "Dark",
+    "themeLight": "Light"
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -542,7 +552,12 @@ const strings = {
     "hudMoveShort": "Faites glisser",
     "msgRecordingTooShort": "Trop court — enregistrement ignoré.",
     "msgRecordingSilent": "Aucune voix détectée — enregistrement ignoré.",
-    "languageSystem": "Langue du système (automatique)"
+    "languageSystem": "Langue du système (automatique)",
+    "themeTitle": "Apparence",
+    "themeDescription": "Le thème système suit les réglages d'apparence de Windows.",
+    "themeSystem": "Système",
+    "themeDark": "Sombre",
+    "themeLight": "Clair"
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -682,7 +697,12 @@ const strings = {
     "hudMoveShort": "Arrastra para mover",
     "msgRecordingTooShort": "Demasiado corta — grabación descartada.",
     "msgRecordingSilent": "No se detectó voz — grabación descartada.",
-    "languageSystem": "Idioma del sistema (automático)"
+    "languageSystem": "Idioma del sistema (automático)",
+    "themeTitle": "Apariencia",
+    "themeDescription": "El tema del sistema sigue la configuración de Windows.",
+    "themeSystem": "Sistema",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro"
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -822,7 +842,12 @@ const strings = {
     "hudMoveShort": "Zum Verschieben ziehen",
     "msgRecordingTooShort": "Zu kurz – Aufnahme verworfen.",
     "msgRecordingSilent": "Keine hörbare Sprache erkannt – Aufnahme verworfen.",
-    "languageSystem": "Systemsprache (automatisch)"
+    "languageSystem": "Systemsprache (automatisch)",
+    "themeTitle": "Darstellung",
+    "themeDescription": "Das Systemdesign übernimmt die Windows-Einstellungen.",
+    "themeSystem": "System",
+    "themeDark": "Dunkel",
+    "themeLight": "Hell"
   }
 } as const;
 

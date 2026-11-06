@@ -105,6 +105,7 @@ function storeShortcuts() {
 
 
 let overlay: BrowserWindow | null = null;
+let panelBackground = '#1b1d22';
 let mode: ViewMode = 'hud';
 let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
 let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
@@ -236,6 +237,7 @@ function applyWindowAppearance(next: ViewMode) {
       console.warn('Native rounded window clipping unavailable:', error);
     }
   }
+  overlay.setBackgroundColor(next === 'hud' ? '#1e282c' : panelBackground);
   overlay.setOpacity(next === 'hud' ? 0.76 : 1.0);
 }
 
@@ -477,6 +479,13 @@ app.whenReady().then(() => {
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
   ipcMain.handle('app:preferred-languages', () => app.getPreferredSystemLanguages());
+  ipcMain.on('app:theme-background', (_event, scheme: string) => {
+    if (scheme !== 'dark' && scheme !== 'light') return;
+    panelBackground = scheme === 'dark' ? '#1b1d22' : '#f4f5fa';
+    if (mode === 'panel' && overlay && !overlay.isDestroyed()) {
+      overlay.setBackgroundColor(panelBackground);
+    }
+  });
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
   ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
   ipcMain.on('shortcuts:capture', (_event, active: boolean) => {

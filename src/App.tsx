@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
-import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw } from 'lucide-react';
+import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor } from 'lucide-react';
+import { MantineProvider, ActionIcon, Badge, Button, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput } from '@mantine/core';
+import { appTheme } from './theme';
 
 type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
+type Appearance = 'system' | 'dark' | 'light';
 type Phase = 'idle' | 'requesting' | 'recording' | 'finalizing' | 'processing' | 'ready' | 'error';
 
 type PresetInfo = {
@@ -168,6 +171,14 @@ function languageFromSystemLocale(locale?: string): InterfaceLanguage {
 export default function App() {
   const [view, setView] = useState<ViewMode>('hud');
   const [tab, setTab] = useState<Tab>('rp');
+  const [appearance, setAppearance] = useState<Appearance>(() => {
+    const stored = localStorage.getItem('appearance');
+    return stored === 'dark' || stored === 'light' ? stored : 'system';
+  });
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const effectiveTheme: 'light' | 'dark' = appearance === 'system'
+    ? (systemDark ? 'dark' : 'light')
+    : appearance;
   const [phase, setPhaseState] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [hasKey, setHasKey] = useState(false);
@@ -459,6 +470,18 @@ export default function App() {
   };
 
   useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemAppearanceChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    setSystemDark(media.matches);
+    media.addEventListener('change', onSystemAppearanceChange);
+    return () => media.removeEventListener('change', onSystemAppearanceChange);
+  }, []);
+
+  useEffect(() => {
+    window.inCharacter.setThemeBackground(effectiveTheme);
+  }, [effectiveTheme]);
+
+  useEffect(() => {
     if (localStorage.getItem('additional-context') === null) {
       localStorage.setItem('additional-context', additionalContext);
     }
@@ -682,7 +705,8 @@ export default function App() {
     </div>;
   }
 
-  return <div className="shell">
+  return <MantineProvider theme={appTheme} forceColorScheme={effectiveTheme}>
+    <div className="shell" data-ui-theme={effectiveTheme}>
     <header
       className="topbar"
       onPointerDown={dragWindowStart}
@@ -930,5 +954,6 @@ export default function App() {
       <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message || tr('readyMsg')}</span>
       <button type="button" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</button>
     </footer>
-  </div>;
+    </div>
+  </MantineProvider>;
 }
