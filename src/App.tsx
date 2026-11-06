@@ -267,6 +267,7 @@ export default function App() {
   const pendingReleaseRef = useRef(false);
   const holdActiveRef = useRef(false);
   const recordingViaHoldRef = useRef(false);
+  const hudRef = useRef<HTMLDivElement | null>(null);
   const urlsRef = useRef<Set<string>>(new Set());
   const loadedAudioRef = useRef<Map<string,string>>(new Map());
   const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -538,6 +539,19 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (view !== 'hud') return;
+    const element = hudRef.current;
+    if (!element) return;
+    // Measure the intrinsic width of a single line, not the viewport width.
+    // Each locale/status/move-control change can resize the native window.
+    const measure = () => window.inCharacter.resizeHud(Math.ceil(element.getBoundingClientRect().width) + 4);
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, [view, moveEnabled, phase, uiLanguage, keyBindings.record]);
+
+  useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const onSystemAppearanceChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
     setSystemDark(media.matches);
@@ -804,21 +818,23 @@ export default function App() {
   const inProgress = phase === 'recording' || isBusy;
 
   if (view === 'hud') {
-    return <div
+    return <div ref={hudRef}
       className={'hud ' + (moveEnabled ? 'hud-move' : '')}
       onPointerDown={moveEnabled ? dragWindowStart : undefined}
       onPointerMove={moveEnabled ? dragWindowMove : undefined}
       onPointerUp={moveEnabled ? dragWindowEnd : undefined}
       onPointerCancel={moveEnabled ? dragWindowEnd : undefined}
     >
-      <div className="hud-status"><StateIcon phase={phase} language={uiLanguage} /></div>
-      <div className="hud-text">
-        <div className="hud-brand">SPEAKINCHARACTER</div>
-        <div className="hud-main">
-          {moveEnabled ? tr('hudMove') : phase === 'idle' ? tr('hudIdle') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
-        </div>
-      </div>
-      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')} onClick={() => window.inCharacter.setHudMoveMode(false)}><Check size={16} strokeWidth={2.7}/></button>}
+      <div className="hud-status"><StateIcon phase={phase} language={uiLanguage}/></div>
+      <span className="hud-main">
+        {moveEnabled ? tr('hudMoveShort') :
+          phase === 'idle' ? `${tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb')} ${keyBindings.record}` :
+          phaseLabel(phase, shortcuts.hold, uiLanguage)}
+      </span>
+      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')}
+        onClick={event => { event.stopPropagation(); window.inCharacter.setHudMoveMode(false); }}>
+        <Check size={15} strokeWidth={2.6}/>
+      </button>}
     </div>;
   }
 
@@ -1132,7 +1148,7 @@ export default function App() {
             </Paper>
           </Stack>}
         </AppShell.Main>
-        <AppShell.Footer>
+        <AppShell.Footer className="sic-footer">
           <Group px="sm" h="100%" justify="space-between" gap="sm" wrap="nowrap">
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {message || tr('readyMsg')}
