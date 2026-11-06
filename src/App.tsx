@@ -851,7 +851,7 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.1</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.2</Badge>
               </Group>
               <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>

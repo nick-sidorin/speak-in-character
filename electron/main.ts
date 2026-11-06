@@ -359,7 +359,7 @@ async function getWindowsUILanguages(): Promise<string[]> {
     const { stdout } = await execFileAsync(nativeHotkeyBinary(), ['--system-language'], {
       windowsHide: true, timeout: 3000,
     });
-    const language = stdout.trim().split(/\\r?\\n/)[0];
+    const language = stdout.trim().split(/\r?\n/)[0];
     if (/^[a-z]{2,3}(?:-[a-zA-Z0-9]+)*$/i.test(language)) {
       // Windows display-language API is authoritative; application preference
       // order can differ from the language of Windows menus and Settings.

@@ -33,6 +33,28 @@ jobs:
         run: |
           & native\hotkey.exe --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test Windows display language detection
+        shell: pwsh
+        run: |
+          $uiLanguage = (& native\hotkey.exe --system-language).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($uiLanguage -notmatch '^[a-z]{2,3}(-[a-zA-Z0-9]+)*
+      - name: Validate and package
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'false'
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeakInCharacter-Windows
+          path: release/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 30
+) {
+            throw "Invalid Windows UI language: $uiLanguage"
+          }
+          Write-Host "Windows UI language: $uiLanguage"
       - name: Validate and package
         run: npm run dist:win
         env:

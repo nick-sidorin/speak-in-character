@@ -114,3 +114,5 @@ To package on Windows: compile `native/hotkey.cs` into `native/hotkey.exe` using
 **CI policy:** regular commits to `main` do **not** trigger a build. Windows test builds are created only when specifically requested. During development, a temporary `build/vX.Y.Z` branch may carry a one-off push trigger; `main` remains manual-only.
 
 Licensed under MIT.
+
+**Windows alpha-corner caveat:** Electron/Windows DWM may display an inactive rectangular frame behind transparent rounded corners on some Windows 11 builds. v0.10.2 disables native rounded corners while retaining CSS-rendered rounded content; this is an experimental mitigation, not a confirmed fix on every GPU/Windows configuration.
