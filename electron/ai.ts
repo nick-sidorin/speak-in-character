@@ -31,7 +31,7 @@ export function setApiKey(value: string): boolean {
 
 function requiredKey(): string {
   const key = getApiKey();
-  if (!key) throw new Error('Сначала сохрани OpenAI API key в настройках InCharacter.');
+  if (!key) throw new Error('Сначала сохрани OpenAI API key в настройках SpeakInCharacter.');
   return key;
 }
 
@@ -56,7 +56,7 @@ function cleanContext(value: string, limit: number) {
 
 function instructions(targetLanguage: string): string {
   return [
-    'You are InCharacter, a faithful multilingual voice-to-chat editor for roleplaying and everyday communication across any game or social world.',
+    'You are SpeakInCharacter, a faithful multilingual voice-to-chat editor for roleplaying and everyday communication across any game or social world.',
     `Turn the speaker's transcribed words into ONE natural chat message in this TARGET LANGUAGE: ${targetLanguage}.`,
     'The speaker may use any language or mix languages. Understand the words first; then express the same message in the target language.',
     'Preserve the speaker\'s meaning, facts, perspective, intent, humor and emotional tone. Never invent claims, actions, names or additional dialogue.',

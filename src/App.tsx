@@ -160,6 +160,11 @@ function shortcutFromEvent(event: KeyboardEvent<HTMLButtonElement>): string | nu
   return [...mods,key].join('+');
 }
 
+function languageFromSystemLocale(locale?: string): InterfaceLanguage {
+  const base = locale?.split(/[-_]/, 1)[0]?.trim().toLowerCase();
+  return INTERFACE_LANGUAGES.find(language => language.value === base)?.value ?? 'en';
+}
+
 export default function App() {
   const [view, setView] = useState<ViewMode>('hud');
   const [tab, setTab] = useState<Tab>('rp');
@@ -180,10 +185,18 @@ export default function App() {
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [presetError, setPresetError] = useState('');
   const [presetsLoading, setPresetsLoading] = useState(true);
-  const [uiLanguage, setUiLanguage] = useState<InterfaceLanguage>(() => {
+  const [uiLanguagePreference, setUiLanguagePreference] = useState(() => {
     const stored = localStorage.getItem('interface-language');
-    return INTERFACE_LANGUAGES.find(item => item.value === stored)?.value ?? 'ru';
+    return INTERFACE_LANGUAGES.some(language => language.value === stored) ? stored! : 'system';
   });
+  const [systemLanguage, setSystemLanguage] = useState<InterfaceLanguage>(() =>
+    languageFromSystemLocale(navigator.languages?.[0] || navigator.language)
+  );
+  // Keep manually selected languages across upgrades; fresh installs follow Windows.
+  // Unsupported system languages fall back to English, not Russian.
+  const uiLanguage: InterfaceLanguage = uiLanguagePreference === 'system'
+    ? systemLanguage
+    : languageFromSystemLocale(uiLanguagePreference);
   const [replyLanguageInput, setReplyLanguageInput] = useState(() => {
     const stored = localStorage.getItem('reply-language');
     if (stored === '__other__') return localStorage.getItem('custom-reply-language') || 'English';
@@ -450,6 +463,9 @@ export default function App() {
       localStorage.setItem('additional-context', additionalContext);
     }
     window.inCharacter.hasApiKey().then(value => setHasKey(value)).catch(() => setHasKey(false));
+    void window.inCharacter.getPreferredLanguages().then(languages => {
+      setSystemLanguage(languageFromSystemLocale(languages[0]));
+    }).catch(error => console.warn('Unable to read Windows UI language:', error));
     void window.inCharacter.listPresets().then(values => {
       setPresets(values);
       setPresetError('');
@@ -657,7 +673,7 @@ export default function App() {
     >
       <div className="hud-status"><StateIcon phase={phase} language={uiLanguage} /></div>
       <div className="hud-text">
-        <div className="hud-brand">INCHARACTER</div>
+        <div className="hud-brand">SPEAKINCHARACTER</div>
         <div className="hud-main">
           {moveEnabled ? tr('hudMove') : phase === 'idle' ? tr('hudIdle') : phaseLabel(phase, shortcuts.hold, uiLanguage)}
         </div>
@@ -674,9 +690,9 @@ export default function App() {
       onPointerUp={dragWindowEnd}
       onPointerCancel={dragWindowEnd}
     >
-      <div className="monogram">ic</div>
+      <div className="monogram">sc</div>
       <div className="brand">
-        <div className="brand-name">InCharacter <span>0.8.2</span></div>
+        <div className="brand-name">SpeakInCharacter <span>0.9.0</span></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
       <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
@@ -827,12 +843,15 @@ export default function App() {
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('languageUiLabel')}</strong></div>
           <p>{tr('languageUiDescription')}</p>
-          <select className="interface-language-select" value={uiLanguage} onChange={event => {
-            const selected = event.target.value as InterfaceLanguage;
-            setUiLanguage(selected);
-            localStorage.setItem('interface-language', selected);
-            setMessage(t(selected, 'readyMsg'));
+          <select className="interface-language-select" value={uiLanguagePreference} onChange={event => {
+            const selected = event.target.value;
+            setUiLanguagePreference(selected);
+            if (selected === 'system') localStorage.removeItem('interface-language');
+            else localStorage.setItem('interface-language', selected);
+            const resolved = selected === 'system' ? systemLanguage : languageFromSystemLocale(selected);
+            setMessage(t(resolved, 'readyMsg'));
           }}>
+            <option value="system">{tr('languageSystem')}</option>
             {INTERFACE_LANGUAGES.map(language => <option value={language.value} key={language.value}>{language.label}</option>)}
           </select>
         </div>

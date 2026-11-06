@@ -15,6 +15,11 @@ import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// Keep the original Electron userData folder after the public-facing rename.
+// This preserves encrypted API keys, keyboard shortcuts, browser localStorage,
+// custom presets and overlay positions for existing InCharacter users.
+app.setPath('userData', join(app.getPath('appData'), 'InCharacter'));
+
 type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
@@ -420,7 +425,7 @@ function updateShortcuts(input: ShortcutSettings) {
 app.whenReady().then(() => {
   loadPositions();
   loadShortcuts();
-  app.setAppUserModelId('io.incharacter.speak');
+  app.setAppUserModelId('io.speakincharacter.app');
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     callback(permission === 'media' && webContents.id === overlay?.webContents.id);
@@ -471,6 +476,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
+  ipcMain.handle('app:preferred-languages', () => app.getPreferredSystemLanguages());
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
   ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
   ipcMain.on('shortcuts:capture', (_event, active: boolean) => {
@@ -495,7 +501,7 @@ app.whenReady().then(() => {
       throw new Error('Invalid recording size');
     }
     const date = new Date().toISOString().replace(/[:.]/g, '-');
-    const name = `InCharacter-${date}.${payload.extension}`;
+    const name = `SpeakInCharacter-${date}.${payload.extension}`;
     const choice = await dialog.showSaveDialog(overlay, {
       title: 'Save voice recording',
       defaultPath: join(app.getPath('documents'), name),

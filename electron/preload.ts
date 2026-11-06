@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
   openPresetsFolder: (): Promise<void> => ipcRenderer.invoke('presets:open-folder'),
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
   openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
+  getPreferredLanguages: (): Promise<string[]> => ipcRenderer.invoke('app:preferred-languages'),
   getShortcuts: () => ipcRenderer.invoke('shortcuts:get'),
   setShortcutCapture: (active: boolean) => ipcRenderer.send('shortcuts:capture', active),
   setShortcuts: (value: {record:string;panel:string;move:string}) => ipcRenderer.invoke('shortcuts:set', value),

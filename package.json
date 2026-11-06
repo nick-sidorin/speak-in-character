@@ -1,10 +1,10 @@
 {
   "name": "speak-in-character",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "private": true,
-  "description": "InCharacter — a voice companion for roleplayers",
+  "description": "SpeakInCharacter — a voice companion for roleplayers",
   "main": "dist-electron/main.js",
-  "author": "InCharacter contributors",
+  "author": "SpeakInCharacter contributors",
   "license": "MIT",
   "scripts": {
     "dev": "npm run build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
@@ -32,8 +32,8 @@
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "io.incharacter.speak",
-    "productName": "InCharacter",
+    "appId": "io.speakincharacter.app",
+    "productName": "SpeakInCharacter",
     "asar": true,
     "directories": {
       "output": "release"
@@ -52,7 +52,7 @@
           ]
         }
       ],
-      "artifactName": "InCharacter-${version}-Windows-${arch}.${ext}"
+      "artifactName": "SpeakInCharacter-${version}-Windows-${arch}.${ext}"
     },
     "extraResources": [
       {

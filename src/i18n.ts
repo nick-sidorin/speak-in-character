@@ -1,4 +1,4 @@
-// InCharacter interface translations. The selected UI language is distinct from the reply language.
+// SpeakInCharacter interface translations. The selected UI language is distinct from the reply language.
 // Add new keys to each locale; English is used as a fallback for missing translations.
 export const INTERFACE_LANGUAGES = [
   { value: 'ru', label: 'Русский' },
@@ -238,7 +238,7 @@ const strings = {
     "hotkeyAssign": "Назначить",
     "hotkeyListening": "Нажми клавиши…",
     "hotkeyCaptureHint": "Нажми одну клавишу или сочетание. Esc — отменить. Сохранение автоматическое.",
-    "hotkeyCapsNote": "Пока InCharacter запущен, назначенные клавиши перехватываются: Caps Lock не переключает регистр, Ctrl + Shift + O не срабатывает в браузере. Если Whisper Flow тоже использует Caps Lock, возможен конфликт.",
+    "hotkeyCapsNote": "Пока SpeakInCharacter запущен, назначенные клавиши перехватываются: Caps Lock не переключает регистр, Ctrl + Shift + O не срабатывает в браузере. Если Whisper Flow тоже использует Caps Lock, возможен конфликт.",
     "presetTitle": "Пресеты речи",
     "presetIntro": "Выбирай манеру речи дополнительно к описанию персонажа. Пресет влияет на итоговую реплику, не на распознавание твоих слов.",
     "presetNone": "Без пресета",
@@ -261,7 +261,8 @@ const strings = {
     "historyEmptyAction": "Запиши первую реплику:",
     "hudMoveShort": "Перетащи окно",
     "msgRecordingTooShort": "Слишком короткое нажатие — запись отброшена.",
-    "msgRecordingSilent": "Похоже, в записи тишина — она не отправлена."
+    "msgRecordingSilent": "Похоже, в записи тишина — она не отправлена.",
+    "languageSystem": "Язык Windows (автоматически)"
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -377,7 +378,7 @@ const strings = {
     "hotkeyAssign": "Bind key",
     "hotkeyListening": "Press keys…",
     "hotkeyCaptureHint": "Press one key or a combination. Esc cancels. Changes save automatically.",
-    "hotkeyCapsNote": "While InCharacter runs, assigned shortcuts are intercepted: Caps Lock won't toggle case and browsers won't receive Ctrl+Shift+O. Other apps using Caps Lock, such as Whisper Flow, can conflict.",
+    "hotkeyCapsNote": "While SpeakInCharacter runs, assigned shortcuts are intercepted: Caps Lock won't toggle case and browsers won't receive Ctrl+Shift+O. Other apps using Caps Lock, such as Whisper Flow, can conflict.",
     "presetTitle": "Speech presets",
     "presetIntro": "Choose a speaking style in addition to your character description. Presets shape the final reply without changing the transcript.",
     "presetNone": "No preset",
@@ -400,7 +401,8 @@ const strings = {
     "historyEmptyAction": "Record your first line:",
     "hudMoveShort": "Drag to move",
     "msgRecordingTooShort": "Too short — recording discarded.",
-    "msgRecordingSilent": "No audible speech detected — recording discarded."
+    "msgRecordingSilent": "No audible speech detected — recording discarded.",
+    "languageSystem": "System language (automatic)"
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -516,7 +518,7 @@ const strings = {
     "hotkeyAssign": "Attribuer",
     "hotkeyListening": "Appuyez…",
     "hotkeyCaptureHint": "Appuyez sur une touche ou une combinaison. Échap annule. Enregistrement immédiat.",
-    "hotkeyCapsNote": "Lorsque InCharacter est ouvert, les raccourcis assignés sont interceptés. Verr. Maj ne modifie plus la casse. D'autres applications peuvent entrer en conflit.",
+    "hotkeyCapsNote": "Lorsque SpeakInCharacter est ouvert, les raccourcis assignés sont interceptés. Verr. Maj ne modifie plus la casse. D'autres applications peuvent entrer en conflit.",
     "presetTitle": "Styles de parole",
     "presetIntro": "Choisissez un style en complément du personnage. Le style change la réplique, pas la transcription.",
     "presetNone": "Aucun style",
@@ -539,7 +541,8 @@ const strings = {
     "historyEmptyAction": "Enregistrez votre première réplique :",
     "hudMoveShort": "Faites glisser",
     "msgRecordingTooShort": "Trop court — enregistrement ignoré.",
-    "msgRecordingSilent": "Aucune voix détectée — enregistrement ignoré."
+    "msgRecordingSilent": "Aucune voix détectée — enregistrement ignoré.",
+    "languageSystem": "Langue du système (automatique)"
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -655,7 +658,7 @@ const strings = {
     "hotkeyAssign": "Asignar",
     "hotkeyListening": "Pulsa teclas…",
     "hotkeyCaptureHint": "Pulsa una tecla o combinación. Esc cancela. Se guarda automáticamente.",
-    "hotkeyCapsNote": "Con InCharacter abierto, los atajos asignados se interceptan: Bloq Mayús no cambia las mayúsculas. Puede haber conflictos con otras aplicaciones.",
+    "hotkeyCapsNote": "Con SpeakInCharacter abierto, los atajos asignados se interceptan: Bloq Mayús no cambia las mayúsculas. Puede haber conflictos con otras aplicaciones.",
     "presetTitle": "Estilos de voz",
     "presetIntro": "Elige un estilo además de tu personaje. Solo cambia el mensaje final, no la transcripción.",
     "presetNone": "Sin estilo",
@@ -678,7 +681,8 @@ const strings = {
     "historyEmptyAction": "Graba tu primer mensaje:",
     "hudMoveShort": "Arrastra para mover",
     "msgRecordingTooShort": "Demasiado corta — grabación descartada.",
-    "msgRecordingSilent": "No se detectó voz — grabación descartada."
+    "msgRecordingSilent": "No se detectó voz — grabación descartada.",
+    "languageSystem": "Idioma del sistema (automático)"
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -794,7 +798,7 @@ const strings = {
     "hotkeyAssign": "Zuweisen",
     "hotkeyListening": "Tasten drücken…",
     "hotkeyCaptureHint": "Eine Taste oder Kombination drücken. Esc bricht ab. Wird sofort gespeichert.",
-    "hotkeyCapsNote": "Solange InCharacter läuft, werden Hotkeys abgefangen: Caps Lock schaltet die Großschreibung nicht um. Andere Apps können in Konflikt geraten.",
+    "hotkeyCapsNote": "Solange SpeakInCharacter läuft, werden Hotkeys abgefangen: Caps Lock schaltet die Großschreibung nicht um. Andere Apps können in Konflikt geraten.",
     "presetTitle": "Sprechstil-Presets",
     "presetIntro": "Wähle einen Stil zusätzlich zur Charakterbeschreibung. Er beeinflusst nur die fertige Nachricht.",
     "presetNone": "Kein Preset",
@@ -817,7 +821,8 @@ const strings = {
     "historyEmptyAction": "Erste Nachricht aufnehmen:",
     "hudMoveShort": "Zum Verschieben ziehen",
     "msgRecordingTooShort": "Zu kurz – Aufnahme verworfen.",
-    "msgRecordingSilent": "Keine hörbare Sprache erkannt – Aufnahme verworfen."
+    "msgRecordingSilent": "Keine hörbare Sprache erkannt – Aufnahme verworfen.",
+    "languageSystem": "Systemsprache (automatisch)"
   }
 } as const;
 

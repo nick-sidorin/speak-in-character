@@ -29,6 +29,7 @@ declare global {
       openPresetsFolder: () => Promise<void>;
       copyText: (value: string) => Promise<void>;
       openUsage: () => Promise<void>;
+      getPreferredLanguages: () => Promise<string[]>;
       setShortcutCapture: (active: boolean) => void;
       getShortcuts: () => Promise<{shortcuts: {record:string;panel:string;move:string};status: {recording:boolean;panel:boolean;move:boolean;hold:boolean}}>;
       setShortcuts: (value: {record:string;panel:string;move:string}) => Promise<{shortcuts: {record:string;panel:string;move:string};status: {recording:boolean;panel:boolean;move:boolean;hold:boolean}}>;

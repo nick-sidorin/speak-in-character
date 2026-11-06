@@ -1,10 +1,10 @@
-# InCharacter speech presets
+# SpeakInCharacter speech presets
 
 Each preset is a standalone UTF-8 JSON file following schema version 1. No JavaScript, plugins or recompilation required.
 
 ## Add a preset
 
-1. Launch InCharacter, open **Settings → Speech presets → Open folder**.
+1. Launch SpeakInCharacter, open **Settings → Speech presets → Open folder**.
 2. Create or copy a `.json` file into that folder.
 3. Choose **Reload presets**, then select it from the list.
 4. Your selection is remembered. The optional character and situation fields still apply.
@@ -29,4 +29,4 @@ Only `en` is required for `name` and `description`; optional languages: `ru`, `f
 
 Keep preset instructions about **style**, not what the character should decide, do or say. Presets may be setting-specific; the core translator is deliberately generic.
 
-Custom files are stored in the application's per-user data directory and are not uploaded by InCharacter, except the selected preset's instructions and recognition hints when processing a speech request through OpenAI.
+Custom files are stored in the application's per-user data directory and are not uploaded by SpeakInCharacter, except the selected preset's instructions and recognition hints when processing a speech request through OpenAI.
