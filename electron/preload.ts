@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
   },
   setViewMode: (mode: ViewMode) => ipcRenderer.send('overlay:set-mode', mode),
   resizeHud: (width: number): void => ipcRenderer.send('hud:resize', width),
+  setHudOpacity: (percent: number): void => ipcRenderer.send('hud:set-opacity', percent),
   startHudDrag: () => ipcRenderer.send('overlay:drag-start'),
   moveHudDrag: () => ipcRenderer.send('overlay:drag-move'),
   endHudDrag: () => ipcRenderer.send('overlay:drag-end'),

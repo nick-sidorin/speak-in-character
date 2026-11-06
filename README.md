@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.10.4 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.10.5 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -45,6 +45,8 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 **HUD polish (v0.10.2):** compact one-line status, no product-name heading, dynamically measured width, and inside-the-window rounded border. The center panel is the only scrolling region: its scrollbar stays between the native Mantine header and footer. The footer has a subtle 1px divider. System language on Windows uses the actual Windows user UI language from `GetUserDefaultUILanguage`, which may differ from app language preferences; unsupported languages still fall back to English.
 
 **Windows 11 window rendering (v0.10.4):** switched back to an **opaque native frameless window** with Windows-provided antialiased rounded corners. The mini-HUD still uses whole-window 76% opacity. This avoids the confirmed Electron 35 regression where transparent inactive windows show a rectangular ghost title bar. The former native `setShape` mask (pixelated) and the 2px transparent HUD margin were removed. This is a change of rendering strategy; validate its appearance on your Windows machine.
+
+**HUD opacity (v0.10.5):** Settings → Overlay now has a persistent **40–100% HUD opacity** slider (default 76%). It updates the HUD immediately through Electron `setOpacity` and never affects the main editor. On Windows 11 we also restored `WS_THICKFRAME` via `thickFrame: true` to allow native DWM rounded corners without returning to transparent windows and their ghost backing rectangle. Round-corner behavior still needs validation on the user's actual Windows configuration.
 
 ## Persistent history and speaking statistics (v0.10.0)
 

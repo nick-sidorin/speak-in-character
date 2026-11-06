@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
-import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
+import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Slider, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
 import { appTheme } from './theme';
 
 type ViewMode = 'hud' | 'panel';
@@ -189,6 +189,10 @@ function languageFromSystemLocale(locale?: string): InterfaceLanguage {
 export default function App() {
   const [view, setView] = useState<ViewMode>('hud');
   const [tab, setTab] = useState<Tab>('rp');
+  const [hudOpacity, setHudOpacity] = useState(() => {
+    const raw = Number(localStorage.getItem('hud-opacity'));
+    return Number.isFinite(raw) && raw >= 40 && raw <= 100 ? raw : 76;
+  });
   const [appearance, setAppearance] = useState<Appearance>(() => {
     const stored = localStorage.getItem('appearance');
     return stored === 'dark' || stored === 'light' ? stored : 'system';
@@ -539,6 +543,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    window.inCharacter.setHudOpacity(hudOpacity);
+  }, [hudOpacity]);
+
+  useEffect(() => {
     if (view !== 'hud') return;
     const element = hudRef.current;
     if (!element) return;
@@ -851,7 +859,7 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.4</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.5</Badge>
               </Group>
               <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>
@@ -1111,6 +1119,27 @@ export default function App() {
                   <Button variant="default" leftSection={<Move size={15}/>}
                     onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
                 </Group>
+                <Stack gap={6}>
+                  <Group justify="space-between" align="baseline" gap="xs">
+                    <Text size="sm">{tr('hudOpacityLabel')}</Text>
+                    <Text size="sm" fw={700} ff="monospace">{hudOpacity}%</Text>
+                  </Group>
+                  <Slider
+                    aria-label={tr('hudOpacityLabel')}
+                    color="indigo"
+                    min={40}
+                    max={100}
+                    step={5}
+                    value={hudOpacity}
+                    marks={[{ value: 40, label: '40%' }, { value: 100, label: '100%' }]}
+                    mb="sm"
+                    onChange={value => {
+                      setHudOpacity(value);
+                      localStorage.setItem('hud-opacity', String(value));
+                    }}
+                  />
+                  <Text size="xs" c="dimmed">{tr('hudOpacityHint')}</Text>
+                </Stack>
                 <Text size="xs" c="dimmed">{shortcuts.hold?tr('hotkeyHoldHint'):tr('hotkeyTapHint')}</Text>
                 {!shortcuts.hold && <Text size="xs" c="orange">{tr('hotkeyFallback')}</Text>}
               </Stack>

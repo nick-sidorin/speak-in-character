@@ -41,6 +41,7 @@ declare global {
       onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean; hold: boolean }) => void) => () => void;
       setViewMode: (mode: ViewMode) => void;
       resizeHud: (width: number) => void;
+      setHudOpacity: (percent: number) => void;
       startHudDrag: () => void;
       moveHudDrag: () => void;
       endHudDrag: () => void;

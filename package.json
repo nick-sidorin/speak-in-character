@@ -1,6 +1,6 @@
 {
   "name": "speak-in-character",
-  "version": "0.10.4",
+  "version": "0.10.5",
   "private": true,
   "description": "SpeakInCharacter — a voice companion for roleplayers",
   "main": "dist-electron/main.js",

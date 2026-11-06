@@ -117,6 +117,7 @@ let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
 let isQuitting = false;
 let shortcutCaptureActive = false;
 let hudMoveEnabled = false;
+let hudOpacity = 0.76; // Default matches the previous HUD appearance.
 let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
 type SavedPosition = { x: number; y: number };
@@ -246,7 +247,7 @@ let panelWindowBackground = '#242424';
 function applyWindowAppearance(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
   overlay.setBackgroundColor(next === 'hud' ? '#202a2e' : panelWindowBackground);
-  overlay.setOpacity(next === 'hud' ? 0.76 : 1.0);
+  overlay.setOpacity(next === 'hud' ? hudOpacity : 1.0);
 }
 
 function changeMode(next: ViewMode) {
@@ -279,7 +280,9 @@ function createOverlay() {
     backgroundColor: '#202a2e',
     resizable: false,
     movable: true,
-    thickFrame: false,
+    // WS_THICKFRAME is needed for Windows 11's DWM rounded corners.
+    // It does not add a visible title bar to a frameless Electron window.
+    thickFrame: true,
     hasShadow: false,
     // Use Windows' own smoothly antialiased rounded border.
     roundedCorners: true,
@@ -476,6 +479,13 @@ app.whenReady().then(() => {
   ipcMain.on('hud:resize', (event, width: number) => {
     if (event.sender !== overlay?.webContents || mode !== 'hud') return;
     updateHudWidth(width);
+  });
+
+  ipcMain.on('hud:set-opacity', (event, opacityPercent: number) => {
+    if (event.sender !== overlay?.webContents || !Number.isFinite(opacityPercent)) return;
+    if (opacityPercent < 40 || opacityPercent > 100) return;
+    hudOpacity = opacityPercent / 100;
+    if (mode === 'hud') applyWindowAppearance('hud');
   });
 
   ipcMain.on('overlay:move-hud', (_event, enabled: boolean) => {
