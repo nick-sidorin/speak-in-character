@@ -824,7 +824,7 @@ export default function App() {
 
   return <MantineProvider theme={appTheme} forceColorScheme={effectiveTheme}>
     <Tabs value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
-      <AppShell className="sic-shell" header={{ height: 110 }} footer={{ height: 42 }} padding="md" withBorder>
+      <AppShell className="sic-shell" header={{ height: 110 }} footer={{ height: 42 }} padding="md" withBorder={false}>
         <AppShell.Header>
           <Group h={61} px="md" gap="sm" wrap="nowrap" className="sic-drag"
             onPointerDown={dragWindowStart} onPointerMove={dragWindowMove}
@@ -860,7 +860,7 @@ export default function App() {
               <Title order={4}>{tr('tabReply')}</Title>
               <Text c="dimmed" size="xs">{tr('heroSub')}</Text>
             </Box>
-            <Grid gutter="sm">
+            <Grid gap="sm">
               <Grid.Col span={5}>
                 <TextInput label={tr('targetLabel')} value={replyLanguageInput} maxLength={80}
                   placeholder="English" onChange={event => {
