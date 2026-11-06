@@ -755,10 +755,11 @@ export default function App() {
           <Select
             label={tr('presetLabel')}
             id="speech-preset"
-            value={presetId}
+            value={presetId || null}
+            placeholder={tr('presetNone')}
+            clearable
             onChange={value => selectPreset(value || '')}
             data={[
-              { value: '', label: tr('presetNone') },
               ...presets.map(preset => ({
                 value: preset.id,
                 label: localizedPresetText(preset.name, uiLanguage),
@@ -768,7 +769,6 @@ export default function App() {
             ]}
             comboboxProps={{ withinPortal: false }}
             searchable={presets.length > 7}
-            allowDeselect={false}
           />
         </div>
         <div className="additional-context">
