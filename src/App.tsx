@@ -3,6 +3,8 @@ import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } f
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
 import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Slider, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
 import { appTheme } from './theme';
+import { MIN_RECORDING_MS, MIN_SIGNAL_RMS, shouldDiscardSilentRecording, type AudioLevelSummary } from './recordingPolicy';
+import { languageFromSystemLocale } from './locale';
 
 type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
@@ -54,14 +56,6 @@ function readableSize(bytes: number): string {
   return bytes < 1024 * 1024 ? (bytes / 1024).toFixed(0) + ' KB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 const TRANSCRIPTION_PER_MINUTE = 0.006;
-// Short accidental taps never create a history entry or incur API charges.
-const MIN_RECORDING_MS = 250;
-// A deliberately conservative local silence gate: it detects near-silence,
-// not actual words. Anything ambiguous is still sent to transcription.
-const SILENCE_CHECK_MIN_MS = 1200;
-const MIN_SIGNAL_RMS = 0.0045;
-type AudioLevelSummary = { samples: number; audibleSamples: number; maxRms: number };
-
 function startAudioLevelMonitor(stream: MediaStream):
   { summary: AudioLevelSummary; stop: () => void } | null {
   try {
@@ -99,15 +93,6 @@ function startAudioLevelMonitor(stream: MediaStream):
     console.warn('Microphone level analysis unavailable:', error);
     return null;
   }
-}
-
-function shouldDiscardSilentRecording(durationMs: number, summary: AudioLevelSummary | null): boolean {
-  // If the browser suspended its AudioContext, do not discard unanalysed speech.
-  return durationMs >= SILENCE_CHECK_MIN_MS &&
-    summary !== null &&
-    summary.samples >= 8 &&
-    summary.audibleSamples === 0 &&
-    summary.maxRms < MIN_SIGNAL_RMS;
 }
 
 function clock(ms: number): string {
@@ -179,11 +164,6 @@ function shortcutFromEvent(event: KeyboardEvent<HTMLButtonElement>): string | nu
     ...(event.shiftKey ? ['Shift'] : []),
   ];
   return [...mods,key].join('+');
-}
-
-function languageFromSystemLocale(locale?: string): InterfaceLanguage {
-  const base = locale?.split(/[-_]/, 1)[0]?.trim().toLowerCase();
-  return INTERFACE_LANGUAGES.find(language => language.value === base)?.value ?? 'en';
 }
 
 export default function App() {
