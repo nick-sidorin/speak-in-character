@@ -841,7 +841,6 @@ export default function App() {
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
                 <Badge size="xs" variant="light" color="gray" radius="sm">0.10.5</Badge>
               </Group>
-              <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>
             <ActionIcon size="md" variant="subtle" color="gray" title={tr('hidePanel')}
               onClick={() => window.inCharacter.setViewMode('hud')}>
@@ -862,7 +861,6 @@ export default function App() {
           {tab === 'rp' && <Stack gap="sm">
             <Box>
               <Title order={4}>{tr('tabReply')}</Title>
-              <Text c="dimmed" size="xs">{tr('heroSub')}</Text>
             </Box>
             <Grid gap="sm">
               <Grid.Col span={5}>
@@ -900,7 +898,6 @@ export default function App() {
                     </Text>
                     {phase === 'idle' && <Code>{keyBindings.record}</Code>}
                   </Group>
-                  <Text size="xs" c="dimmed">{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</Text>
                 </Stack>
                 <Text ff="monospace" fw={650} size="sm" c="dimmed">{clock(elapsed)}</Text>
                 <ActionIcon size="lg" variant="light" color="red" disabled={isBusy}
@@ -910,7 +907,7 @@ export default function App() {
                 </ActionIcon>
               </Group>
             </Paper>
-            <Textarea label={tr('rawLabel')} description={tr('rawHint')} autosize minRows={2} maxRows={4}
+            <Textarea label={tr('rawLabel')} autosize minRows={2} maxRows={4}
               value={original} placeholder={tr('rawPlaceholder')}
               onChange={event=>{
                 setOriginal(event.currentTarget.value);
@@ -920,7 +917,6 @@ export default function App() {
                 }
               }}/>
             <Textarea label={tr('outputLabel')}
-              description={phase==='processing'?tr('outputProcessing'):tr('outputHint')}
               autosize minRows={3} maxRows={5}
               value={english} placeholder={tr('outputPlaceholder')}
               onChange={event=>{
@@ -942,7 +938,6 @@ export default function App() {
           {tab === 'history' && <Stack gap="md">
             <Box>
               <Title order={4}>{tr('historyTitle')}</Title>
-              <Text size="xs" c="dimmed">{tr('historyPersistentHint')}</Text>
             </Box>
             <Text size="sm" fw={700}>{tr('historyLifetime')}</Text>
             <SimpleGrid cols={2} spacing="xs">
@@ -1001,7 +996,6 @@ export default function App() {
             <Paper withBorder radius="md" p="sm">
               <Stack gap="xs">
                 <Text size="sm" fw={700}>{tr('historyCleanupTitle')}</Text>
-                <Text c="dimmed" size="xs">{tr('historyCleanupDescription')}</Text>
                 <Group align="end" wrap="nowrap" grow>
                   <Select aria-label={tr('historyRetentionLabel')} value={historyDeleteAge}
                     comboboxProps={{withinPortal:false}} allowDeselect={false}
@@ -1020,12 +1014,10 @@ export default function App() {
           {tab === 'settings' && <Stack gap="sm">
             <Box>
               <Title order={4}>{tr('settingsTitle')}</Title>
-              <Text c="dimmed" size="xs">{tr('settingsSub')}</Text>
             </Box>
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('themeTitle')}</Text>
-                <Text c="dimmed" size="xs">{tr('themeDescription')}</Text>
                 <SegmentedControl fullWidth size="sm" value={appearance}
                   onChange={value=>{
                     const choice=value as Appearance;
@@ -1038,7 +1030,6 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('languageUiLabel')}</Text>
-                <Text c="dimmed" size="xs">{tr('languageUiDescription')}</Text>
                 <Select value={uiLanguagePreference} allowDeselect={false} comboboxProps={{withinPortal:false}}
                   data={[{value:'system',label:tr('languageSystem')},...INTERFACE_LANGUAGES.map(language=>({value:language.value,label:language.label}))]}
                   onChange={value=>{
@@ -1053,7 +1044,6 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('presetTitle')}</Text>
-                <Text size="xs" c="dimmed">{tr('presetManageHint')}</Text>
                 <Group grow gap="sm" wrap="nowrap">
                   <Button variant="default" onClick={()=>void openPresetsFolder()}>{tr('presetFolder')}</Button>
                   <Button variant="default" leftSection={<RefreshCw size={14}/>} disabled={presetsLoading}
@@ -1070,18 +1060,16 @@ export default function App() {
                     {hasKey?tr('connected'):tr('disconnected')}
                   </Badge>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('apiKeyInfo')}</Text>
                 <Group align="end" wrap="nowrap" gap="xs">
                   <PasswordInput style={{flex:1,minWidth:0}} autoComplete="off" value={apiKeyDraft}
                     placeholder={hasKey?tr('apiKeyPlaceholder'):'sk-proj-…'}
                     onChange={event=>setApiKeyDraft(event.currentTarget.value)}/>
                   <Button disabled={!apiKeyDraft.trim() || keyBusy} onClick={()=>void saveKey()}>{tr('save')}</Button>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('apiKeyDisclaimer')}</Text>
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
-              <Switch label={tr('micProcessing')} description={tr('micProcessingHint')}
+              <Switch label={tr('micProcessing')}
                 checked={micProcessing} disabled={inProgress}
                 onChange={event=>{
                   setMicProcessing(event.currentTarget.checked);
@@ -1094,7 +1082,6 @@ export default function App() {
                 <Group justify="space-between" wrap="nowrap" align="center">
                   <Box style={{minWidth:0}}>
                     <Text size="sm">{tr('moveIndicator')}</Text>
-                    <Text size="xs" c="dimmed">{tr('positionSaved')}</Text>
                   </Box>
                   <Button variant="default" leftSection={<Move size={15}/>}
                     onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
@@ -1118,16 +1105,13 @@ export default function App() {
                       localStorage.setItem('hud-opacity', String(value));
                     }}
                   />
-                  <Text size="xs" c="dimmed">{tr('hudOpacityHint')}</Text>
                 </Stack>
-                <Text size="xs" c="dimmed">{shortcuts.hold?tr('hotkeyHoldHint'):tr('hotkeyTapHint')}</Text>
                 {!shortcuts.hold && <Text size="xs" c="orange">{tr('hotkeyFallback')}</Text>}
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text size="sm" fw={700}>{tr('hotkeyTitle')}</Text>
-                <Text size="xs" c="dimmed">{tr('hotkeyDesc')}</Text>
                 {(['record','panel','move'] as const).map(action=><Group key={action} justify="space-between" gap="xs" wrap="nowrap">
                   <Text size="xs" style={{flex:1}}>{tr(action==='record'?'hotkeyRecord':action==='panel'?'hotkeyPanel':'hotkeyMove')}</Text>
                   <Code>{keyBindings[action]}</Code>
@@ -1141,7 +1125,6 @@ export default function App() {
                 </Group>)}
                 {captureAction && <Text size="xs" c="indigo">{tr('hotkeyCaptureHint')}</Text>}
                 {shortcutError && <Text size="xs" c="red">{shortcutError}</Text>}
-                <Text size="xs" c="dimmed">{tr('hotkeyCapsNote')}</Text>
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
@@ -1151,7 +1134,6 @@ export default function App() {
                   <Title order={4}>{amount(sessionCost)}</Title>
                   <Text size="xs" c="dimmed">{lifetimeStats.recordings} {tr('recordingsCount')}</Text>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('costDisclaimer')}</Text>
                 <Button variant="subtle" size="xs" onClick={()=>void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
               </Stack>
             </Paper>
