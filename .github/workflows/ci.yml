@@ -60,6 +60,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & native\hotkey.exe --round-corners 0
           if ($LASTEXITCODE -eq 0) { throw "Invalid native window handle must be rejected" }
+          # PowerShell automatically exits using LASTEXITCODE after the step.
+          # A non-zero result here is EXPECTED, so reset it after asserting.
+          $global:LASTEXITCODE = 0
       - name: Verify Windows UI language
         shell: pwsh
         run: |
