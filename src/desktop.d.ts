@@ -1,6 +1,33 @@
 export {};
 
 type ViewMode = 'hud' | 'panel';
+type HistoryEntry = {
+  id: string;
+  createdAt: number;
+  durationMs: number;
+  transcript: string;
+  english: string;
+  targetLanguage: string;
+  presetId: string;
+  estimatedTextCostUsd: number;
+  transcriptionCostUsd: number;
+  recognizedWords: number;
+  extension: 'webm' | 'ogg';
+  audioBytes: number;
+};
+type HistoryStats = {
+  recordings: number;
+  durationMs: number;
+  words: number;
+  estimatedCostUsd: number;
+  audioBytes: number;
+};
+type HistorySnapshot = {
+  entries: HistoryEntry[];
+  stored: HistoryStats;
+  lifetime: Omit<HistoryStats, 'audioBytes'>;
+};
+
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 declare global {
@@ -28,6 +55,15 @@ declare global {
       }>>;
       openPresetsFolder: () => Promise<void>;
       copyText: (value: string) => Promise<void>;
+      historyList: () => Promise<HistorySnapshot>;
+      historyAdd: (input: {bytes: Uint8Array; mimeType:string; durationMs:number; targetLanguage:string; presetId:string}) => Promise<HistorySnapshot>;
+      historyFinish: (id: string, result: {transcript:string; english:string; transcriptionCostUsd:number; estimatedTextCostUsd:number}) => Promise<HistorySnapshot>;
+      historyEdit: (id: string, changes: {transcript?:string; english?:string}) => Promise<HistorySnapshot>;
+      historyRewrite: (id: string, english: string, cost: number) => Promise<HistorySnapshot>;
+      historyReadAudio: (id: string) => Promise<{bytes: Uint8Array; mimeType:string}>;
+      historyDelete: (id: string) => Promise<HistorySnapshot>;
+      historyClear: (days: number | null) => Promise<HistorySnapshot>;
+      historyExport: (id: string) => Promise<SaveResult>;
       openUsage: () => Promise<void>;
       getPreferredLanguages: () => Promise<string[]>;
       setThemeBackground: (scheme: 'light' | 'dark') => void;

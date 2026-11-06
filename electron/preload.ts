@@ -1,6 +1,33 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 type ViewMode = 'hud' | 'panel';
+type HistoryEntry = {
+  id: string;
+  createdAt: number;
+  durationMs: number;
+  transcript: string;
+  english: string;
+  targetLanguage: string;
+  presetId: string;
+  estimatedTextCostUsd: number;
+  transcriptionCostUsd: number;
+  recognizedWords: number;
+  extension: 'webm' | 'ogg';
+  audioBytes: number;
+};
+type HistoryStats = {
+  recordings: number;
+  durationMs: number;
+  words: number;
+  estimatedCostUsd: number;
+  audioBytes: number;
+};
+type HistorySnapshot = {
+  entries: HistoryEntry[];
+  stored: HistoryStats;
+  lifetime: Omit<HistoryStats, 'audioBytes'>;
+};
+
 
 contextBridge.exposeInMainWorld('inCharacter', {
   onHoldKeyDown: (callback: () => void) => {
@@ -52,6 +79,15 @@ contextBridge.exposeInMainWorld('inCharacter', {
   }>> => ipcRenderer.invoke('presets:list'),
   openPresetsFolder: (): Promise<void> => ipcRenderer.invoke('presets:open-folder'),
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('clipboard:copy', value),
+  historyList: (): Promise<HistorySnapshot> => ipcRenderer.invoke('history:list'),
+  historyAdd: (input: {bytes: Uint8Array; mimeType:string; durationMs:number; targetLanguage:string; presetId:string}): Promise<HistorySnapshot> => ipcRenderer.invoke('history:add', input),
+  historyFinish: (id: string, result: {transcript:string; english:string; transcriptionCostUsd:number; estimatedTextCostUsd:number}): Promise<HistorySnapshot> => ipcRenderer.invoke('history:finish', id, result),
+  historyEdit: (id: string, changes: {transcript?:string; english?:string}): Promise<HistorySnapshot> => ipcRenderer.invoke('history:edit', id, changes),
+  historyRewrite: (id: string, english: string, cost: number): Promise<HistorySnapshot> => ipcRenderer.invoke('history:rewrite', id, english, cost),
+  historyReadAudio: (id: string): Promise<{bytes: Uint8Array; mimeType: string}> => ipcRenderer.invoke('history:read-audio', id),
+  historyDelete: (id: string): Promise<HistorySnapshot> => ipcRenderer.invoke('history:delete', id),
+  historyClear: (days: number | null): Promise<HistorySnapshot> => ipcRenderer.invoke('history:clear', days),
+  historyExport: (id: string): Promise<{canceled:true}|{canceled:false;filePath:string}> => ipcRenderer.invoke('history:export', id),
   openUsage: (): Promise<void> => ipcRenderer.invoke('app:open-usage'),
   getPreferredLanguages: (): Promise<string[]> => ipcRenderer.invoke('app:preferred-languages'),
   setThemeBackground: (scheme: 'light' | 'dark'): void => ipcRenderer.send('app:theme-background', scheme),

@@ -11,6 +11,7 @@ import {
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { copyToClipboard, hasApiKey, processVoice, rewriteSpeech, setApiKey } from './ai';
 import { ensureCustomPresetsDirectory, listPresets } from './presets';
+import { addRecording, addRewriteCost, clearHistory, deleteRecording, editRecording, exportRecording, finishRecording, getRecording, listHistory, readRecording } from './history';
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -477,6 +478,28 @@ app.whenReady().then(() => {
     if (error) throw new Error(error);
   });
   ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
+  // Persistent audio/metadata remain in userData. Renderer never supplies paths.
+  ipcMain.handle('history:list', () => listHistory());
+  ipcMain.handle('history:add', (_event, payload: Parameters<typeof addRecording>[0]) => addRecording(payload));
+  ipcMain.handle('history:finish', (_event, id: string, result: Parameters<typeof finishRecording>[1]) => finishRecording(id, result));
+  ipcMain.handle('history:edit', (_event, id: string, changes: { transcript?: string; english?: string }) => editRecording(id, changes));
+  ipcMain.handle('history:rewrite', (_event, id: string, english: string, cost: number) => addRewriteCost(id, english, cost));
+  ipcMain.handle('history:read-audio', (_event, id: string) => readRecording(id));
+  ipcMain.handle('history:delete', (_event, id: string) => deleteRecording(id));
+  ipcMain.handle('history:clear', (_event, days: number | null) => clearHistory(days));
+  ipcMain.handle('history:export', async (_event, id: string): Promise<SaveResult> => {
+    if (!overlay || overlay.isDestroyed()) throw new Error('Window unavailable');
+    const entry = getRecording(id);
+    const date = new Date(entry.createdAt).toISOString().replace(/[:.]/g, '-');
+    const choice = await dialog.showSaveDialog(overlay, {
+      title: 'Save voice recording',
+      defaultPath: join(app.getPath('documents'), `SpeakInCharacter-${date}.${entry.extension}`),
+      filters: [{ name: 'Voice recording', extensions: [entry.extension] }],
+    });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    exportRecording(id, choice.filePath);
+    return { canceled: false, filePath: choice.filePath };
+  });
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
   ipcMain.handle('app:preferred-languages', () => app.getPreferredSystemLanguages());
   ipcMain.on('app:theme-background', (_event, scheme: string) => {
