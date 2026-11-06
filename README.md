@@ -22,6 +22,8 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 
 **Existing users:** the rename keeps the original local data directory for compatibility, so your encrypted API key, presets, hotkeys, and past window positions remain available. Existing language choices are respected. New users get their Windows display language automatically (English fallback); in Settings, choose **System language** to follow Windows again.
 
+**UI update (v0.9.0):** the editor now uses the free MIT-licensed Mantine component library with a Discord-inspired Ash palette. In Settings you can choose **System / Dark / Light**; the choice persists, and System follows live Windows light/dark changes. The in-game HUD intentionally retains its compact independent styling.
+
 **Release note:** v0.8.2 remains the currently published release until the redesigned v0.9.0 build is reviewed.
 
 ## How it works

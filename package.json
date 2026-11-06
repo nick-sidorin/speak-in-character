@@ -16,7 +16,9 @@
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "lucide-react": "^0.468.0"
+    "lucide-react": "^0.468.0",
+    "@mantine/core": "^9.7.5",
+    "@mantine/hooks": "^9.7.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

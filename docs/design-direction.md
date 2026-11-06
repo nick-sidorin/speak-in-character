@@ -51,6 +51,10 @@ The primary screen must fit without scrolling on typical 1080p. Where necessary,
 
 Keep the custom ~254×54 px window. Two lines, compact status dot, low-opacity background and click-through by default. Its layout is independent from Mantine so game overlay is stable.
 
+## Implementation (v0.9)
+
+Mantine core + hooks, app theme, light/dark/system preference and UI components are now being integrated. The tiny HUD stays independent from the large panel.
+
 ## Next implementation pass
 
 - Add `@mantine/core` and `@mantine/hooks`; theme only the main panel.
