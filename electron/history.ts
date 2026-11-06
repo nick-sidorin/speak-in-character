@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, statSync, lstatSync, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type HistoryEntry = {
@@ -274,6 +274,16 @@ export function clearHistory(days: number | null): Promise<HistorySnapshot> {
       catch (error) { console.error('Cannot delete managed audio:', entry.id, error); failed.add(entry.id); }
     }
     db.entries = db.entries.filter(e=>!selected.includes(e) || failed.has(e.id));
+    if (days === null && failed.size === 0 && existsSync(directory())) {
+      // A crash between writing an audio file and the index may leave orphans.
+      // Full purge also removes such files, exclusively inside our managed folder.
+      for (const file of readdirSync(directory())) {
+        if (!UUID_PATTERN.test(file.slice(0,36)) || !/\\.(webm|ogg)$/.test(file)) continue;
+        const path = join(directory(), file);
+        const info = lstatSync(path);
+        if (info.isFile() && !info.isSymbolicLink()) rmSync(path);
+      }
+    }
     if (days === null && failed.size === 0) {
       // Full purge includes aggregate totals. Single-item and age-based cleanup
       // intentionally retain lifetime counters.

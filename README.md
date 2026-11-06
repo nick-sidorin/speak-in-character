@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.9.0 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.10.0 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -38,9 +38,23 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 - **Additional context:** one optional multi-line prompt for the character, speaker quirks, game terms, scene and other disambiguating background. Existing separate character/situation fields are migrated when upgrading.
 - **Presets:** optional JSON speech-style presets (Dwarven, Pirate, Courtly). Select the active preset on the **Reply** screen.
 - **Style precedence:** preserve the original meaning first; use the chosen preset as a baseline; **Additional context overrides conflicting preset style instructions**, while compatible traits combine. For example, a pirate who stutters can sound both pirate-like and stuttered, but the original transcript is not stylized.
-- **Session history:** up to 15 recent recordings, their audio and drafts, a save-audio action and estimated session costs. Cleared on app exit.
+- **Persistent local history:** recordings, audio, transcriptions, translated messages and estimated costs survive app restarts. History is not capped at 15 records; a generous safety limit applies (10,000 managed entries). Audio loads on demand to keep startup memory low. All archive data is stored locally inside the existing `InCharacter` user-data folder.
 - **UI languages:** Russian, English, French, Spanish, German, set independently from the reply language.
 - **HUD:** a tiny, translucent (~254 × 54 px) click-through status panel with a recording indicator, spinner and completion check. Its position and the main panel's position persist between launches.
+
+## Persistent history and speaking statistics (v0.10.0)
+
+Open **History** to view recordings from **all sessions**, grouped by date, with audio playback, transcript/reply restore, and exports. You can review:
+
+- Total **recordings** accepted, **speaking minutes**, and **recognized words** across all sessions.
+- **Estimated combined API costs** (transcription + rewriting). These are estimates, not the actual amount invoiced by OpenAI.
+- The number of retained recordings and their **managed audio storage size**.
+
+**Storage:** metadata and lifetime counters live in `%APPDATA%\\InCharacter\\recording-history.json`; audio files are stored in `%APPDATA%\\InCharacter\\recordings\\`. Keeping the original user-data directory name protects saved settings and encrypted API keys across the rename. Data is never uploaded to SpeakInCharacter servers; approved recordings still go directly to OpenAI if API processing is enabled.
+
+**Clean up:** delete a single recording, delete recordings older than 7/30/90 days, or **delete all history, audio and lifetime statistics**. Every destructive action requires confirmation. Removing individual/older audio **does not reset lifetime counters**; clearing absolutely everything resets them. Deletion only touches managed audio inside the app's own folder and metadata. Separately exported audio files are **never** automatically removed.
+
+**Upgrades:** prior versions stored recordings only in volatile memory, so entries from sessions that ended before v0.10.0 cannot be recovered automatically. The new archive starts recording on first use of v0.10.0.
 
 ## Hotkeys and Windows behavior
 

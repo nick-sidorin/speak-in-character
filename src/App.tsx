@@ -326,8 +326,9 @@ export default function App() {
     const pending = pendingEditsRef.current;
     pendingEditsRef.current = null;
     if (!pending) return;
+    // Do not replay an old disk snapshot into a text field while the user
+    // continues typing. The local UI has the newest edit already.
     void window.inCharacter.historyEdit(pending.id, pending.changes)
-      .then(applyHistorySnapshot)
       .catch(error => setMessage(tr('historyError') + errorText(error, uiLanguage)));
   }
 
@@ -592,6 +593,7 @@ export default function App() {
       stopClock();
       stopAudioLevelMonitor();
       streamRef.current?.getTracks().forEach(track => track.stop());
+      flushPendingEdits();
       urlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
