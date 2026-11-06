@@ -124,11 +124,13 @@ internal static class Hotkeys
 
             if (!down) {
                 foreach (Binding binding in bindings) {
-                    if (binding.Action == "RECORD" && binding.Active &&
-                        (binding.Key == vk || !ModifiersHeld(binding))) {
-                        binding.Active = false;
-                        emit("RECORD_UP");
-                    }
+                    if (!binding.Active ||
+                        (binding.Key != vk && ModifiersHeld(binding))) continue;
+                    // One-shot PANEL and MOVE actions must be rearmed on key-up.
+                    // Previously only RECORD was reset, so Ctrl+Shift+O / M
+                    // fired exactly once until the helper process restarted.
+                    binding.Active = false;
+                    if (binding.Action == "RECORD") emit("RECORD_UP");
                 }
                 if (swallowed.Remove(vk)) return true;
                 return false;
@@ -233,6 +235,32 @@ internal static class Hotkeys
         r.Handle(VK_SHIFT, true);
         if (!r.Handle('M', true) || !r.Handle('M', false)) return 6;
         if (generated.Count != 4 || generated[3] != "MOVE_DOWN") return 7;
+
+        // Regression: one-shot shortcuts must fire on EVERY press/release,
+        // including several consecutive move-mode toggles.
+        if (!r.Handle('M', true) || !r.Handle('M', false)) return 8;
+        if (!r.Handle('M', true) || !r.Handle('M', false)) return 9;
+        if (generated.Count != 6 || generated[4] != "MOVE_DOWN" || generated[5] != "MOVE_DOWN") return 10;
+        if (!r.Handle('O', true) || !r.Handle('O', false)) return 11;
+        if (!r.Handle('O', true) || !r.Handle('O', false)) return 12;
+        if (generated.Count != 8 || generated[6] != "PANEL_DOWN" || generated[7] != "PANEL_DOWN") return 13;
+        r.Handle(VK_SHIFT, false);
+        r.Handle(VK_CTRL, false);
+
+        // Modifier released before primary key: RECORD should still end
+        // exactly once, and one-shot shortcuts should rearm for next time.
+        r.Handle(VK_CTRL, true);
+        r.Handle(VK_SHIFT, true);
+        if (!r.Handle('M', true)) return 14;
+        r.Handle(VK_SHIFT, false);
+        if (!r.Handle('M', false)) return 15;
+        r.Handle(VK_CTRL, false);
+        r.Handle(VK_CTRL, true);
+        r.Handle(VK_SHIFT, true);
+        if (!r.Handle('M', true) || !r.Handle('M', false)) return 16;
+        if (generated.Count != 10) return 17;
+        r.Handle(VK_SHIFT, false);
+        r.Handle(VK_CTRL, false);
 
         Console.WriteLine("Hotkey routing self-test passed");
         return 0;
