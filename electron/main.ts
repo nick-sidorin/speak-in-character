@@ -106,7 +106,6 @@ function storeShortcuts() {
 
 
 let overlay: BrowserWindow | null = null;
-let panelBackground = '#1b1d22';
 let mode: ViewMode = 'hud';
 let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
 let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
@@ -486,10 +485,9 @@ app.whenReady().then(() => {
   ipcMain.handle('app:preferred-languages', () => app.getPreferredSystemLanguages());
   ipcMain.on('app:theme-background', (_event, scheme: string) => {
     if (scheme !== 'dark' && scheme !== 'light') return;
-    panelBackground = scheme === 'dark' ? '#1b1d22' : '#f4f5fa';
-    if (mode === 'panel' && overlay && !overlay.isDestroyed()) {
-      overlay.setBackgroundColor(panelBackground);
-    }
+    // Mantine controls the theme inside the renderer. Never set an opaque
+    // BrowserWindow background here: it would put square pixels back behind
+    // the CSS-rounded transparent window corners.
   });
   ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
   ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
