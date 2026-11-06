@@ -218,27 +218,9 @@ function defaultBounds(size: { width: number; height: number }) {
 
 function applyWindowAppearance(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
-  // Native window clipping removes opaque corner pixels rather than merely
-  // applying CSS border-radius to a rectangular Windows surface.
-  // Keep the full-size editor opaque; only the small in-game HUD fades.
-  if (process.platform === 'win32') {
-    const { width, height } = next === 'hud' ? HUD : PANEL;
-    const radius = next === 'hud' ? 11 : 14;
-    const rects: Array<{x:number;y:number;width:number;height:number}> = [
-      { x: 0, y: radius, width, height: height - radius * 2 },
-    ];
-    for (let row = 0; row < radius; row++) {
-      const inset = Math.ceil(radius - Math.sqrt(
-        radius * radius - Math.pow(radius - row - 0.5, 2)
-      ));
-      rects.push({ x: inset, y: row, width: width - inset * 2, height: 1 });
-      rects.push({ x: inset, y: height - row - 1, width: width - inset * 2, height: 1 });
-    }
-    try { overlay.setShape(rects); } catch (error) {
-      console.warn('Native rounded window clipping unavailable:', error);
-    }
-  }
-  overlay.setBackgroundColor(next === 'hud' ? '#1e282c' : panelBackground);
+  // Integer-shaped clipping created jagged Windows corners.
+  // An alpha-transparent window allows CSS anti-aliased rounding.
+  overlay.setBackgroundColor('#00000000');
   overlay.setOpacity(next === 'hud' ? 0.76 : 1.0);
 }
 
@@ -266,9 +248,9 @@ function createOverlay() {
     ...windowBounds('hud'),
     title: '',
     frame: false,
-    // Opaque frameless windows avoid a known Windows 11 inactive DWM decoration bug.
-    transparent: false,
-    backgroundColor: '#171c20',
+    // Alpha channel for smooth CSS clipping in this frameless overlay.
+    transparent: true,
+    backgroundColor: '#00000000',
     resizable: false,
     movable: true,
     thickFrame: false,
