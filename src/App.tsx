@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
-import { MantineProvider, ActionIcon, Badge, Button, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput } from '@mantine/core';
+import { MantineProvider, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput } from '@mantine/core';
 import { appTheme } from './theme';
 
 type ViewMode = 'hud' | 'panel';
@@ -936,7 +936,10 @@ export default function App() {
             placeholder={tr('rawPlaceholder')}
             onChange={event => {
               setOriginal(event.target.value);
-              if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { transcript: event.target.value });
+              if (activeIdRef.current !== null) {
+                changeEntry(activeIdRef.current, { transcript: event.target.value });
+                scheduleEdit(activeIdRef.current, { transcript: event.target.value });
+              }
             }}
           />
           <div className="draft-header english-header">
@@ -951,7 +954,10 @@ export default function App() {
             placeholder={tr('outputPlaceholder')}
             onChange={event => {
               setEnglish(event.target.value);
-              if (activeIdRef.current !== null) changeEntry(activeIdRef.current, { english: event.target.value });
+              if (activeIdRef.current !== null) {
+                changeEntry(activeIdRef.current, { english: event.target.value });
+                scheduleEdit(activeIdRef.current, { english: event.target.value });
+              }
             }}
           />
           <div className="draft-actions">
@@ -964,25 +970,83 @@ export default function App() {
       {tab === 'history' && <section className="history-screen">
         <div className="screen-title">
           <h1>{tr('historyTitle')}</h1>
-          <p>{tr('historySub')}</p>
+          <p>{tr('historyPersistentHint')}</p>
         </div>
-        {history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span className="empty-history-shortcut">{tr('historyEmptyAction')} <KeyCaps value={keyBindings.record}/></span></div>
+        <div className="history-summary-heading">
+          <BarChart3 size={16}/>
+          <strong>{tr('historyLifetime')}</strong>
+        </div>
+        <div className="history-stats-grid">
+          <div className="history-stat"><strong>{lifetimeStats.recordings.toLocaleString(uiLanguage)}</strong><small>{tr('historyStatRecordings')}</small></div>
+          <div className="history-stat"><strong>{(lifetimeStats.durationMs / 60000).toFixed(1)}</strong><small>{tr('historyStatMinutes')}</small></div>
+          <div className="history-stat"><strong>{lifetimeStats.words.toLocaleString(uiLanguage)}</strong><small>{tr('historyStatWords')}</small></div>
+          <div className="history-stat"><strong>{amount(lifetimeStats.estimatedCostUsd)}</strong><small>{tr('historyStatCost')}</small></div>
+        </div>
+        <div className="history-storage-info">
+          <HardDrive size={14}/>
+          <span>{tr('historyOnDisk')}: {archiveStats.recordings} · {readableSize(archiveStats.audioBytes || 0)}</span>
+        </div>
+
+        <div className="history-summary-heading history-recordings-heading">
+          <History size={16}/>
+          <strong>{tr('historyRecordings')}</strong>
+        </div>
+        {historyLoading ? <p className="history-loading">{tr('historyLoading')}</p>
+          : history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span className="empty-history-shortcut">{tr('historyEmptyAction')} <KeyCaps value={keyBindings.record}/></span></div>
           : <div className="history-list">
-            {history.map(item => <div className={'history-item ' + (activeId === item.id ? 'current' : '')} key={item.id}>
-              <div className="history-row">
-                <div className="history-title">
-                  <strong>{new Date(item.createdAt).toLocaleTimeString(uiLanguage, { hour: '2-digit', minute: '2-digit' })}</strong>
-                  <span>{clock(item.durationMs)} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)} {tr('roughly')}</span>
+            {history.map((item, index) => <div key={item.id}>
+              {(index === 0 || new Date(history[index-1].createdAt).toDateString() !== new Date(item.createdAt).toDateString()) &&
+                <div className="history-date-group">{new Date(item.createdAt).toLocaleDateString(uiLanguage, { day: 'numeric', month: 'long', year: 'numeric' })}</div>}
+              <div className={'history-item ' + (activeId === item.id ? 'current' : '')}>
+                <div className="history-row">
+                  <div className="history-title">
+                    <strong>{new Date(item.createdAt).toLocaleTimeString(uiLanguage, { hour: '2-digit', minute: '2-digit' })}</strong>
+                    <span>{clock(item.durationMs)} · {item.recognizedWords} {tr('historyWordsShort')} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)}</span>
+                  </div>
+                  <div className="history-actions">
+                    <Button className="history-restore" variant="subtle" size="xs" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</Button>
+                    <ActionIcon type="button" variant="subtle" color="red" disabled={historyBusy || inProgress} title={tr('historyDeleteOne')} onClick={() => setHistoryConfirm({kind:'one',id:item.id})}>
+                      <Trash2 size={16}/>
+                    </ActionIcon>
+                  </div>
                 </div>
-                <Button className="history-restore" variant="subtle" size="xs" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</Button>
-              </div>
-              <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
-              <div className="history-audio">
-                <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
-                <ActionIcon type="button" className="save-icon" variant="light" color="iris" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18} /></ActionIcon>
+                <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
+                <div className="history-audio">
+                  {item.url ?
+                    <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
+                    : <Button variant="light" color="gray" size="xs" leftSection={<Play size={14}/>} loading={audioLoadingId === item.id} onClick={() => void loadHistoryAudio(item.id)}>
+                      {tr('historyListen')}
+                    </Button>}
+                  <ActionIcon type="button" className="save-icon" variant="light" color="iris" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18}/></ActionIcon>
+                </div>
               </div>
             </div>)}
           </div>}
+        <div className="history-cleanup">
+          <div className="history-summary-heading"><Trash2 size={15}/><strong>{tr('historyCleanupTitle')}</strong></div>
+          <p>{tr('historyCleanupDescription')}</p>
+          <div className="history-cleanup-row">
+            <Select
+              aria-label={tr('historyRetentionLabel')}
+              value={historyDeleteAge}
+              onChange={value => setHistoryDeleteAge(value || '30')}
+              allowDeselect={false}
+              comboboxProps={{ withinPortal: false }}
+              data={[
+                {value:'7',label:tr('historyOlder7')},
+                {value:'30',label:tr('historyOlder30')},
+                {value:'90',label:tr('historyOlder90')},
+              ]}
+            />
+            <Button variant="light" color="gray" disabled={historyBusy || inProgress || history.length===0} onClick={() => setHistoryConfirm({kind:'age',days:Number(historyDeleteAge)})}>
+              {tr('historyRemoveOld')}
+            </Button>
+          </div>
+          <Button fullWidth variant="light" color="red" disabled={historyBusy || inProgress || (history.length===0 && lifetimeStats.recordings===0)}
+            leftSection={<Trash2 size={15}/>} onClick={() => setHistoryConfirm({kind:'all'})}>
+            {tr('historyDeleteAll')}
+          </Button>
+        </div>
       </section>}
 
       {tab === 'settings' && <section className="settings-screen">
@@ -1100,7 +1164,7 @@ export default function App() {
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
-          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{history.length} {tr('recordingsCount')}</span></div>
+          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{lifetimeStats.recordings} {tr('recordingsCount')}</span></div>
           <p>{tr('costDisclaimer')}</p>
           <Button variant="subtle" size="xs" className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
         </div>
@@ -1110,6 +1174,16 @@ export default function App() {
       <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message || tr('readyMsg')}</span>
       <Button variant="subtle" size="xs" type="button" color="gray" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</Button>
     </footer>
+      <Modal opened={historyConfirm !== null} onClose={() => !historyBusy && setHistoryConfirm(null)}
+        title={tr('historyConfirmTitle')} centered withinPortal={false} size="sm">
+        <p className="history-confirm-text">{historyConfirm?.kind === 'one'
+          ? tr('historyConfirmOne') : historyConfirm?.kind === 'age'
+            ? tr('historyConfirmOld') : tr('historyConfirmAll')}</p>
+        <div className="history-confirm-actions">
+          <Button color="gray" variant="light" disabled={historyBusy} onClick={() => setHistoryConfirm(null)}>{tr('historyCancel')}</Button>
+          <Button color="red" loading={historyBusy} onClick={() => void confirmHistoryDeletion()}>{tr('historyConfirmDelete')}</Button>
+        </div>
+      </Modal>
     </div>
   </MantineProvider>;
 }
