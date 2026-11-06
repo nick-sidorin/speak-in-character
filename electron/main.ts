@@ -8,7 +8,9 @@ import {
   session,
   shell,
 } from 'electron';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 import { copyToClipboard, hasApiKey, processVoice, rewriteSpeech, setApiKey } from './ai';
 import { ensureCustomPresetsDirectory, listPresets } from './presets';
 import { addRecording, addRewriteCost, clearHistory, deleteRecording, editRecording, exportRecording, finishRecording, getRecording, listHistory, readRecording } from './history';
@@ -24,7 +26,10 @@ app.setPath('userData', join(app.getPath('appData'), 'InCharacter'));
 type ViewMode = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
-const HUD = { width: 254, height: 54 };
+// HUD width is measured from its one-line content; the window is resized to fit.
+const HUD = { width: 170, height: 40 };
+const HUD_MIN_WIDTH = 96;
+const HUD_MAX_WIDTH = 390;
 const PANEL = { width: 520, height: 705 };
 type ShortcutSettings = { record: string; panel: string; move: string };
 const DEFAULT_SHORTCUTS: ShortcutSettings = {
@@ -215,6 +220,23 @@ function defaultBounds(size: { width: number; height: number }) {
   };
 }
 
+function updateHudWidth(nextWidth: number) {
+  if (!Number.isFinite(nextWidth) || !overlay || overlay.isDestroyed()) return;
+  const width = Math.max(HUD_MIN_WIDTH, Math.min(HUD_MAX_WIDTH, Math.round(nextWidth)));
+  if (Math.abs(width - HUD.width) <= 1) return;
+  const previous = HUD.width;
+  HUD.width = width;
+  if (mode !== 'hud') return;
+  const current = overlay.getBounds();
+  const display = screen.getDisplayMatching(current).workArea;
+  // Right-half HUDs retain their right edge; left-half HUDs retain left edge.
+  const isRight = current.x + previous / 2 > display.x + display.width / 2;
+  const desiredX = isRight ? current.x + previous - width : current.x;
+  const x = Math.max(display.x, Math.min(desiredX, display.x + display.width - width));
+  overlay.setBounds({ x, y: current.y, width, height: HUD.height }, false);
+  rememberPosition();
+}
+
 function applyWindowAppearance(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
   // Integer-shaped clipping created jagged Windows corners.
@@ -254,7 +276,9 @@ function createOverlay() {
     movable: true,
     thickFrame: false,
     hasShadow: false,
-    roundedCorners: true,
+    // Windows can draw its own inactive DWM corner decoration over a
+    // transparent CSS-rounded window. Ask DWM NOT to draw native corners.
+    roundedCorners: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
@@ -322,11 +346,34 @@ function registerToggleFallback() {
   reportShortcutStatus();
 }
 
-function startHoldHelper(): boolean {
-  if (process.platform !== 'win32') return false;
-  const binary = app.isPackaged
+function nativeHotkeyBinary(): string {
+  return app.isPackaged
     ? join(process.resourcesPath, 'native', 'hotkey.exe')
     : join(__dirname, '../native/hotkey.exe');
+}
+
+async function getWindowsUILanguages(): Promise<string[]> {
+  const preferred = app.getPreferredSystemLanguages();
+  if (process.platform !== 'win32') return preferred;
+  try {
+    const { stdout } = await execFileAsync(nativeHotkeyBinary(), ['--system-language'], {
+      windowsHide: true, timeout: 3000,
+    });
+    const language = stdout.trim().split(/\\r?\\n/)[0];
+    if (/^[a-z]{2,3}(?:-[a-zA-Z0-9]+)*$/i.test(language)) {
+      // Windows display-language API is authoritative; application preference
+      // order can differ from the language of Windows menus and Settings.
+      return [language, ...preferred.filter(value => value.toLowerCase() !== language.toLowerCase())];
+    }
+  } catch (error) {
+    console.warn('Native Windows display language unavailable:', error);
+  }
+  return preferred;
+}
+
+function startHoldHelper(): boolean {
+  if (process.platform !== 'win32') return false;
+  const binary = nativeHotkeyBinary();
   if (!existsSync(binary)) return false;
 
   try {
@@ -422,6 +469,11 @@ app.whenReady().then(() => {
     if (next === 'panel' || next === 'hud') changeMode(next);
   });
 
+  ipcMain.on('hud:resize', (event, width: number) => {
+    if (event.sender !== overlay?.webContents || mode !== 'hud') return;
+    updateHudWidth(width);
+  });
+
   ipcMain.on('overlay:move-hud', (_event, enabled: boolean) => {
     if (enabled && mode !== 'hud') changeMode('hud');
     setHudMoveMode(Boolean(enabled));
@@ -482,7 +534,7 @@ app.whenReady().then(() => {
     return { canceled: false, filePath: choice.filePath };
   });
   ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
-  ipcMain.handle('app:preferred-languages', () => app.getPreferredSystemLanguages());
+  ipcMain.handle('app:preferred-languages', () => getWindowsUILanguages());
   ipcMain.on('app:theme-background', (_event, scheme: string) => {
     if (scheme !== 'dark' && scheme !== 'light') return;
     // Mantine controls the theme inside the renderer. Never set an opaque

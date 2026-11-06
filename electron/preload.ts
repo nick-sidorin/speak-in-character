@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('inCharacter', {
     return () => ipcRenderer.removeListener('app:shortcuts', listener);
   },
   setViewMode: (mode: ViewMode) => ipcRenderer.send('overlay:set-mode', mode),
+  resizeHud: (width: number): void => ipcRenderer.send('hud:resize', width),
   startHudDrag: () => ipcRenderer.send('overlay:drag-start'),
   moveHudDrag: () => ipcRenderer.send('overlay:drag-move'),
   endHudDrag: () => ipcRenderer.send('overlay:drag-end'),
