@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
-import { MantineProvider, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput } from '@mantine/core';
+import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
 import { appTheme } from './theme';
 
 type ViewMode = 'hud' | 'panel';
@@ -823,369 +823,337 @@ export default function App() {
   }
 
   return <MantineProvider theme={appTheme} forceColorScheme={effectiveTheme}>
-    <div className="shell" data-ui-theme={effectiveTheme}>
-    <header
-      className="topbar"
-      onPointerDown={dragWindowStart}
-      onPointerMove={dragWindowMove}
-      onPointerUp={dragWindowEnd}
-      onPointerCancel={dragWindowEnd}
-    >
-      <div className="monogram">sc</div>
-      <div className="brand">
-        <div className="brand-name">SpeakInCharacter <Badge size="xs" variant="light" color="iris">v0.10.0</Badge></div>
-        <div className="brand-tag">Speak naturally. Stay in character.</div>
-      </div>
-      <ActionIcon className="window-close" variant="subtle" color="gray" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></ActionIcon>
-    </header>
+    <Tabs value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
+      <AppShell className="sic-shell" header={{ height: 110 }} footer={{ height: 42 }} padding="md" withBorder>
+        <AppShell.Header>
+          <Group h={61} px="md" gap="sm" wrap="nowrap" className="sic-drag"
+            onPointerDown={dragWindowStart} onPointerMove={dragWindowMove}
+            onPointerUp={dragWindowEnd} onPointerCancel={dragWindowEnd}>
+            <ThemeIcon variant="filled" color="indigo" size={35} radius="md">
+              <MessageSquareText size={20}/>
+            </ThemeIcon>
+            <Stack gap={1} style={{flex:1,minWidth:0}}>
+              <Group gap="xs" wrap="nowrap">
+                <Text size="sm" fw={750}>SpeakInCharacter</Text>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.1</Badge>
+              </Group>
+              <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
+            </Stack>
+            <ActionIcon size="md" variant="subtle" color="gray" title={tr('hidePanel')}
+              onClick={() => window.inCharacter.setViewMode('hud')}>
+              <X size={18}/>
+            </ActionIcon>
+          </Group>
+          <Tabs.List grow px="sm">
+            <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16}/>}>{tr('tabReply')}</Tabs.Tab>
+            <Tabs.Tab value="history" leftSection={<History size={16}/>}
+              rightSection={history.length ? <Badge size="xs" circle variant="light" color="indigo">{history.length}</Badge> : undefined}>
+              {tr('tabHistory')}
+            </Tabs.Tab>
+            <Tabs.Tab value="settings" leftSection={<Settings2 size={16}/>}>{tr('tabSettings')}</Tabs.Tab>
+          </Tabs.List>
+        </AppShell.Header>
 
-    <Tabs className="mantine-tabs" variant="default" value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
-      <Tabs.List grow aria-label={tr('tabsAria')}>
-        <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16} />}>{tr('tabReply')}</Tabs.Tab>
-        <Tabs.Tab value="history" leftSection={<Clock3 size={16} />}>
-          {tr('tabHistory')}{history.length > 0 && <Badge className="history-count" size="xs" circle variant="light">{history.length}</Badge>}
-        </Tabs.Tab>
-        <Tabs.Tab value="settings" leftSection={<Settings2 size={16} />}>{tr('tabSettings')}</Tabs.Tab>
-      </Tabs.List>
-    </Tabs>
+        <AppShell.Main className="sic-main">
+          {tab === 'rp' && <Stack gap="sm">
+            <Box>
+              <Title order={4}>{tr('tabReply')}</Title>
+              <Text c="dimmed" size="xs">{tr('heroSub')}</Text>
+            </Box>
+            <Grid gutter="sm">
+              <Grid.Col span={5}>
+                <TextInput label={tr('targetLabel')} value={replyLanguageInput} maxLength={80}
+                  placeholder="English" onChange={event => {
+                    setReplyLanguageInput(event.currentTarget.value);
+                    localStorage.setItem('reply-language', event.currentTarget.value);
+                  }}/>
+              </Grid.Col>
+              <Grid.Col span={7}>
+                <Select label={tr('presetLabel')} value={presetId || null} placeholder={tr('presetNone')}
+                  clearable searchable={presets.length > 7}
+                  comboboxProps={{withinPortal:false}}
+                  data={[
+                    ...presets.map(item=>({value:item.id,label:localizedPresetText(item.name,uiLanguage)})),
+                    ...(presetId && !selectedPreset && !presetsLoading
+                      ? [{value:presetId,label:tr('presetMissing')}] : [])
+                  ]}
+                  onChange={value=>selectPreset(value || '')}/>
+              </Grid.Col>
+            </Grid>
+            <Textarea label={tr('additionalContextLabel')} autosize minRows={2} maxRows={4}
+              value={additionalContext} placeholder={tr('additionalContextPlaceholder')}
+              onChange={event=>{
+                setAdditionalContext(event.currentTarget.value);
+                localStorage.setItem('additional-context',event.currentTarget.value);
+              }}/>
+            <Paper withBorder p="sm" radius="md">
+              <Group wrap="nowrap" gap="sm">
+                <StateIcon phase={phase} language={uiLanguage}/>
+                <Stack gap={2} style={{flex:1,minWidth:0}}>
+                  <Group gap="xs" wrap="wrap">
+                    <Text fw={650} size="sm">
+                      {phase === 'idle' ? tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb') : phaseLabel(phase,shortcuts.hold,uiLanguage)}
+                    </Text>
+                    {phase === 'idle' && <Code>{keyBindings.record}</Code>}
+                  </Group>
+                  <Text size="xs" c="dimmed">{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</Text>
+                </Stack>
+                <Text ff="monospace" fw={650} size="sm" c="dimmed">{clock(elapsed)}</Text>
+                <ActionIcon size="lg" variant="light" color="red" disabled={isBusy}
+                  title={phase==='recording'?tr('recTitle'):tr('startTitle')}
+                  onClick={()=>toggleRef.current()}>
+                  {phase==='recording' ? <Square size={17} fill="currentColor"/> : <Circle size={17} fill="currentColor"/>}
+                </ActionIcon>
+              </Group>
+            </Paper>
+            <Textarea label={tr('rawLabel')} description={tr('rawHint')} autosize minRows={2} maxRows={4}
+              value={original} placeholder={tr('rawPlaceholder')}
+              onChange={event=>{
+                setOriginal(event.currentTarget.value);
+                if(activeIdRef.current!==null){
+                  changeEntry(activeIdRef.current,{transcript:event.currentTarget.value});
+                  scheduleEdit(activeIdRef.current,{transcript:event.currentTarget.value});
+                }
+              }}/>
+            <Textarea label={tr('outputLabel')}
+              description={phase==='processing'?tr('outputProcessing'):tr('outputHint')}
+              autosize minRows={3} maxRows={5}
+              value={english} placeholder={tr('outputPlaceholder')}
+              onChange={event=>{
+                setEnglish(event.currentTarget.value);
+                if(activeIdRef.current!==null){
+                  changeEntry(activeIdRef.current,{english:event.currentTarget.value});
+                  scheduleEdit(activeIdRef.current,{english:event.currentTarget.value});
+                }
+              }}/>
+            <Group grow gap="sm" wrap="nowrap">
+              <Button variant="default" leftSection={<RefreshCw size={15}/>}
+                disabled={!hasKey || !original.trim() || inProgress}
+                onClick={()=>void rewrite()}>{tr('retryTranslation')}</Button>
+              <Button color="indigo" leftSection={<ClipboardCopy size={15}/>}
+                disabled={!english.trim()} onClick={()=>void copyReply()}>{tr('copyToWow')}</Button>
+            </Group>
+          </Stack>}
 
-    <main className="content">
-      {tab === 'rp' && <div className="rp-screen">
-        <div className="section-intro">
-          <h1>{tr('tabReply')}</h1>
-          <p>{tr('heroSub')}</p>
-        </div>
+          {tab === 'history' && <Stack gap="md">
+            <Box>
+              <Title order={4}>{tr('historyTitle')}</Title>
+              <Text size="xs" c="dimmed">{tr('historyPersistentHint')}</Text>
+            </Box>
+            <Text size="sm" fw={700}>{tr('historyLifetime')}</Text>
+            <SimpleGrid cols={2} spacing="xs">
+              {([
+                [lifetimeStats.recordings.toLocaleString(uiLanguage),tr('historyStatRecordings')],
+                [(lifetimeStats.durationMs/60000).toFixed(1),tr('historyStatMinutes')],
+                [lifetimeStats.words.toLocaleString(uiLanguage),tr('historyStatWords')],
+                [amount(lifetimeStats.estimatedCostUsd),tr('historyStatCost')],
+              ] as [string,string][]).map(([value,label])=><Paper withBorder p="sm" radius="md" key={label}>
+                <Text size="lg" fw={750} ff="monospace">{value}</Text>
+                <Text c="dimmed" size="xs">{label}</Text>
+              </Paper>)}
+            </SimpleGrid>
+            <Text size="xs" c="dimmed">
+              <HardDrive size={13} style={{verticalAlign:'middle',marginRight:5}}/>
+              {tr('historyOnDisk')}: {archiveStats.recordings} · {readableSize(archiveStats.audioBytes || 0)}
+            </Text>
+            <Divider label={tr('historyRecordings')} labelPosition="left"/>
+            {historyLoading ? <Text c="dimmed" size="sm">{tr('historyLoading')}</Text> :
+              history.length===0 ? <Center py="xl"><Stack align="center" gap="xs">
+                <History size={28} strokeWidth={1.5}/>
+                <Text size="sm" c="dimmed">{tr('historyEmpty')}</Text>
+                <Code>{keyBindings.record}</Code>
+              </Stack></Center> :
+              <Stack gap="xs">
+                {history.map((item,index)=><Stack gap="xs" key={item.id}>
+                  {(index===0 || new Date(history[index-1].createdAt).toDateString()!==new Date(item.createdAt).toDateString()) &&
+                    <Text size="xs" fw={750} c="dimmed" mt="xs">{new Date(item.createdAt).toLocaleDateString(uiLanguage,{day:'numeric',month:'long',year:'numeric'})}</Text>}
+                  <Paper withBorder p="sm" radius="md">
+                    <Stack gap="xs">
+                      <Group justify="space-between" align="center" wrap="nowrap">
+                        <Box style={{minWidth:0}}>
+                          <Text size="sm" fw={700}>{new Date(item.createdAt).toLocaleTimeString(uiLanguage,{hour:'2-digit',minute:'2-digit'})}</Text>
+                          <Text c="dimmed" size="xs">{clock(item.durationMs)} · {item.recognizedWords} {tr('historyWordsShort')} · {amount(item.transcriptionCostUsd+item.estimatedTextCostUsd)}</Text>
+                        </Box>
+                        <Group gap={4} wrap="nowrap">
+                          <Button variant="subtle" size="xs" onClick={()=>selectHistoryItem(item)}>{tr('openReply')}</Button>
+                          <ActionIcon variant="subtle" color="red" disabled={historyBusy || inProgress}
+                            title={tr('historyDeleteOne')} onClick={()=>setHistoryConfirm({kind:'one',id:item.id})}><Trash2 size={16}/></ActionIcon>
+                        </Group>
+                      </Group>
+                      <Text size="xs" lineClamp={2} c="dimmed">{item.english || item.transcript || tr('noTextAudio')}</Text>
+                      <Group gap="xs" wrap="nowrap">
+                        {item.url ?
+                          <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} className="sic-audio"/> :
+                          <Button size="xs" variant="default" fullWidth leftSection={<Play size={14}/>}
+                            loading={audioLoadingId===item.id} onClick={()=>void loadHistoryAudio(item.id)}>{tr('historyListen')}</Button>}
+                        <ActionIcon size="lg" variant="default" title={tr('saveRecording')}
+                          onClick={()=>void saveEntry(item)}><Download size={17}/></ActionIcon>
+                      </Group>
+                    </Stack>
+                  </Paper>
+                </Stack>)}
+              </Stack>}
+            <Divider/>
+            <Paper withBorder radius="md" p="sm">
+              <Stack gap="xs">
+                <Text size="sm" fw={700}>{tr('historyCleanupTitle')}</Text>
+                <Text c="dimmed" size="xs">{tr('historyCleanupDescription')}</Text>
+                <Group align="end" wrap="nowrap" grow>
+                  <Select aria-label={tr('historyRetentionLabel')} value={historyDeleteAge}
+                    comboboxProps={{withinPortal:false}} allowDeselect={false}
+                    data={[{value:'7',label:tr('historyOlder7')},{value:'30',label:tr('historyOlder30')},{value:'90',label:tr('historyOlder90')}]}
+                    onChange={value=>setHistoryDeleteAge(value || '30')}/>
+                  <Button variant="default" disabled={historyBusy || inProgress || !history.length}
+                    onClick={()=>setHistoryConfirm({kind:'age',days:Number(historyDeleteAge)})}>{tr('historyRemoveOld')}</Button>
+                </Group>
+                <Button fullWidth color="red" variant="light" leftSection={<Trash2 size={15}/>}
+                  disabled={historyBusy || inProgress || (!history.length && !lifetimeStats.recordings)}
+                  onClick={()=>setHistoryConfirm({kind:'all'})}>{tr('historyDeleteAll')}</Button>
+              </Stack>
+            </Paper>
+          </Stack>}
 
-        <div className="rp-fields">
-          <TextInput
-            label={tr('targetLabel')}
-            id="reply-language"
-            type="text"
-            maxLength={80}
-            value={replyLanguageInput}
-            placeholder="English"
-            onChange={event => {
-              setReplyLanguageInput(event.target.value);
-              localStorage.setItem('reply-language', event.target.value);
-            }}
-          />
-          <Select
-            label={tr('presetLabel')}
-            id="speech-preset"
-            value={presetId || null}
-            placeholder={tr('presetNone')}
-            clearable
-            onChange={value => selectPreset(value || '')}
-            data={[
-              ...presets.map(preset => ({
-                value: preset.id,
-                label: localizedPresetText(preset.name, uiLanguage),
-              })),
-              ...(presetId && !selectedPreset && !presetsLoading
-                ? [{ value: presetId, label: tr('presetMissing') }] : []),
-            ]}
-            comboboxProps={{ withinPortal: false }}
-            searchable={presets.length > 7}
-          />
-        </div>
-        <div className="additional-context">
-          <Textarea
-            label={tr('additionalContextLabel')}
-            id="additional-context"
-            autosize
-            minRows={2}
-            maxRows={4}
-            value={additionalContext}
-            placeholder={tr('additionalContextPlaceholder')}
-            onChange={event => {
-              setAdditionalContext(event.target.value);
-              localStorage.setItem('additional-context', event.target.value);
-            }}
-          />
-        </div>
-        <div className={'record-strip ' + (phase === 'recording' ? 'record-active' : '')}>
-          <div className="status-figure"><StateIcon phase={phase} language={uiLanguage} /></div>
-          <div className="record-label">
-            <strong className="record-main-status">
-              {phase === 'idle' ? <>
-                {tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb')}
-                <KeyCaps value={keyBindings.record}/>
-              </> : phaseLabel(phase, shortcuts.hold, uiLanguage)}
-            </strong>
-            <small>{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</small>
-          </div>
-          <span className="record-timer">{clock(elapsed)}</span>
-          <button
-            type="button"
-            className={'record-action ' + (phase === 'recording' ? 'stop-action' : '')}
-            disabled={isBusy}
-            onClick={() => toggleRef.current()}
-            title={phase === 'recording' ? tr('recTitle') : tr('startTitle')}
-          >{phase === 'recording' ? <Square size={16} fill="currentColor" strokeWidth={1.5}/> : <Circle size={17} fill="currentColor" strokeWidth={1.5}/>}</button>
-        </div>
-        <div className="record-shortcut">{tr('shortcutLabel')} <KeyCaps value={keyBindings.record}/></div>
+          {tab === 'settings' && <Stack gap="sm">
+            <Box>
+              <Title order={4}>{tr('settingsTitle')}</Title>
+              <Text c="dimmed" size="xs">{tr('settingsSub')}</Text>
+            </Box>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text fw={700} size="sm">{tr('themeTitle')}</Text>
+                <Text c="dimmed" size="xs">{tr('themeDescription')}</Text>
+                <SegmentedControl fullWidth size="sm" value={appearance}
+                  onChange={value=>{
+                    const choice=value as Appearance;
+                    setAppearance(choice);
+                    localStorage.setItem('appearance',choice);
+                  }}
+                  data={[{value:'system',label:tr('themeSystem')},{value:'dark',label:tr('themeDark')},{value:'light',label:tr('themeLight')}]}/>
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text fw={700} size="sm">{tr('languageUiLabel')}</Text>
+                <Text c="dimmed" size="xs">{tr('languageUiDescription')}</Text>
+                <Select value={uiLanguagePreference} allowDeselect={false} comboboxProps={{withinPortal:false}}
+                  data={[{value:'system',label:tr('languageSystem')},...INTERFACE_LANGUAGES.map(language=>({value:language.value,label:language.label}))]}
+                  onChange={value=>{
+                    const selected=value || 'system';
+                    setUiLanguagePreference(selected);
+                    if(selected==='system')localStorage.removeItem('interface-language');
+                    else localStorage.setItem('interface-language',selected);
+                    setMessage(t(selected==='system'?systemLanguage:languageFromSystemLocale(selected),'readyMsg'));
+                  }}/>
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text fw={700} size="sm">{tr('presetTitle')}</Text>
+                <Text size="xs" c="dimmed">{tr('presetManageHint')}</Text>
+                <Group grow gap="sm" wrap="nowrap">
+                  <Button variant="default" onClick={()=>void openPresetsFolder()}>{tr('presetFolder')}</Button>
+                  <Button variant="default" leftSection={<RefreshCw size={14}/>} disabled={presetsLoading}
+                    onClick={()=>void reloadPresets()}>{tr('presetReload')}</Button>
+                </Group>
+                {presetError && <Text c="red" size="xs">{presetError}</Text>}
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Group justify="space-between" gap="xs">
+                  <Text fw={700} size="sm">OpenAI API</Text>
+                  <Badge variant="light" color={hasKey?'green':'orange'} size="sm">
+                    {hasKey?tr('connected'):tr('disconnected')}
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">{tr('apiKeyInfo')}</Text>
+                <Group align="end" wrap="nowrap" gap="xs">
+                  <PasswordInput style={{flex:1,minWidth:0}} autoComplete="off" value={apiKeyDraft}
+                    placeholder={hasKey?tr('apiKeyPlaceholder'):'sk-proj-…'}
+                    onChange={event=>setApiKeyDraft(event.currentTarget.value)}/>
+                  <Button disabled={!apiKeyDraft.trim() || keyBusy} onClick={()=>void saveKey()}>{tr('save')}</Button>
+                </Group>
+                <Text size="xs" c="dimmed">{tr('apiKeyDisclaimer')}</Text>
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Switch label={tr('micProcessing')} description={tr('micProcessingHint')}
+                checked={micProcessing} disabled={inProgress}
+                onChange={event=>{
+                  setMicProcessing(event.currentTarget.checked);
+                  localStorage.setItem('mic-processing',String(event.currentTarget.checked));
+                }}/>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text fw={700} size="sm">{tr('overlayTitle')}</Text>
+                <Group justify="space-between" wrap="nowrap" align="center">
+                  <Box style={{minWidth:0}}>
+                    <Text size="sm">{tr('moveIndicator')}</Text>
+                    <Text size="xs" c="dimmed">{tr('positionSaved')}</Text>
+                  </Box>
+                  <Button variant="default" leftSection={<Move size={15}/>}
+                    onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
+                </Group>
+                <Text size="xs" c="dimmed">{shortcuts.hold?tr('hotkeyHoldHint'):tr('hotkeyTapHint')}</Text>
+                {!shortcuts.hold && <Text size="xs" c="orange">{tr('hotkeyFallback')}</Text>}
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="sm">
+                <Text size="sm" fw={700}>{tr('hotkeyTitle')}</Text>
+                <Text size="xs" c="dimmed">{tr('hotkeyDesc')}</Text>
+                {(['record','panel','move'] as const).map(action=><Group key={action} justify="space-between" gap="xs" wrap="nowrap">
+                  <Text size="xs" style={{flex:1}}>{tr(action==='record'?'hotkeyRecord':action==='panel'?'hotkeyPanel':'hotkeyMove')}</Text>
+                  <Code>{keyBindings[action]}</Code>
+                  <Button variant={captureAction===action?'filled':'default'} size="xs"
+                    disabled={shortcutBusy || inProgress}
+                    onClick={()=>startCapture(action)}
+                    onKeyDown={event=>void captureShortcut(event,action)}
+                    onBlur={()=>{if(captureAction===action && !shortcutBusy)cancelCapture();}}>
+                    {captureAction===action?tr('hotkeyListening'):tr('hotkeyAssign')}
+                  </Button>
+                </Group>)}
+                {captureAction && <Text size="xs" c="indigo">{tr('hotkeyCaptureHint')}</Text>}
+                {shortcutError && <Text size="xs" c="red">{shortcutError}</Text>}
+                <Text size="xs" c="dimmed">{tr('hotkeyCapsNote')}</Text>
+              </Stack>
+            </Paper>
+            <Paper withBorder radius="md" p="md">
+              <Stack gap="xs">
+                <Text size="sm" fw={700}>{tr('costTitle')}</Text>
+                <Group justify="space-between" align="center">
+                  <Title order={4}>{amount(sessionCost)}</Title>
+                  <Text size="xs" c="dimmed">{lifetimeStats.recordings} {tr('recordingsCount')}</Text>
+                </Group>
+                <Text size="xs" c="dimmed">{tr('costDisclaimer')}</Text>
+                <Button variant="subtle" size="xs" onClick={()=>void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
+              </Stack>
+            </Paper>
+          </Stack>}
+        </AppShell.Main>
+        <AppShell.Footer>
+          <Group px="sm" h="100%" justify="space-between" gap="sm" wrap="nowrap">
+            <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
+              {message || tr('readyMsg')}
+            </Text>
+            <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
+          </Group>
+        </AppShell.Footer>
+      </AppShell>
 
-        <div className="drafts">
-          <div className="draft-header">
-            <span>{tr('rawLabel')}</span>
-            <small>{tr('rawHint')}</small>
-          </div>
-          <Textarea
-            autosize
-            minRows={2}
-            maxRows={4}
-            value={original}
-            placeholder={tr('rawPlaceholder')}
-            onChange={event => {
-              setOriginal(event.target.value);
-              if (activeIdRef.current !== null) {
-                changeEntry(activeIdRef.current, { transcript: event.target.value });
-                scheduleEdit(activeIdRef.current, { transcript: event.target.value });
-              }
-            }}
-          />
-          <div className="draft-header english-header">
-            <span>{tr('outputLabel')}</span>
-            <small>{phase === 'processing' ? tr('outputProcessing') : tr('outputHint')}</small>
-          </div>
-          <Textarea
-            autosize
-            minRows={3}
-            maxRows={5}
-            value={english}
-            placeholder={tr('outputPlaceholder')}
-            onChange={event => {
-              setEnglish(event.target.value);
-              if (activeIdRef.current !== null) {
-                changeEntry(activeIdRef.current, { english: event.target.value });
-                scheduleEdit(activeIdRef.current, { english: event.target.value });
-              }
-            }}
-          />
-          <div className="draft-actions">
-            <Button type="button" variant="light" color="gray" className="secondary-btn" leftSection={<RefreshCw size={15}/>} disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>{tr('retryTranslation')}</Button>
-            <Button type="button" color="iris" className="primary-btn" leftSection={<ClipboardCopy size={16}/>} disabled={!english.trim()} onClick={() => void copyReply()}>{tr('copyToWow')}</Button>
-          </div>
-        </div>
-      </div>}
-
-      {tab === 'history' && <section className="history-screen">
-        <div className="screen-title">
-          <h1>{tr('historyTitle')}</h1>
-          <p>{tr('historyPersistentHint')}</p>
-        </div>
-        <div className="history-summary-heading">
-          <BarChart3 size={16}/>
-          <strong>{tr('historyLifetime')}</strong>
-        </div>
-        <div className="history-stats-grid">
-          <div className="history-stat"><strong>{lifetimeStats.recordings.toLocaleString(uiLanguage)}</strong><small>{tr('historyStatRecordings')}</small></div>
-          <div className="history-stat"><strong>{(lifetimeStats.durationMs / 60000).toFixed(1)}</strong><small>{tr('historyStatMinutes')}</small></div>
-          <div className="history-stat"><strong>{lifetimeStats.words.toLocaleString(uiLanguage)}</strong><small>{tr('historyStatWords')}</small></div>
-          <div className="history-stat"><strong>{amount(lifetimeStats.estimatedCostUsd)}</strong><small>{tr('historyStatCost')}</small></div>
-        </div>
-        <div className="history-storage-info">
-          <HardDrive size={14}/>
-          <span>{tr('historyOnDisk')}: {archiveStats.recordings} · {readableSize(archiveStats.audioBytes || 0)}</span>
-        </div>
-
-        <div className="history-summary-heading history-recordings-heading">
-          <History size={16}/>
-          <strong>{tr('historyRecordings')}</strong>
-        </div>
-        {historyLoading ? <p className="history-loading">{tr('historyLoading')}</p>
-          : history.length === 0 ? <div className="empty-state"><History size={32} strokeWidth={1.6}/><p>{tr('historyEmpty')}</p><span className="empty-history-shortcut">{tr('historyEmptyAction')} <KeyCaps value={keyBindings.record}/></span></div>
-          : <div className="history-list">
-            {history.map((item, index) => <div key={item.id}>
-              {(index === 0 || new Date(history[index-1].createdAt).toDateString() !== new Date(item.createdAt).toDateString()) &&
-                <div className="history-date-group">{new Date(item.createdAt).toLocaleDateString(uiLanguage, { day: 'numeric', month: 'long', year: 'numeric' })}</div>}
-              <div className={'history-item ' + (activeId === item.id ? 'current' : '')}>
-                <div className="history-row">
-                  <div className="history-title">
-                    <strong>{new Date(item.createdAt).toLocaleTimeString(uiLanguage, { hour: '2-digit', minute: '2-digit' })}</strong>
-                    <span>{clock(item.durationMs)} · {item.recognizedWords} {tr('historyWordsShort')} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)}</span>
-                  </div>
-                  <div className="history-actions">
-                    <Button className="history-restore" variant="subtle" size="xs" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</Button>
-                    <ActionIcon type="button" variant="subtle" color="red" disabled={historyBusy || inProgress} title={tr('historyDeleteOne')} onClick={() => setHistoryConfirm({kind:'one',id:item.id})}>
-                      <Trash2 size={16}/>
-                    </ActionIcon>
-                  </div>
-                </div>
-                <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
-                <div className="history-audio">
-                  {item.url ?
-                    <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
-                    : <Button variant="light" color="gray" size="xs" leftSection={<Play size={14}/>} loading={audioLoadingId === item.id} onClick={() => void loadHistoryAudio(item.id)}>
-                      {tr('historyListen')}
-                    </Button>}
-                  <ActionIcon type="button" className="save-icon" variant="light" color="iris" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18}/></ActionIcon>
-                </div>
-              </div>
-            </div>)}
-          </div>}
-        <div className="history-cleanup">
-          <div className="history-summary-heading"><Trash2 size={15}/><strong>{tr('historyCleanupTitle')}</strong></div>
-          <p>{tr('historyCleanupDescription')}</p>
-          <div className="history-cleanup-row">
-            <Select
-              aria-label={tr('historyRetentionLabel')}
-              value={historyDeleteAge}
-              onChange={value => setHistoryDeleteAge(value || '30')}
-              allowDeselect={false}
-              comboboxProps={{ withinPortal: false }}
-              data={[
-                {value:'7',label:tr('historyOlder7')},
-                {value:'30',label:tr('historyOlder30')},
-                {value:'90',label:tr('historyOlder90')},
-              ]}
-            />
-            <Button variant="light" color="gray" disabled={historyBusy || inProgress || history.length===0} onClick={() => setHistoryConfirm({kind:'age',days:Number(historyDeleteAge)})}>
-              {tr('historyRemoveOld')}
-            </Button>
-          </div>
-          <Button fullWidth variant="light" color="red" disabled={historyBusy || inProgress || (history.length===0 && lifetimeStats.recordings===0)}
-            leftSection={<Trash2 size={15}/>} onClick={() => setHistoryConfirm({kind:'all'})}>
-            {tr('historyDeleteAll')}
-          </Button>
-        </div>
-      </section>}
-
-      {tab === 'settings' && <section className="settings-screen">
-        <div className="screen-title">
-          <h1>{tr('settingsTitle')}</h1>
-          <p>{tr('settingsSub')}</p>
-        </div>
-        <div className="settings-section theme-section">
-          <div className="settings-heading"><strong>{tr('themeTitle')}</strong></div>
-          <p>{tr('themeDescription')}</p>
-          <SegmentedControl
-            fullWidth
-            size="xs"
-            value={appearance}
-            onChange={next => {
-              const choice = next as Appearance;
-              setAppearance(choice);
-              localStorage.setItem('appearance', choice);
-            }}
-            data={[
-              { value: 'system', label: <span className="theme-segment"><Monitor size={14}/>{tr('themeSystem')}</span> },
-              { value: 'dark', label: <span className="theme-segment"><Moon size={14}/>{tr('themeDark')}</span> },
-              { value: 'light', label: <span className="theme-segment"><Sun size={14}/>{tr('themeLight')}</span> },
-            ]}
-          />
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('languageUiLabel')}</strong></div>
-          <p>{tr('languageUiDescription')}</p>
-          <Select
-            className="interface-language-select"
-            value={uiLanguagePreference}
-            comboboxProps={{ withinPortal: false }}
-            allowDeselect={false}
-            data={[
-              { value: 'system', label: tr('languageSystem') },
-              ...INTERFACE_LANGUAGES.map(language => ({ value: language.value, label: language.label })),
-            ]}
-            onChange={next => {
-              const selected = next || 'system';
-              setUiLanguagePreference(selected);
-              if (selected === 'system') localStorage.removeItem('interface-language');
-              else localStorage.setItem('interface-language', selected);
-              const resolved = selected === 'system' ? systemLanguage : languageFromSystemLocale(selected);
-              setMessage(t(resolved, 'readyMsg'));
-            }}
-          />
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('presetTitle')}</strong></div>
-          <p>{tr('presetManageHint')}</p>
-          <div className="preset-actions">
-            <Button type="button" variant="light" color="gray" className="outline-btn" onClick={() => void openPresetsFolder()}>
-              {tr('presetFolder')}
-            </Button>
-            <Button type="button" variant="light" color="gray" className="outline-btn" leftSection={<RefreshCw size={14}/>} disabled={presetsLoading} onClick={() => void reloadPresets()}>
-              {tr('presetReload')}
-            </Button>
-          </div>
-          {presetError && <p className="preset-error">{presetError}</p>}
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\s*/, '')}</span></div>
-          <p>{tr('apiKeyInfo')}</p>
-          <div className="key-input-row">
-            <PasswordInput value={apiKeyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setApiKeyDraft(event.target.value)} />
-            <Button type="button" disabled={!apiKeyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</Button>
-          </div>
-          <p className="tiny">{tr('apiKeyDisclaimer')}</p>
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('microphoneTitle')}</strong></div>
-          <Switch
-            className="toggle-line"
-            checked={micProcessing}
-            disabled={inProgress}
-            label={tr('micProcessing')}
-            description={tr('micProcessingHint')}
-            onChange={event => {
-              setMicProcessing(event.currentTarget.checked);
-              localStorage.setItem('mic-processing', String(event.currentTarget.checked));
-            }}
-          />
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('overlayTitle')}</strong></div>
-          <div className="setting-row"><div>{tr('moveIndicator')}<small>{tr('positionSaved')}</small></div>
-            <Button type="button" variant="light" color="gray" className="outline-btn" leftSection={<Move size={15}/>} onClick={() => window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
-          </div>
-          <div className="keyboard-description">{shortcuts.hold ? tr('hotkeyHoldHint') : tr('hotkeyTapHint')}</div>
-          {!shortcuts.hold && <p className="tiny warning-text">{tr('hotkeyFallback')}</p>}
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('hotkeyTitle')}</strong></div>
-          <p>{tr('hotkeyDesc')}</p>
-          {(['record','panel','move'] as const).map(action => <div className="hotkey-setting-row" key={action}>
-            <label>{tr(action === 'record' ? 'hotkeyRecord' : action === 'panel' ? 'hotkeyPanel' : 'hotkeyMove')}</label>
-            <KeyCaps value={keyBindings[action]} />
-            <button
-              type="button"
-              className={'shortcut-assign-btn ' + (captureAction === action ? 'capturing' : '')}
-              disabled={shortcutBusy || inProgress}
-              onClick={() => startCapture(action)}
-              onKeyDown={event => void captureShortcut(event, action)}
-              onBlur={() => {
-                if (captureAction === action && !shortcutBusy) cancelCapture();
-              }}
-            >
-              {captureAction === action ? tr('hotkeyListening') : tr('hotkeyAssign')}
-            </button>
-          </div>)}
-          {captureAction && <p className="hotkey-capture-hint">{tr('hotkeyCaptureHint')}</p>}
-          {shortcutError && <p className="hotkey-error">{shortcutError}</p>}
-          <p className="tiny">{tr('hotkeyCapsNote')}</p>
-        </div>
-        <div className="settings-section">
-          <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
-          <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{lifetimeStats.recordings} {tr('recordingsCount')}</span></div>
-          <p>{tr('costDisclaimer')}</p>
-          <Button variant="subtle" size="xs" className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
-        </div>
-      </section>}
-    </main>
-    <footer className="bottom-bar">
-      <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message || tr('readyMsg')}</span>
-      <Button variant="subtle" size="xs" type="button" color="gray" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</Button>
-    </footer>
-      <Modal opened={historyConfirm !== null} onClose={() => !historyBusy && setHistoryConfirm(null)}
+      <Modal opened={historyConfirm!==null} onClose={()=>!historyBusy && setHistoryConfirm(null)}
         title={tr('historyConfirmTitle')} centered withinPortal={false} size="sm">
-        <p className="history-confirm-text">{historyConfirm?.kind === 'one'
-          ? tr('historyConfirmOne') : historyConfirm?.kind === 'age'
-            ? tr('historyConfirmOld') : tr('historyConfirmAll')}</p>
-        <div className="history-confirm-actions">
-          <Button color="gray" variant="light" disabled={historyBusy} onClick={() => setHistoryConfirm(null)}>{tr('historyCancel')}</Button>
-          <Button color="red" loading={historyBusy} onClick={() => void confirmHistoryDeletion()}>{tr('historyConfirmDelete')}</Button>
-        </div>
+        <Stack gap="sm">
+          <Text size="sm">{historyConfirm?.kind==='one' ? tr('historyConfirmOne') :
+            historyConfirm?.kind==='age' ? tr('historyConfirmOld') : tr('historyConfirmAll')}</Text>
+          <Group justify="flex-end">
+            <Button variant="default" disabled={historyBusy} onClick={()=>setHistoryConfirm(null)}>{tr('historyCancel')}</Button>
+            <Button color="red" loading={historyBusy} onClick={()=>void confirmHistoryDeletion()}>{tr('historyConfirmDelete')}</Button>
+          </Group>
+        </Stack>
       </Modal>
-    </div>
+    </Tabs>
   </MantineProvider>;
+
 }
