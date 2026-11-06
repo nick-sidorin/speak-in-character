@@ -234,14 +234,50 @@ function updateHudWidth(nextWidth: number) {
   const desiredX = isRight ? current.x + previous - width : current.x;
   const x = Math.max(display.x, Math.min(desiredX, display.x + display.width - width));
   overlay.setBounds({ x, y: current.y, width, height: HUD.height }, false);
+  applyWindowAppearance('hud');
   rememberPosition();
+}
+
+/**
+ * Clip only the *outside* of the CSS rounded corner.
+ *
+ * Windows 11 DWM can render an inactive rectangular decoration on fully
+ * transparent frameless Electron windows. A native setShape mask blocks
+ * painting there. Its outline is deliberately 2 px WIDER than the CSS
+ * 14px panel / 10px HUD curve, so the visible antialiased contour remains
+ * exclusively CSS-rendered instead of showing jagged native mask pixels.
+ */
+function outerRoundedMask(width: number, height: number, radius: number) {
+  const rects: Array<{x:number; y:number; width:number; height:number}> = [];
+  let previousX = -1;
+  for (let y = 0; y < height; y++) {
+    const distance = Math.min(y + 0.5, height - y - 0.5);
+    const inset = distance >= radius
+      ? 0
+      : Math.max(0, Math.floor(radius - Math.sqrt(Math.max(0, radius * radius - (radius - distance) ** 2)) - 2));
+    if (inset === previousX) {
+      rects[rects.length - 1].height++;
+    } else {
+      rects.push({ x: inset, y, width: width - inset * 2, height: 1 });
+      previousX = inset;
+    }
+  }
+  return rects;
 }
 
 function applyWindowAppearance(next: ViewMode) {
   if (!overlay || overlay.isDestroyed()) return;
-  // Integer-shaped clipping created jagged Windows corners.
-  // An alpha-transparent window allows CSS anti-aliased rounding.
   overlay.setBackgroundColor('#00000000');
+  if (process.platform === 'win32') {
+    const {width, height} = overlay.getBounds();
+    try {
+      overlay.setShape(outerRoundedMask(width, height, next === 'panel' ? 14 : 12));
+    } catch (error) {
+      // Fall back to CSS clipping if this Windows/Chromium configuration
+      // rejects native shape masks.
+      console.warn('Windows rounded outer mask unavailable:', error);
+    }
+  }
   overlay.setOpacity(next === 'hud' ? 0.76 : 1.0);
 }
 
