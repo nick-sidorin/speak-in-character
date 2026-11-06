@@ -63,6 +63,19 @@ internal static class Hotkeys
     private static extern IntPtr GetModuleHandle(string moduleName);
     [DllImport("kernel32.dll")]
     private static extern ushort GetUserDefaultUILanguage();
+    [DllImport("user32.dll")]
+    private static extern bool IsWindow(IntPtr hwnd);
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, uint attribute, ref int value, uint size);
+
+    private static int EnableDwmRoundedCorners(string value) {
+        ulong number;
+        if (!ulong.TryParse(value, out number) || number == 0) return 8;
+        var hwnd = new IntPtr(unchecked((long)number));
+        if (!IsWindow(hwnd)) return 9;
+        int round = 2; // DWMWCP_ROUND
+        return DwmSetWindowAttribute(hwnd, 33, ref round, 4) == 0 ? 0 : 10;
+    }
 
     private sealed class Binding {
         public readonly string Action;
@@ -269,6 +282,11 @@ internal static class Hotkeys
     }
 
     private static int Main(string[] args) {
+        if (args.Length == 2 && args[0] == "--round-corners") {
+            try { return EnableDwmRoundedCorners(args[1]); }
+            catch (DllNotFoundException) { return 11; }
+            catch (EntryPointNotFoundException) { return 12; }
+        }
         if (args.Length == 1 && args[0] == "--system-language") {
             // Win32 default UI language, not the region/number-format locale
             // nor Chromium's preferred app language (often English).
