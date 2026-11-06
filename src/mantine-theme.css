@@ -1,0 +1,283 @@
+/* SpeakInCharacter: Mantine-based Ash-inspired panel
+ * Keeps the existing tiny gaming HUD independent from the UI kit.
+ * Colors are our own tokens, not Discord's assets or proprietary styles. */
+.shell[data-ui-theme="dark"] {
+  --sic-bg:#1b1d22;
+  --sic-card:#23262d;
+  --sic-field:#2b2e37;
+  --sic-field-focus:#303442;
+  --sic-border:#383c47;
+  --sic-text:#f0f1f7;
+  --sic-muted:#a0a6b5;
+  --sic-faint:#7d8494;
+  --sic-accent:#8992ff;
+  --sic-tint:rgba(118,134,237,.13);
+  --sic-top:#202228;
+  --sic-shadow:rgba(0,0,0,.2);
+  color-scheme:dark;
+}
+.shell[data-ui-theme="light"] {
+  --sic-bg:#f4f5fa;
+  --sic-card:#ffffff;
+  --sic-field:#eeeff5;
+  --sic-field-focus:#ffffff;
+  --sic-border:#d9dce7;
+  --sic-text:#262a37;
+  --sic-muted:#626b7c;
+  --sic-faint:#7b8393;
+  --sic-accent:#5263ca;
+  --sic-tint:rgba(99,116,217,.09);
+  --sic-top:#ffffff;
+  --sic-shadow:rgba(33,44,82,.055);
+  color-scheme:light;
+}
+.shell {
+  --bg:var(--sic-bg);
+  --panel:var(--sic-card);
+  --raised:var(--sic-field);
+  --line:var(--sic-border);
+  --muted:var(--sic-muted);
+  --text:var(--sic-text);
+  --accent:var(--sic-accent);
+  background:var(--sic-bg) !important;
+  color:var(--sic-text);
+  margin:0;
+  width:100%;
+  height:100%;
+  border:0;
+  box-shadow:none;
+  border-radius:14px;
+  font-family:Inter,"Segoe UI",system-ui,sans-serif;
+  font-size:12px;
+}
+.shell .topbar {
+  background:var(--sic-top);
+  border-bottom:1px solid var(--sic-border);
+  min-height:58px;
+  height:58px;
+  padding:9px 16px;
+  gap:11px;
+}
+.shell .monogram {
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  border:1px solid rgba(118,134,237,.27);
+  background:linear-gradient(135deg,#6576d9,#454d87);
+  color:#fff;
+  font:800 13px/1 Inter,"Segoe UI",sans-serif;
+  letter-spacing:-.08em;
+  text-transform:uppercase;
+}
+.shell .brand { display:flex; flex-direction:column; justify-content:center; gap:4px; }
+.shell .brand-name {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:-.025em;
+  color:var(--sic-text);
+}
+.shell .brand-tag { font-size:10px; color:var(--sic-muted); letter-spacing:0; }
+.shell .window-close { color:var(--sic-muted); border:0; background:transparent; }
+.shell .window-close:hover { background:var(--sic-field); color:var(--sic-text); }
+.shell .mantine-tabs {
+  border-bottom:1px solid var(--sic-border);
+  background:var(--sic-top);
+  padding:0 12px;
+  flex-shrink:0;
+}
+.shell .mantine-Tabs-list { border:0; gap:5px; }
+.shell .mantine-Tabs-tab {
+  flex:1; justify-content:center;
+  border:0;
+  border-radius:6px 6px 0 0;
+  border-bottom:2px solid transparent;
+  padding:10px 8px 11px;
+  color:var(--sic-muted);
+  font-size:11px;
+  font-weight:650;
+  gap:7px;
+}
+.shell .mantine-Tabs-tab:hover { background:var(--sic-tint); color:var(--sic-text); }
+.shell .mantine-Tabs-tab[data-active] {
+  border-bottom-color:var(--sic-accent);
+  background:var(--sic-tint);
+  color:var(--sic-accent);
+}
+.shell .history-count { margin-left:5px; padding:0 5px; min-width:18px; }
+.shell .content { background:var(--sic-bg); padding:14px 16px 16px; scrollbar-color:var(--sic-border) transparent; }
+.shell .section-intro { margin-bottom:14px; }
+.shell .section-intro h1, .shell .screen-title h1 {
+  font-size:17px; letter-spacing:-.03em; font-weight:750;
+  color:var(--sic-text);
+}
+.shell .section-intro p, .shell .screen-title p {
+  font-size:11px; color:var(--sic-muted); margin-top:4px;
+}
+.shell .screen-title { margin-bottom:15px; }
+.shell .rp-fields {
+  display:grid;
+  grid-template-columns:minmax(0,.7fr) minmax(0,1fr);
+  gap:10px;
+  margin-bottom:11px;
+}
+.shell .mantine-InputWrapper-label {
+  color:var(--sic-muted);
+  font-size:11px;
+  font-weight:650;
+  padding-bottom:6px;
+}
+.shell .mantine-Input-input {
+  background:var(--sic-field);
+  color:var(--sic-text);
+  border:1px solid var(--sic-border);
+  border-radius:7px;
+  min-height:35px;
+  height:auto;
+  font-size:12px;
+}
+.shell .mantine-Input-input:focus,
+.shell .mantine-Input-input:focus-within {
+  border-color:var(--sic-accent);
+  background:var(--sic-field-focus);
+  box-shadow:0 0 0 2px var(--sic-tint);
+}
+.shell .mantine-Input-input::placeholder { color:var(--sic-faint); }
+.shell .mantine-Select-dropdown {
+  background:var(--sic-card);
+  border:1px solid var(--sic-border);
+  color:var(--sic-text);
+  box-shadow:0 10px 24px var(--sic-shadow);
+}
+.shell .mantine-Select-option:hover { background:var(--sic-tint); }
+.shell .mantine-Select-option[data-selected] { color:var(--sic-accent); background:var(--sic-tint); }
+.shell .additional-context { margin-bottom:12px; }
+.shell .additional-context .mantine-Textarea-input { min-height:66px; }
+.shell .record-strip {
+  margin-top:2px;
+  padding:10px 11px;
+  border-radius:9px;
+  border:1px solid var(--sic-border);
+  background:var(--sic-card);
+  gap:10px;
+}
+.shell .record-strip.record-active {
+  background:color-mix(in srgb,var(--sic-card) 82%,#ef7377);
+  border-color:#e98d94;
+}
+.shell .status-figure { width:23px; }
+.shell .record-label strong { font-size:11.5px; color:var(--sic-text); }
+.shell .record-label small { color:var(--sic-muted); line-height:1.4; }
+.shell .record-timer { color:var(--sic-muted); font-size:12px; }
+.shell .record-action {
+  width:34px; height:34px; border-radius:8px;
+  border:1px solid rgba(238,107,111,.38);
+  background:rgba(238,107,111,.12);
+  color:#ee7378;
+}
+.shell .record-action:hover:enabled { color:#ff9da1; background:rgba(238,107,111,.19); }
+.shell .record-action.stop-action { background:#af4d56; color:white; }
+.shell .record-shortcut { margin:6px 0 10px; color:var(--sic-faint); }
+.shell .key-caps kbd {
+  color:var(--sic-muted); border:1px solid var(--sic-border);
+  background:var(--sic-field);
+}
+.shell .draft-header { margin:10px 0 6px; align-items:center; }
+.shell .draft-header span { font-size:11.5px; color:var(--sic-text); }
+.shell .draft-header small { color:var(--sic-muted); }
+.shell .drafts .mantine-Textarea-input { line-height:1.55; resize:vertical; }
+.shell .drafts .english-header { margin-top:11px; }
+.shell .drafts .english-header span { color:var(--sic-accent); }
+.shell .drafts .mantine-Textarea-root:last-of-type .mantine-Textarea-input {
+  background:var(--sic-card);
+  border-color:var(--sic-border);
+}
+.shell .draft-actions {
+  display:grid; grid-template-columns:1fr 1.25fr; gap:8px; margin-top:12px;
+}
+.shell .draft-actions .mantine-Button-root { min-height:37px; height:auto; padding:7px 10px; font-size:11px; font-weight:700; }
+.shell .draft-actions .mantine-Button-label { white-space:normal; line-height:1.2; }
+.shell .draft-actions .secondary-btn {
+  background:var(--sic-field); color:var(--sic-text);
+  border:1px solid var(--sic-border);
+}
+.shell .draft-actions .secondary-btn:hover { background:var(--sic-tint); }
+.shell .draft-actions .primary-btn {
+  color:#fff; background:#6676dc; border:1px solid transparent;
+}
+.shell .draft-actions .primary-btn:hover { background:#7888ed; }
+.shell .history-list { gap:8px; }
+.shell .history-item, .shell .settings-section {
+  background:var(--sic-card);
+  color:var(--sic-text);
+  border:1px solid var(--sic-border);
+  border-radius:10px;
+  box-shadow:0 1px 4px var(--sic-shadow);
+}
+.shell .history-item { padding:11px; }
+.shell .history-item.current { border-color:var(--sic-accent); }
+.shell .history-title strong { color:var(--sic-text); }
+.shell .history-title span, .shell .history-preview { color:var(--sic-muted); }
+.shell .history-restore { color:var(--sic-accent); background:transparent; }
+.shell .save-icon { border:0; box-shadow:none; }
+.shell .empty-state { color:var(--sic-muted); }
+.shell .empty-state svg { color:var(--sic-accent); }
+.shell .empty-state p { color:var(--sic-text); }
+.shell .settings-section { padding:12px 13px; margin-bottom:10px; }
+.shell .settings-heading strong { color:var(--sic-text); }
+.shell .settings-section p { color:var(--sic-muted); line-height:1.5; }
+.shell .settings-section .hotkey-error,
+.shell .settings-section .preset-error { color:#e67077; }
+.shell .settings-section .hotkey-capture-hint { color:var(--sic-accent); }
+.shell .mantine-SegmentedControl-root {
+  background:var(--sic-field);
+  color:var(--sic-muted);
+  border:1px solid var(--sic-border);
+  border-radius:9px;
+  padding:3px;
+}
+.shell .mantine-SegmentedControl-control { min-height:30px; }
+.shell .mantine-SegmentedControl-label { font-size:11px; font-weight:700; color:var(--sic-muted); padding:6px; }
+.shell .mantine-SegmentedControl-label[data-active] { color:var(--sic-text); }
+.shell .mantine-SegmentedControl-indicator {
+  background:var(--sic-card);
+  border:1px solid var(--sic-border);
+  box-shadow:0 1px 3px var(--sic-shadow);
+}
+.shell .theme-segment { display:inline-flex; align-items:center; justify-content:center; gap:5px; white-space:nowrap; }
+.shell .interface-language-select { width:100%; }
+.shell .key-input-row { display:flex; gap:8px; }
+.shell .key-input-row .mantine-PasswordInput-root { flex:1; min-width:0; }
+.shell .mantine-PasswordInput-innerInput { border:0; background:transparent; box-shadow:none; color:var(--sic-text); }
+.shell .key-input-row .mantine-Button-root { padding:7px 12px; min-height:35px; }
+.shell .mantine-Switch-root { display:block; margin-top:10px; }
+.shell .mantine-Switch-label { color:var(--sic-text); font-size:11px; }
+.shell .mantine-Switch-description { color:var(--sic-muted); font-size:10px; line-height:1.5; margin-top:4px; }
+.shell .setting-row, .shell .hotkey-setting-row { color:var(--sic-text); }
+.shell .setting-row small { color:var(--sic-muted); }
+.shell .hotkey-setting-row { border-bottom:1px solid var(--sic-border); }
+.shell .hotkey-setting-row label { color:var(--sic-text); }
+.shell .shortcut-assign-btn {
+  border:1px solid var(--sic-border);
+  background:var(--sic-field);
+  color:var(--sic-text);
+}
+.shell .shortcut-assign-btn:hover:enabled { border-color:var(--sic-accent); background:var(--sic-tint); }
+.shell .shortcut-assign-btn.capturing { color:#fff; background:#6676dc; border-color:#6676dc; }
+.shell .keyboard-description { color:var(--sic-muted); }
+.shell .cost-row strong { color:var(--sic-accent); }
+.shell .bottom-bar {
+  min-height:42px;
+  background:var(--sic-top);
+  border-top:1px solid var(--sic-border);
+  padding:8px 13px;
+}
+.shell .footer-indicator { color:var(--sic-muted); }
+.shell .footer-indicator.footer-error { color:#e67077; }
+.shell .bottom-bar .mantine-Button-root { padding:4px 9px; }
+.shell .mantine-Button-root:disabled { opacity:.45; }
+.shell .connection-status { color:var(--sic-muted); }
+.shell .connection-status.connected { color:#43b48c; }
+.shell .connection-status.disconnected { color:#d88e68; }
