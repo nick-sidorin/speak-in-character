@@ -1,4 +1,4 @@
-# SpeakSpeakInCharacter
+# SpeakInCharacter
 
 **Speak naturally. Stay in character.**
 
@@ -10,8 +10,8 @@ SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Sp
 
 **[Download the latest Windows Preview from GitHub Releases](https://github.com/nick-sidorin/speak-in-character/releases)** — no GitHub Actions navigation required.
 
-1. Download the `SpeakInCharacter-v0.8.2-Windows-x64-portable.zip` asset from the release page.
-2. **Extract the whole ZIP** to a folder and launch `SpeakInCharacter.exe`. Visual Studio and Node.js are **not** needed.
+1. Download the current published **v0.8.2** asset, `InCharacter-v0.8.2-Windows-x64-portable.zip`. The new SpeakInCharacter executable name will appear starting with v0.9.0.
+2. **Extract the whole ZIP** to a folder and launch `InCharacter.exe` (in v0.8.2). Upcoming releases will use `SpeakInCharacter.exe`. Visual Studio and Node.js are **not** needed.
 3. For game overlays, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
 4. Open the panel with **Ctrl + Shift + O** and configure your personal OpenAI API key in **Settings**. API billing is separate from ChatGPT.
 5. Hold **Caps Lock**, speak, then release. The translated line goes to the clipboard; review and paste it with **Ctrl + V** into chat, then send manually.

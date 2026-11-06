@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release tag, e.g. v0.8.2'
+        description: 'Release tag, e.g. v0.9.0'
         required: true
-        default: 'v0.8.2'
+        default: 'v0.9.0'
       build_run_id:
         description: 'Successful Windows build workflow run ID'
         required: true
-        default: '42119238383'
+        default: ''
 
 permissions:
   actions: read
@@ -31,8 +31,8 @@ jobs:
         id: config
         shell: bash
         env:
-          RELEASE_VERSION: ${{ inputs.version || 'v0.8.2' }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id || '42119238383' }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version"; exit 1; }
@@ -48,10 +48,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p staging
-          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" --name InCharacter-Windows --dir staging
-          exe="$(find staging -type f -name InCharacter.exe -print -quit)"
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" --name SpeakInCharacter-Windows --dir staging
+          exe="$(find staging -type f -name SpeakInCharacter.exe -print -quit)"
           if [[ -z "$exe" ]]; then
-            echo "No InCharacter.exe found in the selected build artifact"
+            echo "No SpeakInCharacter.exe found in the selected build artifact"
             exit 1
           fi
           echo "Windows executable found: $exe"
@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           exe="$(find staging -type f -name InCharacter.exe -print -quit)"
           directory="$(dirname "$exe")"
-          archive="InCharacter-${VERSION}-Windows-x64-portable.zip"
+          archive="SpeakInCharacter-${VERSION}-Windows-x64-portable.zip"
           (cd "$directory" && zip -q -r "$GITHUB_WORKSPACE/$archive" .)
           unzip -tqq "$archive"
           sha256sum "$archive" > SHA256SUMS.txt
@@ -89,14 +89,14 @@ jobs:
               gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
                 -R "$GITHUB_REPOSITORY" \
                 --target "$target_sha" \
-                --title "InCharacter $VERSION — Windows Preview" \
+                --title "SpeakInCharacter $VERSION — Windows Preview" \
                 --prerelease \
                 --notes-file "$notes"
             else
               gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
                 -R "$GITHUB_REPOSITORY" \
                 --target "$target_sha" \
-                --title "InCharacter $VERSION — Windows Preview" \
+                --title "SpeakInCharacter $VERSION — Windows Preview" \
                 --prerelease --generate-notes
             fi
           fi
