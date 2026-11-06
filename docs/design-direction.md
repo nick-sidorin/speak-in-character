@@ -1,64 +1,53 @@
-# SpeakInCharacter — interface direction (v0.9)
+# SpeakInCharacter — Mantine-native interface
 
-**Chosen design:** a custom Discord-inspired **Ash** interface, built with Mantine React components for the main editor and a tiny custom Electron HUD for in-game status. Inspiration only: no Discord logos, assets, source, or implication of endorsement.
+## Decision (v0.10.1)
 
-## Why Mantine
+The previous implementation mixed old project-wide CSS with Mantine components.
+It caused input fields to retain dark/green colors in light mode, mismatched
+button colors, misaligned Tabs, unexpected separator lines, and uneven spacing.
+That design is retired.
 
-- Compatible with React + TypeScript + Vite/Electron.
-- Dark mode and theme tokens supported natively, plus a set of polished form controls.
-- Build the main panel around Mantine Tabs, Textarea, Select, Button, ActionIcon, Tooltip, Badge and ScrollArea.
-- Keep the Windows click-through overlay as small, hand-authored HTML/CSS; it should **not** load a big app-shell UI.
-- Keep existing Lucide icon assets instead of introducing another icon family.
-- Prefer incremental migration instead of replacing the working audio/keyboard/API logic.
+The editor is now built from **stock @mantine/core components**:
 
-References:
-- Mantine component examples: https://ui.mantine.dev/
-- Mantine theme and dark mode: https://mantine.dev/theming/color-schemes/
-- Discord's desktop Ash/Dark/Onyx themes: https://discord.com/blog/improving-mobile-with-squircles-styles-and-spacing
-- Alternative custom-component system: https://ui.shadcn.com/docs/installation/vite
+- `AppShell`: fixed header, scrolling editor content and fixed footer;
+- `Tabs`: Reply / History / Settings, with proper left and right sections;
+- `Grid`, `SimpleGrid`, `Stack`, `Group`: spacing and columns;
+- `Paper`, `Text`, `Title`, `Divider`, `Badge`, `Code`: surfaces and type;
+- `TextInput`, `Textarea`, `PasswordInput`, `Select`, `SegmentedControl`, `Switch`: input;
+- `Button`, `ActionIcon`, `Modal`: actions and confirmation.
 
-## Appearance: Ash-like, not Discord branding
+The theme is defined in `src/theme.ts` and uses **Mantine's native indigo and
+neutral palettes**, typography, sizes and radii. System / Dark / Light is
+managed through the Mantine color-scheme provider.
 
-| Semantic token | Starting value | Use |
-| --- | --- | --- |
-| `surface-base` | `#1b1d22` | Main editor background |
-| `surface-raised` | `#262830` | Inputs and compact fields |
-| `surface-overlay` | `#2d3038` | Dropdowns and menus |
-| `border` | `#3b3e49` | Subtle dividers |
-| `text-primary` | `#f3f4f8` | Input and output |
-| `text-muted` | `#a7acb8` | Context hints |
-| `accent` | `#7686ed` | Primary copy action and focus |
-| `record` | `#f06d71` | Mic activity / destructive |
-| `success` | `#49bc91` | Finished draft |
+We intentionally removed `src/mantine-theme.css` and rewrote
+`src/styles.css` as a small window/HUD layout stylesheet without selectors
+for Mantine component internals. Changing an input color should not require
+another custom CSS rule.
 
-Use Segoe UI, Inter (system fallback), normal letter spacing and short labels. Avoid thick borders, giant hero headings, glass effects in the editor, and large forms.
+## Desktop-specific exceptions
 
-## Panel layout (~520 × 705 px)
+Electron is a frameless always-on-top window, not a browser tab. A little
+custom behavior is necessary solely for:
 
-1. Slim draggable header: **SpeakInCharacter**, small status pill, close button.
-2. Compact tabs: **Reply**, **History**, **Settings**.
-3. On Reply: language and speech preset in one row or compact two-row grid.
-4. Optional **Additional context** expandable text area, retaining draft.
-5. Recording card: one prominent record/status button; red while held, spinner while waiting, green check when copied.
-6. Transcript (editable, low-emphasis) and ready-to-send reply (editable, high-emphasis).
-7. One clear primary action: **Copy to clipboard**; secondary **Rewrite**.
-8. History: lightweight list with duration, preview, play, save audio.
-9. Settings: language (System / manual), API, shortcut assignment, presets folder, microphone, cost.
+1. OS-level dragging, click-through and keyboard capture;
+2. native alpha transparency for smooth anti-aliased window corners;
+3. clipping the editor to the rounded window boundary;
+4. the 254×54 in-game HUD, which stays independent of Mantine for performance;
+5. preventing text selection when dragging non-editable UI;
+6. scrolling the central pane without moving the header/footer.
 
-The primary screen must fit without scrolling on typical 1080p. Where necessary, scroll only editor content; keep the primary action within reach.
+The product is **inspired by the density of Discord**, not a Discord theme,
+clone, component library, brand, or collection of extracted assets.
 
-## HUD
+## Regression tests
 
-Keep the custom ~254×54 px window. Two lines, compact status dot, low-opacity background and click-through by default. Its layout is independent from Mantine so game overlay is stable.
+- In the native Windows hook, `Ctrl+Shift+O` and `Ctrl+Shift+M` must
+  fire repeatedly, not just once after application launch.
+- Both shortcut key-up and modifier-key-up must rearm one-shot bindings.
+- The CI Windows build must pass the native helper self-test and TypeScript.
+- Confirm separately on a real Windows desktop: both window shapes, dark/light
+  switch, all tabs, long history scrolling, overlay movement, and repeat hotkeys.
 
-## Implementation (v0.9)
-
-Mantine core + hooks, app theme, light/dark/system preference and UI components are now being integrated. The tiny HUD stays independent from the large panel.
-
-## Next implementation pass
-
-- Add `@mantine/core` and `@mantine/hooks`; theme only the main panel.
-- Introduce `src/theme.ts` with named tokens and component defaults.
-- Migrate controls in small, reversible commits.
-- Verify main panel and HUD window geometry separately.
-- Build a Windows preview after review; do not auto-publish releases.
+The current built v0.10.1 artifact has passed compilation and key-routing
+tests; visual and overlay behavior still needs a live desktop review.
