@@ -716,28 +716,32 @@ export default function App() {
     >
       <div className="monogram">sc</div>
       <div className="brand">
-        <div className="brand-name">SpeakInCharacter <span>0.9.0</span></div>
+        <div className="brand-name">SpeakInCharacter <Badge size="xs" variant="light" color="iris">v0.9.0</Badge></div>
         <div className="brand-tag">Speak naturally. Stay in character.</div>
       </div>
-      <button className="window-close" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></button>
+      <ActionIcon className="window-close" variant="subtle" color="gray" title={tr('hidePanel')} type="button" onClick={() => window.inCharacter.setViewMode('hud')}><X size={18} strokeWidth={2.3}/></ActionIcon>
     </header>
 
-    <nav className="tabs" aria-label={tr('tabsAria')}>
-      <button type="button" className={tab === 'rp' ? 'selected' : ''} onClick={() => setTab('rp')}><MessageSquareText size={16} strokeWidth={2}/><span>{tr('tabReply')}</span></button>
-      <button type="button" className={tab === 'history' ? 'selected' : ''} onClick={() => setTab('history')}><Clock3 size={16} strokeWidth={2}/><span>{tr('tabHistory')}</span>{history.length > 0 && <small>{history.length}</small>}</button>
-      <button type="button" className={tab === 'settings' ? 'selected' : ''} onClick={() => setTab('settings')}><Settings2 size={16} strokeWidth={2}/><span>{tr('tabSettings')}</span></button>
-    </nav>
+    <Tabs className="mantine-tabs" variant="default" value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
+      <Tabs.List grow aria-label={tr('tabsAria')}>
+        <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16} />}>{tr('tabReply')}</Tabs.Tab>
+        <Tabs.Tab value="history" leftSection={<Clock3 size={16} />}>
+          {tr('tabHistory')}{history.length > 0 && <Badge className="history-count" size="xs" circle variant="light">{history.length}</Badge>}
+        </Tabs.Tab>
+        <Tabs.Tab value="settings" leftSection={<Settings2 size={16} />}>{tr('tabSettings')}</Tabs.Tab>
+      </Tabs.List>
+    </Tabs>
 
     <main className="content">
       {tab === 'rp' && <div className="rp-screen">
         <div className="section-intro">
-          <h1>{tr('heroTitle')}</h1>
+          <h1>{tr('tabReply')}</h1>
           <p>{tr('heroSub')}</p>
         </div>
 
-        <div className="target-language">
-          <label htmlFor="reply-language">{tr('targetLabel')}</label>
-          <input
+        <div className="rp-fields">
+          <TextInput
+            label={tr('targetLabel')}
             id="reply-language"
             type="text"
             maxLength={80}
@@ -748,29 +752,32 @@ export default function App() {
               localStorage.setItem('reply-language', event.target.value);
             }}
           />
-        </div>
-        <div className="rp-preset-row">
-          <label htmlFor="speech-preset">{tr('presetLabel')}</label>
-          <select
+          <Select
+            label={tr('presetLabel')}
             id="speech-preset"
             value={presetId}
-            onChange={event => selectPreset(event.target.value)}
-          >
-            <option value="">{tr('presetNone')}</option>
-            {presets.map(preset => (
-              <option key={preset.id} value={preset.id}>
-                {localizedPresetText(preset.name, uiLanguage)}
-              </option>
-            ))}
-            {presetId && !selectedPreset && !presetsLoading &&
-              <option value={presetId}>{tr('presetMissing')}</option>}
-          </select>
+            onChange={value => selectPreset(value || '')}
+            data={[
+              { value: '', label: tr('presetNone') },
+              ...presets.map(preset => ({
+                value: preset.id,
+                label: localizedPresetText(preset.name, uiLanguage),
+              })),
+              ...(presetId && !selectedPreset && !presetsLoading
+                ? [{ value: presetId, label: tr('presetMissing') }] : []),
+            ]}
+            comboboxProps={{ withinPortal: false }}
+            searchable={presets.length > 7}
+            allowDeselect={false}
+          />
         </div>
         <div className="additional-context">
-          <label htmlFor="additional-context">{tr('additionalContextLabel')}</label>
-          <textarea
+          <Textarea
+            label={tr('additionalContextLabel')}
             id="additional-context"
-            rows={3}
+            autosize
+            minRows={2}
+            maxRows={4}
             value={additionalContext}
             placeholder={tr('additionalContextPlaceholder')}
             onChange={event => {
@@ -806,8 +813,10 @@ export default function App() {
             <span>{tr('rawLabel')}</span>
             <small>{tr('rawHint')}</small>
           </div>
-          <textarea
-            rows={3}
+          <Textarea
+            autosize
+            minRows={2}
+            maxRows={4}
             value={original}
             placeholder={tr('rawPlaceholder')}
             onChange={event => {
@@ -819,8 +828,10 @@ export default function App() {
             <span>{tr('outputLabel')}</span>
             <small>{phase === 'processing' ? tr('outputProcessing') : tr('outputHint')}</small>
           </div>
-          <textarea
-            rows={4}
+          <Textarea
+            autosize
+            minRows={3}
+            maxRows={5}
             value={english}
             placeholder={tr('outputPlaceholder')}
             onChange={event => {
@@ -829,8 +840,8 @@ export default function App() {
             }}
           />
           <div className="draft-actions">
-            <button type="button" className="secondary-btn" disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}><RefreshCw size={15} strokeWidth={2}/>{tr('retryTranslation')}</button>
-            <button type="button" className="primary-btn" disabled={!english.trim()} onClick={() => void copyReply()}><ClipboardCopy size={16} strokeWidth={2}/>{tr('copyToWow')}</button>
+            <Button type="button" variant="light" color="gray" className="secondary-btn" leftSection={<RefreshCw size={15}/>} disabled={!hasKey || !original.trim() || inProgress} onClick={() => void rewrite()}>{tr('retryTranslation')}</Button>
+            <Button type="button" color="iris" className="primary-btn" leftSection={<ClipboardCopy size={16}/>} disabled={!english.trim()} onClick={() => void copyReply()}>{tr('copyToWow')}</Button>
           </div>
         </div>
       </div>}
@@ -848,12 +859,12 @@ export default function App() {
                   <strong>{new Date(item.createdAt).toLocaleTimeString(uiLanguage, { hour: '2-digit', minute: '2-digit' })}</strong>
                   <span>{clock(item.durationMs)} · {amount(item.transcriptionCostUsd + item.estimatedTextCostUsd)} {tr('roughly')}</span>
                 </div>
-                <button className="history-restore" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</button>
+                <Button className="history-restore" variant="subtle" size="xs" type="button" onClick={() => selectHistoryItem(item)}>{tr('openReply')}</Button>
               </div>
               <div className="history-preview">{item.english || item.transcript || tr('noTextAudio')}</div>
               <div className="history-audio">
                 <audio controls src={item.url} preload="metadata" aria-label={tr('listenRecording')} />
-                <button type="button" className="save-icon" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18} strokeWidth={2}/></button>
+                <ActionIcon type="button" className="save-icon" variant="light" color="iris" title={tr('saveRecording')} onClick={() => void saveEntry(item)}><Download size={18} /></ActionIcon>
               </div>
             </div>)}
           </div>}
@@ -864,31 +875,57 @@ export default function App() {
           <h1>{tr('settingsTitle')}</h1>
           <p>{tr('settingsSub')}</p>
         </div>
+        <div className="settings-section theme-section">
+          <div className="settings-heading"><strong>{tr('themeTitle')}</strong></div>
+          <p>{tr('themeDescription')}</p>
+          <SegmentedControl
+            fullWidth
+            size="xs"
+            value={appearance}
+            onChange={next => {
+              const choice = next as Appearance;
+              setAppearance(choice);
+              localStorage.setItem('appearance', choice);
+            }}
+            data={[
+              { value: 'system', label: <span className="theme-segment"><Monitor size={14}/>{tr('themeSystem')}</span> },
+              { value: 'dark', label: <span className="theme-segment"><Moon size={14}/>{tr('themeDark')}</span> },
+              { value: 'light', label: <span className="theme-segment"><Sun size={14}/>{tr('themeLight')}</span> },
+            ]}
+          />
+        </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('languageUiLabel')}</strong></div>
           <p>{tr('languageUiDescription')}</p>
-          <select className="interface-language-select" value={uiLanguagePreference} onChange={event => {
-            const selected = event.target.value;
-            setUiLanguagePreference(selected);
-            if (selected === 'system') localStorage.removeItem('interface-language');
-            else localStorage.setItem('interface-language', selected);
-            const resolved = selected === 'system' ? systemLanguage : languageFromSystemLocale(selected);
-            setMessage(t(resolved, 'readyMsg'));
-          }}>
-            <option value="system">{tr('languageSystem')}</option>
-            {INTERFACE_LANGUAGES.map(language => <option value={language.value} key={language.value}>{language.label}</option>)}
-          </select>
+          <Select
+            className="interface-language-select"
+            value={uiLanguagePreference}
+            comboboxProps={{ withinPortal: false }}
+            allowDeselect={false}
+            data={[
+              { value: 'system', label: tr('languageSystem') },
+              ...INTERFACE_LANGUAGES.map(language => ({ value: language.value, label: language.label })),
+            ]}
+            onChange={next => {
+              const selected = next || 'system';
+              setUiLanguagePreference(selected);
+              if (selected === 'system') localStorage.removeItem('interface-language');
+              else localStorage.setItem('interface-language', selected);
+              const resolved = selected === 'system' ? systemLanguage : languageFromSystemLocale(selected);
+              setMessage(t(resolved, 'readyMsg'));
+            }}
+          />
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('presetTitle')}</strong></div>
           <p>{tr('presetManageHint')}</p>
           <div className="preset-actions">
-            <button type="button" className="outline-btn" onClick={() => void openPresetsFolder()}>
+            <Button type="button" variant="light" color="gray" className="outline-btn" onClick={() => void openPresetsFolder()}>
               {tr('presetFolder')}
-            </button>
-            <button type="button" className="outline-btn" disabled={presetsLoading} onClick={() => void reloadPresets()}>
-              <RefreshCw size={14} strokeWidth={2}/>{tr('presetReload')}
-            </button>
+            </Button>
+            <Button type="button" variant="light" color="gray" className="outline-btn" leftSection={<RefreshCw size={14}/>} disabled={presetsLoading} onClick={() => void reloadPresets()}>
+              {tr('presetReload')}
+            </Button>
           </div>
           {presetError && <p className="preset-error">{presetError}</p>}
         </div>
@@ -896,25 +933,29 @@ export default function App() {
           <div className="settings-heading"><strong>OpenAI API</strong><span className={'connection-status ' + (hasKey ? 'connected' : 'disconnected')}><span className="connection-dot" />{(hasKey ? tr('connected') : tr('disconnected')).replace(/^[●○]\s*/, '')}</span></div>
           <p>{tr('apiKeyInfo')}</p>
           <div className="key-input-row">
-            <input type="password" value={apiKeyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setApiKeyDraft(event.target.value)} />
-            <button type="button" disabled={!apiKeyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</button>
+            <PasswordInput value={apiKeyDraft} placeholder={hasKey ? tr('apiKeyPlaceholder') : 'sk-proj-…'} autoComplete="off" onChange={event => setApiKeyDraft(event.target.value)} />
+            <Button type="button" disabled={!apiKeyDraft.trim() || keyBusy} onClick={() => void saveKey()}>{tr('save')}</Button>
           </div>
           <p className="tiny">{tr('apiKeyDisclaimer')}</p>
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('microphoneTitle')}</strong></div>
-          <label className="toggle-line">
-            <input type="checkbox" checked={micProcessing} disabled={inProgress} onChange={event => {
-              setMicProcessing(event.target.checked);
-              localStorage.setItem('mic-processing', String(event.target.checked));
-            }} />
-            <span>{tr('micProcessing')}<small>{tr('micProcessingHint')}</small></span>
-          </label>
+          <Switch
+            className="toggle-line"
+            checked={micProcessing}
+            disabled={inProgress}
+            label={tr('micProcessing')}
+            description={tr('micProcessingHint')}
+            onChange={event => {
+              setMicProcessing(event.currentTarget.checked);
+              localStorage.setItem('mic-processing', String(event.currentTarget.checked));
+            }}
+          />
         </div>
         <div className="settings-section">
           <div className="settings-heading"><strong>{tr('overlayTitle')}</strong></div>
           <div className="setting-row"><div>{tr('moveIndicator')}<small>{tr('positionSaved')}</small></div>
-            <button type="button" className="outline-btn" onClick={() => window.inCharacter.setHudMoveMode(true)}><Move size={15} strokeWidth={2}/>{tr('moveAction')}</button>
+            <Button type="button" variant="light" color="gray" className="outline-btn" leftSection={<Move size={15}/>} onClick={() => window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
           </div>
           <div className="keyboard-description">{shortcuts.hold ? tr('hotkeyHoldHint') : tr('hotkeyTapHint')}</div>
           {!shortcuts.hold && <p className="tiny warning-text">{tr('hotkeyFallback')}</p>}
@@ -946,13 +987,13 @@ export default function App() {
           <div className="settings-heading"><strong>{tr('costTitle')}</strong></div>
           <div className="cost-row"><strong>{amount(sessionCost)}</strong><span>{history.length} {tr('recordingsCount')}</span></div>
           <p>{tr('costDisclaimer')}</p>
-          <button className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>{tr('openUsage')}</button>
+          <Button variant="subtle" size="xs" className="text-link" type="button" onClick={() => void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
         </div>
       </section>}
     </main>
     <footer className="bottom-bar">
       <span className={'footer-indicator ' + (phase === 'error' ? 'footer-error' : '')}>{message || tr('readyMsg')}</span>
-      <button type="button" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</button>
+      <Button variant="subtle" size="xs" type="button" color="gray" title={tr('exit')} onClick={() => window.inCharacter.quit()}>{tr('exit')}</Button>
     </footer>
     </div>
   </MantineProvider>;
