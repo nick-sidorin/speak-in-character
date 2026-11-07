@@ -3,11 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
     <title>SpeakInCharacter</title>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="root">
+      <main class="startup-loading" aria-busy="true">
+        <img src="/assets/app-icon.svg" width="72" height="72" alt="" />
+        <strong>SpeakInCharacter</strong>
+        <span class="startup-spinner" aria-hidden="true"></span>
+        <span id="startup-label" role="status" aria-live="polite">Loading…</span>
+        <button id="startup-retry" type="button" hidden>Retry</button>
+      </main>
+    </div>
+    <script type="module" src="/src/startup.ts"></script>
   </body>
 </html>

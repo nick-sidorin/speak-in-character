@@ -56,6 +56,9 @@ app.whenReady().then(async () => {
     assert.equal(hud.isFocusable(), false);
     assert.equal(await hud.webContents.executeJavaScript('typeof window.inCharacter.processVoice'), 'undefined');
     assert.equal(await hud.webContents.executeJavaScript('typeof window.inCharacter.historyList'), 'undefined');
+    assert.equal(await hud.webContents.executeJavaScript('typeof window.inCharacter.editorReady'), 'undefined');
+    assert(hud.webContents.getURL().includes('/hud.html?'), 'HUD has a separate lightweight entry');
+    console.log('Editor navigation timings:', await main.webContents.executeJavaScript("JSON.stringify(performance.getEntriesByType('mark').map(({name, startTime}) => ({name, ms: Math.round(startTime)})))"));
 
     main.minimize();
     await waitFor(() => main.isMinimized(), 'native editor minimize');

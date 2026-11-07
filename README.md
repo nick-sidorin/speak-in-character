@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.12.1 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.13.0 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -28,12 +28,20 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 
 ## How it works
 
-**Transparent HUD experiment (v0.12.1):** the HUD uses a fully transparent,
+**Startup and identity preview (v0.13.0):** a lightweight, localized loading
+screen appears before React/Mantine initialize. The HUD has its own entry and
+no longer imports the editor or Mantine; it appears only after the recorder
+subscriptions are ready. This reduces duplicate loading, but Electron process
+startup still depends on the machine. The executable and editor use a custom
+microphone/speech-bubble icon; the existing tray microphone stays unchanged.
+
+**Transparent HUD (v0.12.1):** the HUD uses a fully transparent,
 frameless, never-focused host without native rounded corners or a thick frame.
 A rounded HTML bubble is painted inside a clear 2px gutter. The 10–100%
 slider changes the bubble's CSS opacity, not native window opacity. This
-differs from the earlier shared editor/HUD alpha-window attempts; validate
-inactive corners, resize, movement and game focus on Windows before merge.
+differs from the earlier shared editor/HUD alpha-window attempts. The owner
+confirmed that this version resolved the corners on their Windows setup;
+preserve it and continue checking inactive/game behavior when changing windows.
 The History tab no longer repeats the recording count as a badge.
 
 **Tray preview (v0.12.0):** closing the editor hides it to the system tray;

@@ -30,6 +30,7 @@ type HistorySnapshot = {
 
 
 const bridge = {
+  editorReady: (): void => ipcRenderer.send('app:editor-ready'),
   onHoldKeyDown: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('hotkey:down', listener);

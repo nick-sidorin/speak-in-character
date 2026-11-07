@@ -116,6 +116,7 @@ function storeShortcuts() {
 
 
 let mainWindow: BrowserWindow | null = null;
+let preferredLanguagesPromise: Promise<string[]> | undefined;
 let hudWindow: BrowserWindow | null = null;
 let hudState: HudState = { ...INITIAL_HUD_STATE };
 let tray: Tray | null = null;
@@ -293,17 +294,30 @@ function loadWindow(window: BrowserWindow, view: WindowRole) {
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {
     const url = new URL(devUrl);
-    if (view === 'hud') url.searchParams.set('view', view);
+    if (view === 'hud') { url.pathname = '/hud.html'; url.searchParams.set('view', view); }
     void window.loadURL(url.toString());
   } else {
     // Keep the editor's original file URL so existing localStorage stays intact.
-    void window.loadFile(join(__dirname, '../dist/index.html'), view === 'hud' ? { query: { view } } : undefined);
+    void window.loadFile(join(__dirname, view === 'hud' ? '../dist/hud.html' : '../dist/index.html'), view === 'hud' ? { query: { view } } : undefined);
   }
 }
 
 function createWindows() {
-  let editorReady = false;
+  let editorFrameReady = false;
+  let editorUiReady = false;
   let hudReady = false;
+  let hudShown = false;
+  const showReadyHud = () => {
+    if (editorFrameReady && editorUiReady && hudReady && !hudShown) {
+      hudShown = true;
+      hudWindow?.showInactive();
+    }
+  };
+  ipcMain.on('app:editor-ready', event => {
+    if (event.sender !== mainWindow?.webContents) return;
+    editorUiReady = true;
+    showReadyHud();
+  });
   let showEditorAtStartup = true;
   mainWindow = new BrowserWindow({
     ...windowBounds('panel'),
@@ -311,6 +325,7 @@ function createWindows() {
     minWidth: 520,
     minHeight: 600,
     title: `SpeakInCharacter ${app.getVersion()}`,
+    icon: app.isPackaged ? join(process.resourcesPath, 'app-icon.png') : join(__dirname, '../assets/app-icon.png'),
     frame: true,
     transparent: false,
     backgroundColor: '#242424',
@@ -328,9 +343,9 @@ function createWindows() {
   });
   mainWindow.setMenuBarVisibility(false);
   mainWindow.once('ready-to-show', () => {
-    editorReady = true;
+    editorFrameReady = true;
     if (showEditorAtStartup) showMainWindow();
-    if (hudReady) hudWindow?.showInactive();
+    showReadyHud();
   });
   mainWindow.on('close', event => {
     if (isQuitting || !tray || tray.isDestroyed()) return;
@@ -369,7 +384,7 @@ function createWindows() {
   hud.setIgnoreMouseEvents(true, { forward: true });
   hud.once('ready-to-show', () => {
     hudReady = true;
-    if (editorReady) hud.showInactive();
+    showReadyHud();
   });
   hud.on('moved', () => rememberPosition('hud'));
   hud.on('close', event => { if (!isQuitting) event.preventDefault(); });
@@ -627,7 +642,7 @@ app.whenReady().then(() => {
     return { canceled: false, filePath: choice.filePath };
   });
   handleMain('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
-  handleMain('app:preferred-languages', () => getWindowsUILanguages());
+  handleMain('app:preferred-languages', () => preferredLanguagesPromise ??= getWindowsUILanguages());
   ipcMain.on('app:theme-background', (event, scheme: string) => {
     if (event.sender !== mainWindow?.webContents || (scheme !== 'dark' && scheme !== 'light')) return;
     mainWindow?.setBackgroundColor(scheme === 'dark' ? '#242424' : '#ffffff');

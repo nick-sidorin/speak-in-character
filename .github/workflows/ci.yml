@@ -87,8 +87,34 @@ jobs:
           if (-not (Test-Path 'release/win-unpacked/resources/tray.png')) {
             throw "Tray icon missing from Windows package"
           }
+          if (-not (Test-Path 'release/win-unpacked/resources/app-icon.png')) {
+            throw "App icon missing from Windows package"
+          }
           node -e "if (require('@electron/asar').listPackage('release/win-unpacked/resources/app.asar').some(name => name.endsWith('.test.js'))) throw new Error('Test files included in application package')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify custom executable icon
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exePath = (Resolve-Path 'release/win-unpacked/SpeakInCharacter.exe').Path
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exePath)
+          if ($null -eq $icon) { throw "Executable icon missing" }
+          $bitmap = $icon.ToBitmap()
+          try {
+            $indigoPixels = 0
+            for ($y = 0; $y -lt $bitmap.Height; $y++) {
+              for ($x = 0; $x -lt $bitmap.Width; $x++) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                if ($pixel.A -gt 200 -and [Math]::Abs([int]$pixel.R - 76) -lt 12 -and
+                    [Math]::Abs([int]$pixel.G - 110) -lt 12 -and [Math]::Abs([int]$pixel.B - 245) -lt 12) {
+                  $indigoPixels++
+                }
+              }
+            }
+            if ($indigoPixels -lt ($bitmap.Width * $bitmap.Height / 4)) {
+              throw "Executable does not contain the custom indigo app icon"
+            }
+          } finally { $bitmap.Dispose(); $icon.Dispose() }
       - name: Smoke-test tray lifecycle and background recording
         shell: pwsh
         run: |

@@ -33,6 +33,7 @@ type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 declare global {
   interface Window {
     inCharacter: {
+      editorReady: () => void;
       onHoldKeyDown: (callback: () => void) => () => void;
       onHoldKeyUp: (callback: () => void) => () => void;
       onToggleRecording: (callback: () => void) => () => void;

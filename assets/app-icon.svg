@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>SpeakInCharacter</title>
+  <rect x="4" y="4" width="248" height="248" rx="56" fill="#4c6ef5"/>
+  <path d="M74 52h108c17 0 30 13 30 30v67c0 17-13 30-30 30h-68l-46 30v-31c-15-3-26-15-26-29V82c0-17 14-30 32-30Z"
+    fill="none" stroke="#fff" stroke-width="11" stroke-linejoin="round"/>
+  <rect x="114" y="77" width="28" height="50" rx="14" fill="#fff"/>
+  <path d="M101 112v9a27 27 0 0 0 54 0v-9M128 148v13m-15 0h30"
+    fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+</svg>

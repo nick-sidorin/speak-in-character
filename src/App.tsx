@@ -548,6 +548,8 @@ export default function App() {
     const offShortcuts = window.inCharacter.onShortcutStatus(value => setShortcuts(value));
     const onBlur = () => { setCaptureAction(null); window.inCharacter.setShortcutCapture(false); };
     window.addEventListener('blur', onBlur);
+    performance.mark('sic-editor-ready');
+    window.inCharacter.editorReady();
     return () => {
       window.inCharacter.setShortcutCapture(false);
       offToggle();
@@ -1036,7 +1038,7 @@ export default function App() {
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {presentedMessage || tr('readyMsg')}
             </Text>
-            <Badge size="xs" variant="light" color="gray">0.12.1</Badge>
+            <Badge size="xs" variant="light" color="gray">0.13.0</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>

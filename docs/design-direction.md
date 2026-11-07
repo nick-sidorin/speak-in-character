@@ -43,7 +43,11 @@ system tray; both close-to-tray and minimize keep recording available.
 Tray click/Open restores the existing editor; Quit/Exit fully stops the app.
 The tray exists throughout the running session and follows the UI language.
 Repeated launches activate the existing instance. The HUD waits for the
-editor's first frame at startup, so the app does not initially show only a HUD.
+editor's first frame and recorder subscriptions at startup. A minimal localized
+loading screen paints before the editor's React/Mantine bundle initializes.
+It uses scoped startup CSS only in the editor entry; the HUD loads separately
+and must never import this opaque screen or Mantine. Keep both renderers'
+startup independent while preserving the editor's existing localStorage URL.
 Ctrl+Shift+O brings an unfocused editor forward or minimizes the active editor.
 The editor renderer owns the only recorder; the HUD receives a validated
 display snapshot through the main process. Its bridge has no audio, key,
@@ -56,8 +60,14 @@ hint or shape mask. A 2px clear gutter surrounds the HTML bubble. Its CSS
 border radius and opacity own the visible contour; do not call native
 `setOpacity` or paint a theme background into this host. It stays non-focusable
 even during movement. The editor remains a separate opaque native window.
-Renderer alpha checks cannot certify Windows desktop composition; the earlier
-inactive ghost-frame regression must be checked on the owner's machine.
+The owner confirmed on 2026-11-07 that 0.12.1 resolved the corners on their
+Windows setup. Preserve this configuration. Renderer alpha checks guard
+regressions, while Windows desktop composition still needs real-machine
+checks when changing the window strategy.
+
+The app mark is a white microphone inside a speech bubble on an indigo tile.
+`assets/app-icon.svg` is the editable vector source; PNG/ICO derivatives serve
+the native editor and executable. Keep the existing tray microphone unchanged.
 
 The product is **inspired by the density of Discord**, not a Discord theme,
 clone, component library, brand, or collection of extracted assets.

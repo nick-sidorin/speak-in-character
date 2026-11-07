@@ -284,8 +284,20 @@ the dedicated non-focusable host with no thick frame/native rounding hint,
 a transparent 2px gutter, and CSS opacity on the inner bubble instead of
 native `setOpacity`. The earlier shared-window alpha attempts also switched
 roles/focus and applied whole-window opacity. This new combination still
-requires owner verification against the known Windows ghost-frame artifact;
-a transparent renderer screenshot alone does not prove desktop composition.
+was subsequently confirmed by the owner to resolve the HUD corners on their
+Windows setup (2026-11-07). Preserve that window configuration; a transparent
+renderer screenshot remains a regression guard rather than proof for every
+Windows compositor.
+
+The 0.13.0 follow-up addresses the owner's reported 3–4 second startup wait.
+Both windows had imported the full editor/Mantine bundle. Separate editor
+and HUD entries remove that duplicate work. A lightweight localized editor
+loading screen paints before React/Mantine initialization; HUD visibility
+waits for both the editor first frame and recorder event subscriptions.
+This does not promise a fixed cold-start time. Windows smoke logs navigation
+marks separately from process startup. The app now uses a custom vector
+microphone/speech-bubble mark for its executable/editor icon; the owner liked
+the existing tray microphone and it is intentionally unchanged.
 
 ### What the next agent should do first
 

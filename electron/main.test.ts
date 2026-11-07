@@ -108,7 +108,10 @@ afterEach(() => {
 });
 const sender = (index: number) => ({ sender: fake.windows[index].webContents });
 const emit = (channel: string, index: number, ...args: unknown[]) => fake.listeners.get(channel)!(sender(index), ...args);
-const readyWindows = () => fake.windows.forEach(window => window.emit('ready-to-show'));
+const readyWindows = () => {
+  fake.windows.forEach(window => window.emit('ready-to-show'));
+  emit('app:editor-ready', 0);
+};
 
 describe('independent editor and HUD windows', () => {
   it('opens a native taskbar editor plus a non-focusable HUD; only the editor owns media', () => {
@@ -117,8 +120,10 @@ describe('independent editor and HUD windows', () => {
     expect(fake.windows).toHaveLength(2);
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
     expect(hud.options).toMatchObject({ frame: false, transparent: true, backgroundColor: '#00000000', thickFrame: false, roundedCorners: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
+    expect(main.options.icon).toMatch(/assets[\\/]app-icon\.png$/);
     expect(main.show).toHaveBeenCalledOnce();
     expect(main.loadFile.mock.calls[0][1]).toBeUndefined();
+    expect(hud.loadFile.mock.calls[0][0]).toMatch(/dist[\\/]hud\.html$/);
     expect(hud.loadFile.mock.calls[0][1]).toEqual({ query: { view: 'hud' } });
     expect(hud.showInactive).toHaveBeenCalledOnce();
     expect(hud.focus).not.toHaveBeenCalled();
@@ -200,13 +205,19 @@ describe('independent editor and HUD windows', () => {
     expect(JSON.parse(readFileSync(join(fake.directory, 'window-positions.json'), 'utf8'))).toEqual({ panel: { x: 20, y: 30 }, hud: { x: 40, y: 50 } });
   });
 
-  it('waits for the editor before revealing a faster HUD renderer', () => {
+  it('shows the editor loader before revealing the HUD and waits for recorder subscriptions', () => {
     const [main, hud] = fake.windows;
     hud.emit('ready-to-show');
     expect(hud.showInactive).not.toHaveBeenCalled();
     main.emit('ready-to-show');
     expect(main.visible).toBe(true);
+    expect(hud.visible).toBe(false);
+    emit('app:editor-ready', 1);
+    expect(hud.visible).toBe(false);
+    emit('app:editor-ready', 0);
     expect(hud.visible).toBe(true);
+    emit('app:editor-ready', 0);
+    expect(hud.showInactive).toHaveBeenCalledOnce();
     expect(main.show.mock.invocationCallOrder[0]).toBeLessThan(hud.showInactive.mock.invocationCallOrder[0]);
   });
 
@@ -233,6 +244,7 @@ describe('independent editor and HUD windows', () => {
     fake.trays[0].emit('click');
     main.emit('close', { preventDefault: vi.fn() });
     hud.emit('ready-to-show'); main.emit('ready-to-show');
+    emit('app:editor-ready', 0);
     expect(main.visible).toBe(false);
     expect(hud.visible).toBe(true);
   });
