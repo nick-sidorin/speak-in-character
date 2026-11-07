@@ -8,6 +8,7 @@ The PR workflow [`CI`](.github/workflows/ci.yml) checks:
 
 - TypeScript on the renderer and Electron main process;
 - Vitest unit tests and coverage thresholds (audio guards, locale and local history);
+- Portable release ZIP packaging regression tests (Linux; Bash, zip and unzip);
 - Native Windows keyboard regression tests (including repeated shortcut presses);
 - Windows system UI language command;
 - Full packaged Electron Windows x64 build, including the bundled keyboard helper.
@@ -22,7 +23,7 @@ To enforce this on the GitHub **`main`** ruleset:
 4. Enable **Allow squash merging**, disable merge commits and rebase merges in repository settings.
 5. Disable bypasses for administrators if you want the rules to apply to everyone.
 
-CI runs on **pull requests**, not every push to `main`. It does not upload the ~130MB application artifact on every PR; it **does** build and inspect the packaged program. The separate manual Windows workflow remains for downloadable preview builds.
+CI runs on **pull requests**, not every push to `main`. It builds and inspects the packaged program and attaches a downloadable Windows preview to the PR with 7-day retention. The separate manual Windows workflow remains available for preview builds.
 
 ## Development
 
