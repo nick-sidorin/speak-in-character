@@ -57,15 +57,22 @@ button { cursor: pointer; }
 
 /* The in-game HUD is intentionally NOT a Mantine AppShell.
    It must stay tiny, click-through and cheap to render. */
-/* Native HUD uses Windows' rounded, opacity-controlled window.
-   Fill the client area edge-to-edge so an old transparent margin cannot
-   reveal DWM's inactive nonclient paint behind it. */
+/* The native host and its gutter stay fully transparent. Only the inner
+   bubble paints pixels; CSS opacity never changes native window opacity. */
+.hud-window {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  height: 100%;
+  padding: 2px;
+  background: transparent;
+}
 .hud {
   display: inline-flex;
   align-items: center;
   width: max-content;
   max-width: 384px;
-  height: 100%;
+  height: 40px;
   min-height: 40px;
   margin: 0;
   padding: 4px 9px;

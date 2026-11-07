@@ -5,7 +5,7 @@ export type HudState = {
   recordingShortcut: string;
   hold: boolean;
 };
-export type HudSnapshot = HudState & { moveEnabled: boolean };
+export type HudSnapshot = HudState & { moveEnabled: boolean; opacityPercent: number };
 
 export const INITIAL_HUD_STATE: HudState = {
   phase: 'idle', language: 'en', recordingShortcut: 'CapsLock', hold: false,

@@ -277,6 +277,16 @@ their first frame; the lighter HUD could appear first. Startup now reveals
 the editor before the HUD. This coordinates presentation, not proof that
 renderer startup itself is faster. Native HUD corner artifacts remain open.
 
+The owner confirmed tray behavior works and asked to remove the redundant
+History tab count badge. They explicitly proposed a fully transparent native
+host with a separately painted rounded inner HUD. The 0.12.1 experiment uses
+the dedicated non-focusable host with no thick frame/native rounding hint,
+a transparent 2px gutter, and CSS opacity on the inner bubble instead of
+native `setOpacity`. The earlier shared-window alpha attempts also switched
+roles/focus and applied whole-window opacity. This new combination still
+requires owner verification against the known Windows ghost-frame artifact;
+a transparent renderer screenshot alone does not prove desktop composition.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.

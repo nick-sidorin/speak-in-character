@@ -20,7 +20,7 @@ import { addRecording, addRewriteCost, clearHistory, deleteRecording, editRecord
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { INITIAL_HUD_STATE, parseHudState, type HudState } from './hudState';
+import { INITIAL_HUD_STATE, parseHudState, type HudState, type HudSnapshot } from './hudState';
 import { trayMenuTemplate } from './trayMenu';
 
 // Keep the original Electron userData folder after the public-facing rename.
@@ -32,7 +32,7 @@ type WindowRole = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 // HUD width is measured from its one-line content; the window is resized to fit.
-const HUD = { width: 170, height: 40 };
+const HUD = { width: 174, height: 44 }; // 40px content plus a 2px transparent gutter.
 const HUD_MIN_WIDTH = 96;
 const HUD_MAX_WIDTH = 390;
 const PANEL = { width: 520, height: 705 };
@@ -206,8 +206,12 @@ function windowBounds(view: WindowRole) {
   return defaultBounds(size);
 }
 
+function hudSnapshot(): HudSnapshot {
+  return { ...hudState, moveEnabled: hudMoveEnabled, opacityPercent: Math.round(hudOpacity * 100) };
+}
+
 function sendHudState() {
-  hudWindow?.webContents.send('hud:state', { ...hudState, moveEnabled: hudMoveEnabled });
+  hudWindow?.webContents.send('hud:state', hudSnapshot());
 }
 
 function setHudMoveMode(enabled: boolean) {
@@ -284,16 +288,6 @@ function updateHudWidth(nextWidth: number) {
   rememberPosition('hud');
 }
 
-function requestWindowsRoundedCorners(window: BrowserWindow) {
-  if (process.platform !== 'win32' || window.isDestroyed()) return;
-  const handle = window.getNativeWindowHandle();
-  const hwnd = handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : handle.readUInt32LE(0).toString();
-  // Keep the opaque HUD model: alpha windows previously produced a ghost frame.
-  execFile(nativeHotkeyBinary(), ['--round-corners', hwnd], { windowsHide: true, timeout: 3000 }, error => {
-    if (error) console.warn('Could not request DWM rounded corners:', error.message);
-  });
-}
-
 function loadWindow(window: BrowserWindow, view: WindowRole) {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -357,9 +351,11 @@ function createWindows() {
 
   hudWindow = new BrowserWindow({
     ...windowBounds('hud'),
-    title: '', frame: false, transparent: false, backgroundColor: '#202a2e',
-    resizable: false, movable: true, thickFrame: true, hasShadow: false,
-    roundedCorners: true, alwaysOnTop: true, skipTaskbar: true,
+    // The never-focused native window is only a transparent host. The HTML
+    // bubble owns its shape and opacity; setOpacity would affect the host too.
+    title: '', frame: false, transparent: true, backgroundColor: '#00000000',
+    resizable: false, movable: true, thickFrame: false, hasShadow: false,
+    roundedCorners: false, alwaysOnTop: true, skipTaskbar: true,
     focusable: false, show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'), contextIsolation: true,
@@ -370,9 +366,7 @@ function createWindows() {
   const hud = hudWindow;
   hud.setMenuBarVisibility(false);
   hud.setAlwaysOnTop(true, 'screen-saver');
-  hud.setOpacity(hudOpacity);
   hud.setIgnoreMouseEvents(true, { forward: true });
-  hud.once('show', () => requestWindowsRoundedCorners(hud));
   hud.once('ready-to-show', () => {
     hudReady = true;
     if (editorReady) hud.showInactive();
@@ -562,7 +556,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('hud:get-state', event => {
     if (event.sender !== hudWindow?.webContents) throw new Error('HUD window required');
-    return { ...hudState, moveEnabled: hudMoveEnabled };
+    return hudSnapshot();
   });
   ipcMain.on('hud:resize', (event, width: number) => {
     if (event.sender === hudWindow?.webContents) updateHudWidth(width);
@@ -571,7 +565,7 @@ app.whenReady().then(() => {
     if (event.sender !== mainWindow?.webContents || !Number.isFinite(opacityPercent)) return;
     if (opacityPercent < 10 || opacityPercent > 100) return;
     hudOpacity = opacityPercent / 100;
-    hudWindow?.setOpacity(hudOpacity);
+    sendHudState();
   });
   ipcMain.on('overlay:move-hud', (event, enabled: boolean) => {
     if (event.sender !== mainWindow?.webContents && event.sender !== hudWindow?.webContents) return;

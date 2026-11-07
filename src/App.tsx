@@ -758,8 +758,7 @@ export default function App() {
         <AppShell.Header>
           <Tabs.List grow h={50} px="sm">
             <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16}/>}>{tr('tabReply')}</Tabs.Tab>
-            <Tabs.Tab value="history" leftSection={<History size={16}/>}
-              rightSection={history.length ? <Badge size="xs" circle variant="light" color="indigo">{history.length}</Badge> : undefined}>
+            <Tabs.Tab value="history" leftSection={<History size={16}/>}>
               {tr('tabHistory')}
             </Tabs.Tab>
             <Tabs.Tab value="settings" leftSection={<Settings2 size={16}/>}>{tr('tabSettings')}</Tabs.Tab>
@@ -1037,7 +1036,7 @@ export default function App() {
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {presentedMessage || tr('readyMsg')}
             </Text>
-            <Badge size="xs" variant="light" color="gray">0.12.0</Badge>
+            <Badge size="xs" variant="light" color="gray">0.12.1</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>

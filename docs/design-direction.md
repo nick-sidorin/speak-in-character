@@ -49,9 +49,15 @@ The editor renderer owns the only recorder; the HUD receives a validated
 display snapshot through the main process. Its bridge has no audio, key,
 history or AI operations.
 
-Keep the HUD opaque frameless model while testing the split; do not silently
-reintroduce the transparent-window ghost-frame regression. Native HUD corner
-appearance still requires a real Windows check.
+The owner explicitly requested a transparent-host experiment after the
+separate opaque HUD still showed dark corners. In 0.12.1 the host uses
+per-pixel transparency with no native frame, shadow, thick frame, DWM rounded
+hint or shape mask. A 2px clear gutter surrounds the HTML bubble. Its CSS
+border radius and opacity own the visible contour; do not call native
+`setOpacity` or paint a theme background into this host. It stays non-focusable
+even during movement. The editor remains a separate opaque native window.
+Renderer alpha checks cannot certify Windows desktop composition; the earlier
+inactive ghost-frame regression must be checked on the owner's machine.
 
 The product is **inspired by the density of Discord**, not a Discord theme,
 clone, component library, brand, or collection of extracted assets.
@@ -60,6 +66,7 @@ clone, component library, brand, or collection of extracted assets.
 
 - Use one clear label for each field or action. Do not repeat tab names as
   content headings or explain standard controls underneath them.
+- Keep recording counts inside History; do not duplicate them in a tab badge.
 - Omit helper paragraphs, slogans and duplicate status text when the control
   already explains itself. A placeholder may give a short example of valid
   input, such as `Example: World of Warcraft, night elf woman`; it must not

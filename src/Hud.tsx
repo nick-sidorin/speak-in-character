@@ -6,7 +6,7 @@ import { phaseLabel, StateIcon } from './RecordingStatus';
 
 export default function Hud() {
   const [state, setState] = useState<HudSnapshot>({
-    phase: 'idle', language: 'en', recordingShortcut: 'CapsLock', hold: false, moveEnabled: false,
+    phase: 'idle', language: 'en', recordingShortcut: 'CapsLock', hold: false, moveEnabled: false, opacityPercent: 76,
   });
   const hudRef = useRef<HTMLDivElement | null>(null);
   const tr = (key: Parameters<typeof t>[1]) => t(state.language, key);
@@ -48,15 +48,17 @@ export default function Hud() {
     window.inCharacter.endHudDrag();
   };
 
-  return <div ref={hudRef} className={'hud ' + (state.moveEnabled ? 'hud-move' : '')}
-    onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd}>
-    <div className="hud-status"><StateIcon phase={state.phase} language={state.language}/></div>
-    <span className="hud-main">
-      {state.moveEnabled ? tr('hudMoveShort') : state.phase === 'idle'
-        ? `${tr(state.hold ? 'phaseHoldVerb' : 'phaseTapVerb')} ${state.recordingShortcut}`
-        : phaseLabel(state.phase, state.hold, state.language)}
-    </span>
-    {state.moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')}
-      onClick={() => window.inCharacter.setHudMoveMode(false)}><Check size={15} strokeWidth={2.6}/></button>}
+  return <div ref={hudRef} className="hud-window">
+    <div className={'hud ' + (state.moveEnabled ? 'hud-move' : '')} style={{ opacity: state.opacityPercent / 100 }}
+      onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd}>
+      <div className="hud-status"><StateIcon phase={state.phase} language={state.language}/></div>
+      <span className="hud-main">
+        {state.moveEnabled ? tr('hudMoveShort') : state.phase === 'idle'
+          ? `${tr(state.hold ? 'phaseHoldVerb' : 'phaseTapVerb')} ${state.recordingShortcut}`
+          : phaseLabel(state.phase, state.hold, state.language)}
+      </span>
+      {state.moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')}
+        onClick={() => window.inCharacter.setHudMoveMode(false)}><Check size={15} strokeWidth={2.6}/></button>}
+    </div>
   </div>;
 }

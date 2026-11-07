@@ -69,9 +69,23 @@ app.whenReady().then(async () => {
     assert.equal(main.isMinimized(), true, 'recording does not restore/focus the editor');
     assert.equal(hud.isVisible(), true, 'HUD survives editor minimization');
 
+    assert.equal(await main.webContents.executeJavaScript("/\\d/.test(document.querySelectorAll('[role=tab]')[1].textContent)"), false, 'history tab has no count badge');
     await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(10)');
-    await waitFor(() => Math.abs(hud.getOpacity() - 0.1) < 0.01, '10% HUD-only opacity');
+    await waitFor(() => hud.webContents.executeJavaScript("Math.abs(Number(getComputedStyle(document.querySelector('.hud')).opacity) - 0.1) < 0.01"), '10% HTML HUD opacity');
     assert.equal(main.getOpacity(), 1);
+    assert.equal(hud.getOpacity(), 1, 'transparent native host opacity is never changed');
+    await hud.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const image = await hud.webContents.capturePage();
+    const { width, height } = image.getSize(1);
+    const pixels = image.toBitmap({ scaleFactor: 1 });
+    assert.equal(pixels.length, width * height * 4);
+    const alphaAt = (x, y) => pixels[(y * width + x) * 4 + 3];
+    for (const [x, y] of [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1], [3, 3]]) {
+      assert.equal(alphaAt(x, y), 0, `HUD renderer corner ${x},${y} is transparent`);
+    }
+    const centerAlpha = alphaAt(Math.floor(width / 2), Math.floor(height / 2));
+    assert(centerAlpha > 0 && centerAlpha < 255, 'inner HUD paints partially opaque pixels');
+    console.log('HUD renderer alpha passed: clear corners, painted inner bubble, native opacity 1. Desktop DWM composition still needs owner review.');
     main.restore();
     await waitFor(() => !main.isMinimized(), 'native editor restore');
     assert.equal(hud.isVisible(), true);

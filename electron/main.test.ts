@@ -116,7 +116,7 @@ describe('independent editor and HUD windows', () => {
     readyWindows();
     expect(fake.windows).toHaveLength(2);
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
-    expect(hud.options).toMatchObject({ frame: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
+    expect(hud.options).toMatchObject({ frame: false, transparent: true, backgroundColor: '#00000000', thickFrame: false, roundedCorners: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
     expect(main.show).toHaveBeenCalledOnce();
     expect(main.loadFile.mock.calls[0][1]).toBeUndefined();
     expect(hud.loadFile.mock.calls[0][1]).toEqual({ query: { view: 'hud' } });
@@ -146,7 +146,7 @@ describe('independent editor and HUD windows', () => {
   it('relays sanitized owner status to the HUD and rejects status from another renderer', () => {
     const state = { phase: 'recording', language: 'ru', hold: true, recordingShortcut: 'F8' };
     emit('hud:publish-state', 0, { ...state, transcript: 'private' });
-    expect(fake.handlers.get('hud:get-state')!(sender(1))).toEqual({ ...state, moveEnabled: false });
+    expect(fake.handlers.get('hud:get-state')!(sender(1))).toEqual({ ...state, moveEnabled: false, opacityPercent: 76 });
     emit('hud:publish-state', 1, { ...state, phase: 'ready' });
     emit('hud:publish-state', 0, { ...state, phase: 'invalid' });
     expect(fake.handlers.get('hud:get-state')!(sender(1)).phase).toBe('recording');
@@ -160,7 +160,9 @@ describe('independent editor and HUD windows', () => {
     emit('hud:set-opacity', 0, 9);
     emit('hud:set-opacity', 0, 101);
     emit('hud:set-opacity', 1, 100);
-    expect(hud.setOpacity.mock.calls).toEqual([[0.76], [0.4], [0.1]]);
+    expect(hud.setOpacity).not.toHaveBeenCalled();
+    expect(fake.handlers.get('hud:get-state')!(sender(1)).opacityPercent).toBe(10);
+    expect(hud.webContents.send).toHaveBeenLastCalledWith('hud:state', expect.objectContaining({ opacityPercent: 10 }));
     expect(main.setOpacity).not.toHaveBeenCalled();
     emit('overlay:move-hud', 0, true);
     expect(hud.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false, { forward: true });
@@ -173,6 +175,16 @@ describe('independent editor and HUD windows', () => {
     expect(() => fake.handlers.get('ai:key-status')!(sender(1))).toThrow('Main window required');
     expect(fake.hasApiKey).not.toHaveBeenCalled();
     expect(fake.handlers.get('ai:key-status')!(sender(0))).toBe(false);
+  });
+
+  it('changes editor theme without painting an opaque background into the HUD host', () => {
+    const [main, hud] = fake.windows;
+    emit('app:theme-background', 0, 'light');
+    emit('app:theme-background', 0, 'dark');
+    emit('app:theme-background', 1, 'light');
+    expect(main.setBackgroundColor.mock.calls).toEqual([['#ffffff'], ['#242424']]);
+    expect(hud.setBackgroundColor).not.toHaveBeenCalled();
+    expect(hud.setOpacity).not.toHaveBeenCalled();
   });
 
   it('persists separate legacy position keys without saving minimize coordinates', () => {
