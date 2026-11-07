@@ -306,6 +306,18 @@ including processing, completion or error. A short CSS opacity transition
 respects reduced motion. This is recording-state feedback, not voice-activity
 detection, and does not change the setting, native host or main window.
 
+The owner subsequently isolated a remaining native grey-backing case:
+focusing the editor and then returning focus to the game (2026-11-07). This
+qualifies the earlier corner confirmation. The 0.13.2 mitigation retains
+the alpha/CSS contour and adds an explicit toolbar type, disables native
+minimize/maximize, and suppresses HUD document-to-native-title updates.
+Windows smoke transfers focus to a separate WinForms process repeatedly,
+inspects actual HWND styles/title, and checks desktop corner pixels when
+a usable desktop capture is available. The actual game transition still
+requires owner validation. New HUD defaults use equal 24 DIP left/top work
+area margins; new editors use normal framework/OS placement. Valid saved
+positions are preserved, including recovery from removed monitors.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.

@@ -196,14 +196,8 @@ function windowBounds(view: WindowRole) {
       };
     }
   }
-  if (view === 'panel') {
-    const { workArea } = screen.getPrimaryDisplay();
-    return {
-      x: Math.round(workArea.x + Math.max(0, (workArea.width - size.width) / 2)),
-      y: Math.round(workArea.y + Math.max(0, (workArea.height - size.height) / 2)),
-      ...size,
-    };
-  }
+  // Let Electron/Windows place a new editor using its standard behavior.
+  if (view === 'panel') return { ...size };
   return defaultBounds(size);
 }
 
@@ -268,8 +262,8 @@ function createTray() {
 function defaultBounds(size: { width: number; height: number }) {
   const { workArea } = screen.getPrimaryDisplay();
   return {
-    x: workArea.x + workArea.width - size.width - 24,
-    y: workArea.y + 30,
+    x: workArea.x + Math.min(24, Math.max(0, workArea.width - size.width)),
+    y: workArea.y + Math.min(24, Math.max(0, workArea.height - size.height)),
     ...size,
   };
 }
@@ -368,7 +362,9 @@ function createWindows() {
     ...windowBounds('hud'),
     // The never-focused native window is only a transparent host. The HTML
     // bubble owns its shape and opacity; setOpacity would affect the host too.
-    title: '', frame: false, transparent: true, backgroundColor: '#00000000',
+    title: '', type: 'toolbar', frame: false, transparent: true, backgroundColor: '#00000000',
+    // Frameless windows otherwise retain native minimize/maximize style bits.
+    minimizable: false, maximizable: false, fullscreenable: false,
     resizable: false, movable: true, thickFrame: false, hasShadow: false,
     roundedCorners: false, alwaysOnTop: true, skipTaskbar: true,
     focusable: false, show: false,
@@ -379,6 +375,8 @@ function createWindows() {
     },
   });
   const hud = hudWindow;
+  // The HUD document title must never become a native window caption.
+  hud.on('page-title-updated', event => event.preventDefault());
   hud.setMenuBarVisibility(false);
   hud.setAlwaysOnTop(true, 'screen-saver');
   hud.setIgnoreMouseEvents(true, { forward: true });

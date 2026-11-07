@@ -48,6 +48,10 @@ loading screen paints before the editor's React/Mantine bundle initializes.
 It uses scoped startup CSS only in the editor entry; the HUD loads separately
 and must never import this opaque screen or Mantine. Keep both renderers'
 startup independent while preserving the editor's existing localStorage URL.
+Without saved positions, let Electron/Windows place the editor normally;
+start the HUD 24 DIP from both left and top of the primary work area. Valid
+saved positions take precedence and disconnected-monitor positions recover
+to these defaults. Do not scale this margin as a percentage of screen size.
 Ctrl+Shift+O brings an unfocused editor forward or minimizes the active editor.
 The editor renderer owns the only recorder; the HUD receives a validated
 display snapshot through the main process. Its bridge has no audio, key,
@@ -61,7 +65,12 @@ border radius and opacity own the visible contour; do not call native
 `setOpacity` or paint a theme background into this host. It stays non-focusable
 even during movement. The editor remains a separate opaque native window.
 The owner confirmed on 2026-11-07 that 0.12.1 resolved the corners on their
-Windows setup. Preserve this configuration. Renderer alpha checks guard
+Windows setup in initial testing, but subsequently identified a grey backing
+when focus leaves the editor for the game. The 0.13.2 follow-up keeps the
+alpha/CSS strategy and makes the host an explicit non-activating toolbar,
+with native minimize/maximize disabled and document-title updates suppressed.
+This is a targeted mitigation pending that exact owner focus-transition check.
+Preserve the transparent contour configuration. Renderer alpha checks guard
 regressions, while Windows desktop composition still needs real-machine
 checks when changing the window strategy.
 

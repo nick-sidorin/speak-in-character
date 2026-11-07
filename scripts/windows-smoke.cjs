@@ -1,4 +1,7 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 const assert = require('node:assert/strict');
 const { mkdtempSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -64,6 +67,33 @@ app.whenReady().then(async () => {
     assert.equal(await hud.webContents.executeJavaScript('typeof window.inCharacter.editorReady'), 'undefined');
     assert(hud.webContents.getURL().includes('/hud.html?'), 'HUD has a separate lightweight entry');
     console.log('Editor navigation timings:', await main.webContents.executeJavaScript("JSON.stringify(performance.getEntriesByType('mark').map(({name, startTime}) => ({name, ms: Math.round(startTime)})))"));
+
+    const workArea = screen.getPrimaryDisplay().workArea;
+    assert.equal(hud.getBounds().x, workArea.x + 24);
+    assert.equal(hud.getBounds().y, workArea.y + 24);
+    assert.equal(hud.isMinimizable(), false);
+    assert.equal(hud.isMaximizable(), false);
+    assert.equal(hud.getTitle(), '', 'HUD document does not supply a native caption');
+    const handle = hud.getNativeWindowHandle();
+    const hwnd = handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+    for (let cycle = 0; cycle < 3; cycle++) {
+      main.show(); main.focus();
+      await waitFor(() => main.isFocused(), 'editor foreground before external focus');
+      const { stdout } = await execFileAsync('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-Sta', '-File', join(__dirname, 'windows-focus-check.ps1'), '-HudHandle', hwnd,
+      ], { timeout: 12000 });
+      const probe = JSON.parse(stdout.trim());
+      assert.equal(probe.externalFocused, true, 'focus leaves the editor for a separate application');
+      // WS_CAPTION, WS_THICKFRAME, WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX.
+      assert.equal(probe.style & 0x00CF0000, 0, 'HUD has no native caption or window-control styles');
+      assert.equal(probe.exStyle & 0x08000080, 0x08000080, 'HUD is a non-activating tool window');
+      assert.equal(probe.title, '');
+      if (probe.desktopCaptureAvailable) assert.equal(probe.clearDesktopCorners, true, 'no desktop backing rectangle after editor deactivation');
+      console.log(`External focus cycle ${cycle + 1}: ${JSON.stringify(probe)}`);
+      assert.equal(hud.isVisible(), true);
+      assert.equal(hud.isFocused(), false);
+      assert.equal(hud.getOpacity(), 1);
+    }
 
     await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(30)');
     await waitHudOpacity(hud, 30);

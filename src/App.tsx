@@ -1038,7 +1038,7 @@ export default function App() {
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {presentedMessage || tr('readyMsg')}
             </Text>
-            <Badge size="xs" variant="light" color="gray">0.13.1</Badge>
+            <Badge size="xs" variant="light" color="gray">0.13.2</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const fake = vi.hoisted(() => ({
   directory: '',
+  workArea: { x: 0, y: 0, width: 1920, height: 1080 },
   windows: [] as any[],
   trays: [] as any[],
   handlers: new Map<string, (...args: any[]) => any>(),
@@ -79,8 +80,9 @@ vi.mock('electron', async () => {
     },
     globalShortcut: { register: (key: string, callback: () => void) => { fake.shortcuts.set(key, callback); return true; }, unregisterAll: vi.fn() },
     screen: {
-      getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1080 } }),
-      getDisplayMatching: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1080 } }),
+      getPrimaryDisplay: () => ({ workArea: fake.workArea }),
+      getAllDisplays: () => [{ workArea: fake.workArea }],
+      getDisplayMatching: () => ({ workArea: fake.workArea }),
       getCursorScreenPoint: () => ({ x: 100, y: 100 }),
     },
     session: { defaultSession: { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: (callback: any) => { fake.permissionCheck = callback; } } },
@@ -104,8 +106,16 @@ beforeEach(async () => {
 });
 afterEach(() => {
   fake.appEvents.get('will-quit')?.();
+  fake.workArea = { x: 0, y: 0, width: 1920, height: 1080 };
   rmSync(fake.directory, { recursive: true, force: true });
 });
+async function restartWindows() {
+  fake.appEvents.get('will-quit')?.();
+  fake.windows.length = 0;
+  vi.resetModules();
+  await import('./main');
+  fake.start();
+}
 const sender = (index: number) => ({ sender: fake.windows[index].webContents });
 const emit = (channel: string, index: number, ...args: unknown[]) => fake.listeners.get(channel)!(sender(index), ...args);
 const readyWindows = () => {
@@ -120,6 +130,7 @@ describe('independent editor and HUD windows', () => {
     expect(fake.windows).toHaveLength(2);
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
     expect(hud.options).toMatchObject({ frame: false, transparent: true, backgroundColor: '#00000000', thickFrame: false, roundedCorners: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
+    expect(hud.options).toMatchObject({ type: 'toolbar', minimizable: false, maximizable: false, fullscreenable: false });
     expect(main.options.icon).toMatch(/assets[\\/]app-icon\.png$/);
     expect(main.show).toHaveBeenCalledOnce();
     expect(main.loadFile.mock.calls[0][1]).toBeUndefined();
@@ -129,6 +140,46 @@ describe('independent editor and HUD windows', () => {
     expect(hud.focus).not.toHaveBeenCalled();
     expect(fake.permissionCheck(main.webContents, 'media')).toBe(true);
     expect(fake.permissionCheck(hud.webContents, 'media')).toBe(false);
+  });
+
+  it.each([
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: -2560, y: 40, width: 2560, height: 1400 },
+  ])('uses equal 24 DIP HUD margins and standard editor placement: %j', async work => {
+    fake.workArea = work;
+    await restartWindows();
+    const [main, hud] = fake.windows;
+    expect(main.options).not.toHaveProperty('x');
+    expect(main.options).not.toHaveProperty('y');
+    expect(hud.bounds).toMatchObject({ x: work.x + 24, y: work.y + 24 });
+  });
+
+  it('restores saved positions and recovers disconnected-monitor coordinates', async () => {
+    writeFileSync(join(fake.directory, 'window-positions.json'), JSON.stringify({
+      panel: { x: 100, y: 150 }, hud: { x: 300, y: 200 },
+    }));
+    await restartWindows();
+    expect(fake.windows[0].bounds).toMatchObject({ x: 100, y: 150 });
+    expect(fake.windows[1].bounds).toMatchObject({ x: 300, y: 200 });
+    writeFileSync(join(fake.directory, 'window-positions.json'), JSON.stringify({
+      panel: { x: -5000, y: -5000 }, hud: { x: -5000, y: -5000 },
+    }));
+    await restartWindows();
+    expect(fake.windows[0].options).not.toHaveProperty('x');
+    expect(fake.windows[1].bounds).toMatchObject({ x: 24, y: 24 });
+  });
+
+  it('keeps the HUD native caption empty across document title updates and editor blur', () => {
+    const [main, hud] = fake.windows;
+    readyWindows();
+    const event = { preventDefault: vi.fn() };
+    hud.emit('page-title-updated', event, 'SpeakInCharacter HUD');
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    main.emit('blur');
+    expect(hud.isVisible()).toBe(true);
+    expect(hud.focus).not.toHaveBeenCalled();
+    expect(hud.loadFile).toHaveBeenCalledOnce();
+    expect(hud.setOpacity).not.toHaveBeenCalled();
   });
 
   it('repeatedly minimizes/restores the editor without hiding/reloading the HUD or rerouting recording', () => {
