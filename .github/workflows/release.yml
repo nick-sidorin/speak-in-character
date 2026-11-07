@@ -1,94 +1,102 @@
-name: Publish Windows release
+name: Publish stable Windows release
 
-# Manual by default. One-off release branches may add a temporary push trigger
-# to publish without requiring manual UI work.
+# A matching tag on main builds and publishes its own verified artifact.
+# For retries, dispatch this workflow with the existing tag as its ref.
 on:
+  push:
+    tags: ['v*.*.*']
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release tag, e.g. v0.9.0'
-        required: true
-        default: 'v0.9.0'
-      build_run_id:
-        description: 'Successful Windows build workflow run ID'
-        required: true
-        default: ''
 
 permissions:
-  actions: read
-  contents: write
+  contents: read
+
+concurrency:
+  group: stable-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish portable Windows ZIP
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  validate:
+    name: Validate stable tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      commit: ${{ steps.tag.outputs.commit }}
     steps:
-      - name: Checkout release notes
-        uses: actions/checkout@v4
-
-      - name: Validate release inputs
-        id: config
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Match tag, package version, main ancestry and notes
+        id: tag
         shell: bash
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release version"; exit 1; }
-          [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid build run ID"; exit 1; }
-          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "run_id=$BUILD_RUN_ID" >> "$GITHUB_OUTPUT"
+          [[ "$GITHUB_REF" == refs/tags/* ]] || { echo "Select an existing release tag, not a branch"; exit 1; }
+          tag="${GITHUB_REF#refs/tags/}"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid stable release tag"; exit 1; }
+          version="$(node -p "require('./package.json').version")"
+          [[ "$tag" == "v$version" ]] || { echo "Tag/package version mismatch"; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse "$tag^{commit}")" ]] || { echo "Checkout/tag mismatch"; exit 1; }
+          git merge-base --is-ancestor HEAD refs/remotes/origin/main || { echo "Release commit must be in main"; exit 1; }
+          test -s ".github/release-notes/$tag.md"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Retrieve successfully built Windows application
+  build:
+    name: Verify tagged Windows build
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish stable ZIP and checksum
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+          persist-credentials: false
+      - name: Retrieve this run's verified Windows application
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.config.outputs.run_id }}
         run: |
           set -euo pipefail
           mkdir -p staging
-          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" --name SpeakInCharacter-Windows --dir staging
-          exe="$(find staging -type f -name SpeakInCharacter.exe -print -quit)"
-          if [[ -z "$exe" ]]; then
-            echo "No SpeakInCharacter.exe found in the selected build artifact"
-            exit 1
-          fi
-          echo "Windows executable found: $exe"
-
-      - name: Make a user-friendly portable ZIP with checksums
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" --name SpeakInCharacter-PR-Windows --dir staging
+      - name: Make portable ZIP and SHA-256 checksum
         id: package
         shell: bash
         env:
-          VERSION: ${{ steps.config.outputs.version }}
+          VERSION: ${{ needs.validate.outputs.tag }}
         run: bash scripts/package-windows-release.sh
-
-      - name: Publish public GitHub prerelease
+      - name: Upload draft assets, then publish stable release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.config.outputs.version }}
+          VERSION: ${{ needs.validate.outputs.tag }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
         run: |
           set -euo pipefail
-          target_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
-          if gh release view "$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json isDraft > release-state.json 2>/dev/null; then
+            if [[ "$(node -p "JSON.parse(require('fs').readFileSync('release-state.json','utf8')).isDraft")" != true ]]; then
+              echo "Release is already published; leaving its assets unchanged"
+              gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json url --jq .url
+              exit 0
+            fi
             gh release upload "$VERSION" "$ARCHIVE" SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --clobber
           else
-            notes=".github/release-notes/$VERSION.md"
-            if [[ -f "$notes" ]]; then
-              gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
-                -R "$GITHUB_REPOSITORY" \
-                --target "$target_sha" \
-                --title "SpeakInCharacter $VERSION — Windows Preview" \
-                --prerelease \
-                --notes-file "$notes"
-            else
-              gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
-                -R "$GITHUB_REPOSITORY" \
-                --target "$target_sha" \
-                --title "SpeakInCharacter $VERSION — Windows Preview" \
-                --prerelease --generate-notes
-            fi
+            gh release create "$VERSION" "$ARCHIVE" SHA256SUMS.txt \
+              -R "$GITHUB_REPOSITORY" --verify-tag --draft \
+              --title "SpeakInCharacter ${VERSION#v}" \
+              --notes-file ".github/release-notes/$VERSION.md"
           fi
-          gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json url,assets --jq '.url'
+          gh release edit "$VERSION" -R "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest
+          gh release view "$VERSION" -R "$GITHUB_REPOSITORY" --json url,assets

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-type ViewMode = 'hud' | 'panel';
+import type { HudState, HudSnapshot } from './hudState';
 type HistoryEntry = {
   id: string;
   createdAt: number;
@@ -29,7 +29,8 @@ type HistorySnapshot = {
 };
 
 
-contextBridge.exposeInMainWorld('inCharacter', {
+const bridge = {
+  editorReady: (): void => ipcRenderer.send('app:editor-ready'),
   onHoldKeyDown: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('hotkey:down', listener);
@@ -45,16 +46,13 @@ contextBridge.exposeInMainWorld('inCharacter', {
     ipcRenderer.on('recording:toggle', listener);
     return () => ipcRenderer.removeListener('recording:toggle', listener);
   },
-  onViewModeChanged: (callback: (mode: ViewMode) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, mode: ViewMode) => callback(mode);
-    ipcRenderer.on('overlay:mode', listener);
-    return () => ipcRenderer.removeListener('overlay:mode', listener);
+  onHudStateChanged: (callback: (state: HudSnapshot) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: HudSnapshot) => callback(state);
+    ipcRenderer.on('hud:state', listener);
+    return () => ipcRenderer.removeListener('hud:state', listener);
   },
-  onHudMoveModeChanged: (callback: (enabled: boolean) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, enabled: boolean) => callback(enabled);
-    ipcRenderer.on('overlay:move-mode', listener);
-    return () => ipcRenderer.removeListener('overlay:move-mode', listener);
-  },
+  getHudState: (): Promise<HudSnapshot> => ipcRenderer.invoke('hud:get-state'),
+  publishHudState: (state: HudState): void => ipcRenderer.send('hud:publish-state', state),
   onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean; hold: boolean }) => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
@@ -63,7 +61,6 @@ contextBridge.exposeInMainWorld('inCharacter', {
     ipcRenderer.on('app:shortcuts', listener);
     return () => ipcRenderer.removeListener('app:shortcuts', listener);
   },
-  setViewMode: (mode: ViewMode) => ipcRenderer.send('overlay:set-mode', mode),
   resizeHud: (width: number): void => ipcRenderer.send('hud:resize', width),
   setHudOpacity: (percent: number): void => ipcRenderer.send('hud:set-opacity', percent),
   startHudDrag: () => ipcRenderer.send('overlay:drag-start'),
@@ -100,4 +97,15 @@ contextBridge.exposeInMainWorld('inCharacter', {
   saveRecording: (payload: { bytes: Uint8Array; extension: 'webm' | 'ogg' }) =>
     ipcRenderer.invoke('recording:save', payload),
   quit: () => ipcRenderer.send('app:quit'),
-});
+};
+
+const hudBridge = {
+  onHudStateChanged: bridge.onHudStateChanged,
+  getHudState: bridge.getHudState,
+  resizeHud: bridge.resizeHud,
+  startHudDrag: bridge.startHudDrag,
+  moveHudDrag: bridge.moveHudDrag,
+  endHudDrag: bridge.endHudDrag,
+  setHudMoveMode: bridge.setHudMoveMode,
+};
+contextBridge.exposeInMainWorld('inCharacter', process.argv.includes('--speak-window=hud') ? hudBridge : bridge);

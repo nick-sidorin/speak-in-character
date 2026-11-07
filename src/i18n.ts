@@ -253,7 +253,7 @@ const strings = {
     "presetMissing": "Выбранный пресет не найден. Обнови список или выбери другой.",
     "presetActive": "Активный пресет",
     "additionalContextLabel": "Дополнительный контекст",
-    "additionalContextPlaceholder": "Персонаж, мир, ситуация…",
+    "additionalContextPlaceholder": "Например: World of Warcraft, ночная эльфийка",
     "presetLabel": "Манера речи",
     "presetManageHint": "Здесь можно добавить свои JSON-пресеты. Активный пресет выбирается на экране «Реплика».",
     "phaseHoldVerb": "Удерживай",
@@ -297,7 +297,7 @@ const strings = {
     "historyDeleted": "История очищена.",
     "historyError": "Ошибка истории: ",
     "hudOpacityLabel": "Прозрачность мини-оверлея",
-    "hudOpacityHint": "40% — прозрачнее, 100% — полностью непрозрачный. На основное окно не влияет."
+    "hudOpacityHint": "10% — прозрачнее, 100% — полностью непрозрачный. На основное окно не влияет."
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -428,7 +428,7 @@ const strings = {
     "presetMissing": "Selected preset not found. Reload or choose another.",
     "presetActive": "Active preset",
     "additionalContextLabel": "Additional context",
-    "additionalContextPlaceholder": "Character, setting, situation…",
+    "additionalContextPlaceholder": "Example: World of Warcraft, night elf woman",
     "presetLabel": "Speaking style",
     "presetManageHint": "Add your own JSON presets here. Choose the active preset on the Reply screen.",
     "phaseHoldVerb": "Hold",
@@ -472,7 +472,7 @@ const strings = {
     "historyDeleted": "History cleaned up.",
     "historyError": "History error: ",
     "hudOpacityLabel": "HUD opacity",
-    "hudOpacityHint": "40% is more transparent; 100% is fully opaque. Does not affect the main panel."
+    "hudOpacityHint": "10% is more transparent; 100% is fully opaque. Does not affect the main panel."
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -603,7 +603,7 @@ const strings = {
     "presetMissing": "Style introuvable. Actualisez ou changez-le.",
     "presetActive": "Style actif",
     "additionalContextLabel": "Contexte supplémentaire",
-    "additionalContextPlaceholder": "Personnage, univers, situation…",
+    "additionalContextPlaceholder": "Exemple : World of Warcraft, elfe de la nuit",
     "presetLabel": "Style de parole",
     "presetManageHint": "Ajoutez vos presets JSON ici. Choisissez le style actif sur l'écran Réplique.",
     "phaseHoldVerb": "Maintenez",
@@ -647,7 +647,7 @@ const strings = {
     "historyDeleted": "Historique nettoyé.",
     "historyError": "Erreur historique : ",
     "hudOpacityLabel": "Opacité du mini-overlay",
-    "hudOpacityHint": "40 % est plus transparent ; 100 % est opaque. N'affecte pas la fenêtre principale."
+    "hudOpacityHint": "10 % est plus transparent ; 100 % est opaque. N'affecte pas la fenêtre principale."
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -778,7 +778,7 @@ const strings = {
     "presetMissing": "Estilo no encontrado. Actualiza o elige otro.",
     "presetActive": "Estilo activo",
     "additionalContextLabel": "Contexto adicional",
-    "additionalContextPlaceholder": "Personaje, mundo, situación…",
+    "additionalContextPlaceholder": "Ejemplo: World of Warcraft, elfa de la noche",
     "presetLabel": "Estilo de habla",
     "presetManageHint": "Añade tus presets JSON aquí. Elige el estilo activo en Mensaje.",
     "phaseHoldVerb": "Mantén",
@@ -822,7 +822,7 @@ const strings = {
     "historyDeleted": "Historial limpiado.",
     "historyError": "Error de historial: ",
     "hudOpacityLabel": "Opacidad del HUD",
-    "hudOpacityHint": "40 % es más transparente y 100 % es opaco. No afecta a la ventana principal."
+    "hudOpacityHint": "10 % es más transparente y 100 % es opaco. No afecta a la ventana principal."
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -953,7 +953,7 @@ const strings = {
     "presetMissing": "Preset nicht gefunden. Neu laden oder anderes wählen.",
     "presetActive": "Aktives Preset",
     "additionalContextLabel": "Zusätzlicher Kontext",
-    "additionalContextPlaceholder": "Charakter, Welt, Situation…",
+    "additionalContextPlaceholder": "Beispiel: World of Warcraft, Nachtelfin",
     "presetLabel": "Sprechstil",
     "presetManageHint": "Hier eigene JSON-Presets hinzufügen. Das aktive Preset auf der Nachrichtenseite wählen.",
     "phaseHoldVerb": "Halten:",
@@ -997,7 +997,7 @@ const strings = {
     "historyDeleted": "Verlauf bereinigt.",
     "historyError": "Verlaufsfehler: ",
     "hudOpacityLabel": "HUD-Deckkraft",
-    "hudOpacityHint": "40 % ist transparenter, 100 % ist vollständig deckend. Das Hauptfenster bleibt unverändert."
+    "hudOpacityHint": "10 % ist transparenter, 100 % ist vollständig deckend. Das Hauptfenster bleibt unverändert."
   }
 } as const;
 

@@ -30,7 +30,7 @@ CI runs on **pull requests**, not every push to `main`. It builds and inspects t
 Install Node.js 22 or later:
 
 ```sh
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run test:coverage
@@ -39,3 +39,18 @@ npm run test:coverage
 On Windows, the GitHub Actions CI compiles `native/hotkey.cs` before packaging with `npm run dist:win`. Keep any behavior fixes accompanied by a regression test wherever practical. Add to coverage gradually rather than claiming the entire GUI is already covered.
 
 If you are updating this workflow itself, **do not merge until the new `CI / required` check has succeeded**.
+
+## Stable releases
+
+With explicit owner approval, merge tested PRs using squash, then create a
+`vX.Y.Z` tag on the intended `main` commit. The tag must match `package.json`
+and have release notes at `.github/release-notes/vX.Y.Z.md`. Tag pushes run
+the reusable CI (tests, full Windows package and Electron/native smoke), then
+publish a stable portable ZIP plus `SHA256SUMS.txt`. The release uses artifacts
+from that exact workflow run; the tag is never created from a different build.
+
+A draft is created first and published only after both assets are uploaded.
+Already published releases are left unchanged on reruns. To retry a failed
+publication, dispatch the release workflow with the existing tag as its ref.
+Do not move a published tag or bypass `main` protection. Use `npm ci` and keep
+`package-lock.json` current when deliberately changing dependencies.

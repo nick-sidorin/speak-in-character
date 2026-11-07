@@ -2,8 +2,8 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -15,20 +15,20 @@ concurrency:
 jobs:
   unit-tests:
     name: Unit tests + coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Check TypeScript and run tests with coverage thresholds
         run: npm run check
       - name: Upload coverage report
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: code-coverage
           path: coverage/lcov.info
@@ -40,12 +40,12 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Compile native Windows keyboard helper
         shell: pwsh
         run: |
@@ -85,8 +85,50 @@ jobs:
           if (-not (Test-Path 'release/win-unpacked/resources/native/hotkey.exe')) {
             throw "Hotkey helper missing from Windows package"
           }
+          if (-not (Test-Path 'release/win-unpacked/resources/tray.png')) {
+            throw "Tray icon missing from Windows package"
+          }
+          if (-not (Test-Path 'release/win-unpacked/resources/app-icon.png')) {
+            throw "App icon missing from Windows package"
+          }
+          if (-not (Test-Path 'release/win-unpacked/resources/app-icon.ico')) {
+            throw "Native window ICO missing from Windows package"
+          }
+          node -e "if (require('@electron/asar').listPackage('release/win-unpacked/resources/app.asar').some(name => name.endsWith('.test.js'))) throw new Error('Test files included in application package')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify custom executable icon
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $exePath = (Resolve-Path 'release/win-unpacked/SpeakInCharacter.exe').Path
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exePath)
+          if ($null -eq $icon) { throw "Executable icon missing" }
+          $bitmap = $icon.ToBitmap()
+          try {
+            $source = [System.Drawing.Bitmap]::FromFile((Resolve-Path 'assets/app-icon.png').Path)
+            try { $background = $source.GetPixel([int]($source.Width / 2), [int]($source.Height * 0.08)) }
+            finally { $source.Dispose() }
+            $bluePixels = 0
+            for ($y = 0; $y -lt $bitmap.Height; $y++) {
+              for ($x = 0; $x -lt $bitmap.Width; $x++) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                if ($pixel.A -gt 200 -and [Math]::Abs([int]$pixel.R - [int]$background.R) -lt 12 -and
+                    [Math]::Abs([int]$pixel.G - [int]$background.G) -lt 12 -and [Math]::Abs([int]$pixel.B - [int]$background.B) -lt 12) {
+                  $bluePixels++
+                }
+              }
+            }
+            if ($bluePixels -lt ($bitmap.Width * $bitmap.Height / 4)) {
+              throw "Executable does not contain the approved blue app icon"
+            }
+          } finally { $bitmap.Dispose(); $icon.Dispose() }
+      - name: Smoke-test tray lifecycle and background recording
+        shell: pwsh
+        run: |
+          & node_modules\.bin\electron.cmd scripts\windows-smoke.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Attach testable Windows build to the PR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SpeakInCharacter-PR-Windows
           path: release/win-unpacked/**
@@ -97,7 +139,7 @@ jobs:
     name: CI / required
     needs: [unit-tests, windows-build]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - name: Block merging if tests or Windows build failed

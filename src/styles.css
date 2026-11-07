@@ -18,7 +18,6 @@ button { cursor: pointer; }
 .sic-shell {
   height: 100dvh;
   background: var(--mantine-color-body);
-  clip-path: inset(0 round 14px);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -32,15 +31,13 @@ button { cursor: pointer; }
      the header and ends above the footer, rather than sliding beneath them. */
   position: absolute;
   /* Exactly the Mantine AppShell header offset. The tab strip ends at this boundary. */
-  top: var(--app-shell-header-offset, 110px);
+  top: var(--app-shell-header-offset, 50px);
   right: 0;
   bottom: var(--app-shell-footer-offset, 42px);
   left: 0;
   height: auto;
-  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--mantine-spacing-md);
   scroll-padding-top: var(--mantine-spacing-sm);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--mantine-color-text) 38%, var(--mantine-color-body))
@@ -54,20 +51,26 @@ button { cursor: pointer; }
   border: 2px solid color-mix(in srgb, var(--mantine-color-body) 92%, #000);
 }
 .sic-footer { border-top: 1px solid var(--mantine-color-default-border); }
-.sic-drag { cursor: move; touch-action: none; }
 .sic-audio { flex: 1; min-width: 0; width: 100%; height: 34px; }
 
 /* The in-game HUD is intentionally NOT a Mantine AppShell.
    It must stay tiny, click-through and cheap to render. */
-/* Native HUD uses Windows' rounded, opacity-controlled window.
-   Fill the client area edge-to-edge so an old transparent margin cannot
-   reveal DWM's inactive nonclient paint behind it. */
+/* The native host and its gutter stay fully transparent. Only the inner
+   bubble paints pixels; CSS opacity never changes native window opacity. */
+.hud-window {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  height: 100%;
+  padding: 2px;
+  background: transparent;
+}
 .hud {
   display: inline-flex;
   align-items: center;
   width: max-content;
   max-width: 384px;
-  height: 100%;
+  height: 40px;
   min-height: 40px;
   margin: 0;
   padding: 4px 9px;
@@ -76,6 +79,7 @@ button { cursor: pointer; }
   border-radius: 10px;
   border: 1px solid #63857f;
   background: #202a2e;
+  transition: opacity 180ms ease-out;
   color: #eaf0ed;
   user-select: none;
   -webkit-user-select: none;
@@ -141,3 +145,7 @@ button { cursor: pointer; }
 .hud .state-check svg,.hud .state-error svg { width: 13px; height: 13px; }
 @keyframes sic-spin { to { transform:rotate(360deg); } }
 @keyframes sic-blink { 50% { opacity: .45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hud { transition: none; }
+}

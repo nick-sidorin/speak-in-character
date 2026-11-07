@@ -1,0 +1,35 @@
+/* Only the temporary editor startup screen; never imported by the alpha HUD. */
+.startup-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  color: #242424;
+  font: 14px "Segoe UI", system-ui, sans-serif;
+}
+.startup-loading img { display: block; }
+.startup-loading strong { font-size: 18px; }
+html[data-startup-theme="dark"] .startup-loading { background: #242424; color: #eee; }
+.startup-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #adb5bd;
+  border-top-color: #4c6ef5;
+  border-radius: 50%;
+  animation: startup-spin .8s linear infinite;
+}
+.startup-loading button {
+  padding: 6px 14px;
+  border: 1px solid #868e96;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+@keyframes startup-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .startup-spinner { animation: none; } }

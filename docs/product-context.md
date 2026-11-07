@@ -109,7 +109,7 @@ The mini HUD is separate from Mantine, so it stays minimal, fast, and visually u
 - Width measured against displayed localized content rather than arbitrary oversizing.
 - Configurable position (remembered between launches) and a distinct HUD-move shortcut.
 - No unexpected focus stealing; intended game-overlay use with windowed/borderless fullscreen.
-- HUD-only opacity setting **40–100%**, initially **76%**, persistent and applied immediately.
+- HUD-only opacity setting **10–100%** in the 0.11.1 work-in-progress (previously 40–100%), initially **76%**, persistent and applied immediately.
 - Rounded corners that actually look good on Windows 11 without an opaque rectangular artifact behind them.
 
 ### Windows corner history — do not repeat failed experiments casually
@@ -240,13 +240,139 @@ mark unmerged changes as implemented on `main`.
   Keep application updates outside `main` until their CI and relevant owner
   Windows review are complete.
 
+### Two-window follow-up — **2026-11-07** (work in progress)
+
+The owner tested the compact 0.10.6 preview, reported successful downloading
+and approved its quieter appearance. The earlier rectangular ghost backing
+is no longer observed, but dark corner regions remain. This is owner feedback,
+not confirmation that every native-corner issue is solved.
+
+The owner explicitly requested a new window architecture: open a normal
+taskbar/Alt-Tab editor at startup and keep a separate always-on-top HUD without
+a taskbar entry. The 0.11.0 work-in-progress follows that model. The editor is
+the sole recording/processing owner and keeps working while minimized; the
+HUD is a non-focusable display client with a restricted IPC bridge. Native
+editor close exits the app. Both historical position keys and existing local
+data remain compatible. The HUD stays opaque while the split is validated;
+this change does not by itself prove its native corners are fixed.
+
+The placeholder preference is refined: short examples of input are useful,
+especially `Example: World of Warcraft, night elf woman` for additional
+context. Omit redundant instructions, not useful examples or field labels.
+Translate examples across all five UI languages. The window-architecture
+change requires its own PR, CI and real Windows testing before merge.
+
+The owner subsequently reported the 0.11.0 two-window preview works, while
+native HUD corner artifacts remain. The 0.11.1 follow-up lowers the opacity
+minimum to 10% and delays only microphone-preparation presentation for 400 ms
+to avoid a fast flash before recording. It does not change the capture/start
+guards or claim to fix the corners.
+
+The owner then requested Discord-like background behavior. The 0.12.0
+follow-up keeps one tray icon while running, hides the editor on native close,
+restores it from tray click/Open or a second launch, and quits fully only
+through explicit Quit/Exit or OS shutdown. Hidden recording uses the same
+renderer and pipeline. The two windows previously showed independently on
+their first frame; the lighter HUD could appear first. Startup now reveals
+the editor before the HUD. This coordinates presentation, not proof that
+renderer startup itself is faster. Native HUD corner artifacts remain open.
+
+The owner confirmed tray behavior works and asked to remove the redundant
+History tab count badge. They explicitly proposed a fully transparent native
+host with a separately painted rounded inner HUD. The 0.12.1 experiment uses
+the dedicated non-focusable host with no thick frame/native rounding hint,
+a transparent 2px gutter, and CSS opacity on the inner bubble instead of
+native `setOpacity`. The earlier shared-window alpha attempts also switched
+roles/focus and applied whole-window opacity. This new combination
+was subsequently confirmed by the owner to resolve the HUD corners on their
+Windows setup (2026-11-07). Preserve that window configuration; a transparent
+renderer screenshot remains a regression guard rather than proof for every
+Windows compositor.
+
+The 0.13.0 follow-up addresses the owner's reported 3–4 second startup wait.
+Both windows had imported the full editor/Mantine bundle. Separate editor
+and HUD entries remove that duplicate work. A lightweight localized editor
+loading screen paints before React/Mantine initialization; HUD visibility
+waits for both the editor first frame and recorder event subscriptions.
+This does not promise a fixed cold-start time. Windows smoke logs navigation
+marks separately from process startup. The app now uses a custom vector
+microphone/speech-bubble mark for its executable/editor icon; the owner liked
+the existing tray microphone and it is intentionally unchanged.
+
+The owner requested Discord-inspired recording emphasis in 0.13.1: the HUD
+bubble opacity rises halfway from the saved baseline to 100% only while
+recording (30 → 65%, 80 → 90%). It returns to the saved value on release,
+including processing, completion or error. A short CSS opacity transition
+respects reduced motion. This is recording-state feedback, not voice-activity
+detection, and does not change the setting, native host or main window.
+
+The owner subsequently isolated a remaining native grey-backing case:
+focusing the editor and then returning focus to the game (2026-11-07). This
+qualifies the earlier corner confirmation. The 0.13.2 mitigation retains
+the alpha/CSS contour and adds an explicit toolbar type, disables native
+minimize/maximize, and suppresses HUD document-to-native-title updates.
+Windows smoke transfers focus to a separate WinForms process repeatedly,
+inspects actual HWND styles/title, and checks desktop corner pixels when
+a usable desktop capture is available. The actual game transition still
+requires owner validation. New HUD defaults use equal 24 DIP left/top work
+area margins; new editors use normal framework/OS placement. Valid saved
+positions are preserved, including recovery from removed monitors.
+
+The owner then confirmed that the grey backing no longer appears in 0.13.2.
+Their screenshot revealed excess space below the editor tabs. In the built
+renderer, shared CSS loads before editor/Mantine CSS, so AppShell's padding
+overrode the same-specificity desktop stylesheet: top padding was 66px
+instead of 16px, duplicating the 50px header offset. The 0.13.3 fix uses
+explicit Mantine main-pane `p="md"` and `mih={0}`, with production-renderer
+geometry regressions for content insets and tab/footer scroll boundaries.
+
+The owner approved the final elven-face microphone icon after reviewing
+several iterations (2026-11-07): sharp angled ears with curved lower lobes,
+a slender face with a softly pointed chin, bold strokes and the capsule
+lowered slightly toward the cradle. The approved RGB raster has no alpha
+channel. The 0.13.4 follow-up uses this exact master for the native editor,
+Windows executable and startup screen; the older speech-bubble SVG is removed.
+The existing tray microphone remains unchanged as explicitly requested.
+
+The owner then requested a square icon background and asked about fuzzy
+caption rendering. The 0.13.5 follow-up removes rounded tile/black corners
+while retaining the approved symbol. Electron 35's NativeImage PNG path
+creates a HICON from the entire bitmap even when requested at smaller sizes;
+its ICO path loads the requested small/large size directly. The Windows editor
+now uses the ICO (also packaged as a resource), while startup retains PNG.
+Windows smoke queries actual WM_GETICON handles and verifies their dimensions
+against system metrics. Do not replace this with a large PNG window icon.
+
+### 1.0 release decision (2026-11-07)
+
+The owner confirmed the finished build and explicitly authorized merging both
+open PRs (#1 and #3) and publishing the first stable release as 1.0.0. PR #1
+has been squash-merged; its main tree matched the original PR head exactly.
+PR #3 was retargeted to main and its merge conflicts resolved while preserving
+the tested 0.13.5 tree byte-for-byte. Version 1.0.0, locked dependencies, current
+Node 24-based Actions and tag-driven stable publication are included in PR #3.
+Check GitHub for final merge/release status rather than treating this dated
+preparation note as proof of publication.
+
+The last Explorer-icon report was confirmed to be a shell-cache issue:
+all nine icon sizes inside the downloaded 0.13.5 EXE matched the approved ICO
+byte-for-byte, and renaming the file refreshed the owner's icon. Prefer a new
+versioned extraction folder when updating; keep the executable's normal name.
+
+Stable `vX.Y.Z` tags must match `package.json` and point to commits in main.
+Publication reuses CI on the exact tag, then uploads the portable ZIP and
+SHA-256 checksum to a draft before making it a stable/latest GitHub Release.
+The existing userData directory, recording/AI behavior and Windows rendering
+configuration remain the owner-tested baseline. Future releases or unrelated
+merges require their own explicit approval.
+
 ### What the next agent should do first
 
-1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
-2. Look at the working tree and current branch before changing anything.
-3. Check whether PR #1 remains open, whether the required check mismatch persists, and whether its HUD experiment has been visually tested on the owner's Windows computer.
-4. Do **not** merge PR #1 without explicit approval and the owner's Windows feedback.
-5. Preserve product invariants while continuing whichever new task the owner requests.
+1. Read `AGENTS.md`, this document, README, design direction, package/lock files and live GitHub state.
+2. Check the working tree, current branch, remaining PRs and actual ruleset/check names.
+3. Read the latest release/tag and Actions results before identifying a build as stable.
+4. Preserve the owner's confirmed window, HUD, icon and data-compatibility behavior.
+5. Continue the current authorized task; do not infer approval for future releases.
 
 ## 10. Decisions versus open questions
 
@@ -255,10 +381,10 @@ mark unmerged changes as implemented on `main`.
 | AI output | Preserve meaning; style is secondary | Improve fidelity with targeted cases/feedback |
 | Game interaction | Clipboard + manual send, no automation | Game-specific focus/hotkey conflicts |
 | UI | Mantine-native, compact, minimal descriptions | Real-device visual regressions |
-| HUD | Minimal separate window; adjustable opacity and position | Windows 11 corner artifacts and inactive backing |
+| HUD | Separate transparent toolbar; owner-confirmed game-focus/corner behavior | Regressions on other Windows/GPU/display configurations |
 | Language | Five UI locales, independent reply language | Future locales only if demand warrants |
 | History | Persistent local audio/transcripts and lifetime metrics | Retention/performance at large volumes |
 | Git workflow | PR-only, `CI / required`, squash merge | Recheck live settings when they change; never bypass protection |
-| Release | Manual Windows artifact/release process | ZIP rename fix is tested in PR #1, pending merge; Chrome verdict remains unexplained |
+| Release | Matching stable tag on main; exact-tag CI and ZIP/checksum publication | Recheck current release status; unsigned builds and Chrome verdicts remain distinct |
 
 **Maintenance rule:** Update this document when a real product decision changes. Put ephemeral release/PR status into a dated section; never overwrite historical context as though a proposed fix had already been proven.

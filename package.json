@@ -1,6 +1,6 @@
 {
   "name": "speak-in-character",
-  "version": "0.10.6",
+  "version": "1.0.0",
   "private": true,
   "description": "SpeakInCharacter — a voice companion for roleplayers",
   "main": "dist-electron/main.js",
@@ -48,6 +48,7 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "!dist-electron/**/*.test.js",
       "package.json"
     ],
     "win": {
@@ -59,9 +60,22 @@
           ]
         }
       ],
-      "artifactName": "SpeakInCharacter-${version}-Windows-${arch}.${ext}"
+      "artifactName": "SpeakInCharacter-${version}-Windows-${arch}.${ext}",
+      "icon": "assets/app-icon.ico"
     },
     "extraResources": [
+      {
+        "from": "assets/tray.png",
+        "to": "tray.png"
+      },
+      {
+        "from": "assets/app-icon.png",
+        "to": "app-icon.png"
+      },
+      {
+        "from": "assets/app-icon.ico",
+        "to": "app-icon.ico"
+      },
       {
         "from": "native/hotkey.exe",
         "to": "native/hotkey.exe"

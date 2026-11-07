@@ -4,9 +4,12 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
+  Menu,
+  nativeImage,
   screen,
   session,
   shell,
+  Tray,
 } from 'electron';
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -17,17 +20,19 @@ import { addRecording, addRewriteCost, clearHistory, deleteRecording, editRecord
 import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { INITIAL_HUD_STATE, parseHudState, type HudState, type HudSnapshot } from './hudState';
+import { trayMenuTemplate } from './trayMenu';
 
 // Keep the original Electron userData folder after the public-facing rename.
 // This preserves encrypted API keys, keyboard shortcuts, browser localStorage,
 // custom presets and overlay positions for existing InCharacter users.
 app.setPath('userData', join(app.getPath('appData'), 'InCharacter'));
 
-type ViewMode = 'hud' | 'panel';
+type WindowRole = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 // HUD width is measured from its one-line content; the window is resized to fit.
-const HUD = { width: 170, height: 40 };
+const HUD = { width: 174, height: 44 }; // 40px content plus a 2px transparent gutter.
 const HUD_MIN_WIDTH = 96;
 const HUD_MAX_WIDTH = 390;
 const PANEL = { width: 520, height: 705 };
@@ -110,8 +115,11 @@ function storeShortcuts() {
 }
 
 
-let overlay: BrowserWindow | null = null;
-let mode: ViewMode = 'hud';
+let mainWindow: BrowserWindow | null = null;
+let preferredLanguagesPromise: Promise<string[]> | undefined;
+let hudWindow: BrowserWindow | null = null;
+let hudState: HudState = { ...INITIAL_HUD_STATE };
+let tray: Tray | null = null;
 let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
 let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
 let isQuitting = false;
@@ -121,7 +129,7 @@ let hudOpacity = 0.76; // Default matches the previous HUD appearance.
 let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
 type SavedPosition = { x: number; y: number };
-type SavedPositions = Partial<Record<ViewMode, SavedPosition>>;
+type SavedPositions = Partial<Record<WindowRole, SavedPosition>>;
 const positionFile = join(app.getPath('userData'), 'window-positions.json');
 let positions: SavedPositions = {};
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -159,15 +167,17 @@ function flushPositions() {
   }
 }
 
-function rememberPosition() {
-  if (!overlay || overlay.isDestroyed()) return;
-  const { x, y } = overlay.getBounds();
-  positions[mode] = { x, y };
+function rememberPosition(view: WindowRole) {
+  const window = view === 'hud' ? hudWindow : mainWindow;
+  if (!window || window.isDestroyed()) return;
+  if (view === 'panel' && window.isMinimized()) return;
+  const { x, y } = window.getBounds();
+  positions[view] = { x, y };
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(flushPositions, 400);
 }
 
-function windowBounds(view: ViewMode) {
+function windowBounds(view: WindowRole) {
   const size = view === 'hud' ? HUD : PANEL;
   const saved = positions[view];
   if (saved) {
@@ -186,154 +196,215 @@ function windowBounds(view: ViewMode) {
       };
     }
   }
+  // Let Electron/Windows place a new editor using its standard behavior.
+  if (view === 'panel') return { ...size };
   return defaultBounds(size);
 }
 
+function hudSnapshot(): HudSnapshot {
+  return { ...hudState, moveEnabled: hudMoveEnabled, opacityPercent: Math.round(hudOpacity * 100) };
+}
+
+function sendHudState() {
+  hudWindow?.webContents.send('hud:state', hudSnapshot());
+}
+
 function setHudMoveMode(enabled: boolean) {
-  if (!overlay || overlay.isDestroyed() || mode !== 'hud') return;
+  if (!hudWindow || hudWindow.isDestroyed()) return;
   hudMoveEnabled = enabled;
-  // Keep the window focusable to avoid Windows redraws of native decorations.
-  // Click-through is controlled only via ignoreMouseEvents.
   if (!enabled) dragAnchor = null;
-  if (enabled) {
-    overlay.setIgnoreMouseEvents(false);
-    overlay.showInactive();
-  } else {
-    overlay.setIgnoreMouseEvents(true, { forward: true });
-    overlay.showInactive();
-  }
-  overlay.webContents.send('overlay:move-mode', enabled);
+  hudWindow.setIgnoreMouseEvents(!enabled, { forward: true });
+  hudWindow.showInactive();
+  sendHudState();
 }
 
 function toggleHudMoveMode() {
-  if (!overlay || overlay.isDestroyed()) return;
-  if (mode !== 'hud') changeMode('hud');
   setHudMoveMode(!hudMoveEnabled);
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function toggleMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized() || !mainWindow.isVisible() || !mainWindow.isFocused()) {
+    showMainWindow();
+  } else {
+    mainWindow.minimize();
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  tray.setContextMenu(Menu.buildFromTemplate(trayMenuTemplate(hudState.language, showMainWindow, () => app.quit())));
+}
+
+function createTray() {
+  try {
+    const path = app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../assets/tray.png');
+    const image = nativeImage.createFromPath(path);
+    if (image.isEmpty()) throw new Error('Tray icon is missing');
+    tray = new Tray(image);
+    tray.setToolTip('SpeakInCharacter');
+    tray.on('click', showMainWindow);
+    tray.on('double-click', showMainWindow);
+    updateTrayMenu();
+  } catch (error) {
+    // Never hide the only recoverable window if the tray could not be created.
+    console.warn('Tray unavailable; closing the editor will quit:', error);
+  }
 }
 
 function defaultBounds(size: { width: number; height: number }) {
   const { workArea } = screen.getPrimaryDisplay();
   return {
-    x: workArea.x + workArea.width - size.width - 24,
-    y: workArea.y + 30,
-    width: size.width,
-    height: size.height,
+    x: workArea.x + Math.min(24, Math.max(0, workArea.width - size.width)),
+    y: workArea.y + Math.min(24, Math.max(0, workArea.height - size.height)),
+    ...size,
   };
 }
 
 function updateHudWidth(nextWidth: number) {
-  if (!Number.isFinite(nextWidth) || !overlay || overlay.isDestroyed()) return;
+  if (!Number.isFinite(nextWidth) || !hudWindow || hudWindow.isDestroyed()) return;
   const width = Math.max(HUD_MIN_WIDTH, Math.min(HUD_MAX_WIDTH, Math.round(nextWidth)));
   if (Math.abs(width - HUD.width) <= 1) return;
   const previous = HUD.width;
   HUD.width = width;
-  if (mode !== 'hud') return;
-  const current = overlay.getBounds();
+  const current = hudWindow.getBounds();
   const display = screen.getDisplayMatching(current).workArea;
-  // Right-half HUDs retain their right edge; left-half HUDs retain left edge.
   const isRight = current.x + previous / 2 > display.x + display.width / 2;
   const desiredX = isRight ? current.x + previous - width : current.x;
   const x = Math.max(display.x, Math.min(desiredX, display.x + display.width - width));
-  overlay.setBounds({ x, y: current.y, width, height: HUD.height }, false);
-  applyWindowAppearance('hud');
-  rememberPosition();
+  hudWindow.setBounds({ x, y: current.y, width, height: HUD.height }, false);
+  rememberPosition('hud');
 }
 
-// Windows 11 provides antialiased native rounded corners for opaque frameless
-// windows. Do NOT use transparent:true here: Electron 35 on Windows draws a
-// phantom inactive title-bar rectangle behind CSS corners when focus changes.
-// Do NOT use setShape: integer rectangle regions produce visible jagged edges.
-let panelWindowBackground = '#242424';
-function applyWindowAppearance(next: ViewMode) {
-  if (!overlay || overlay.isDestroyed()) return;
-  overlay.setBackgroundColor(next === 'hud' ? '#202a2e' : panelWindowBackground);
-  overlay.setOpacity(next === 'hud' ? hudOpacity : 1.0);
-}
-
-function changeMode(next: ViewMode) {
-  if (!overlay || overlay.isDestroyed()) return;
-  if (mode === 'hud' && hudMoveEnabled) setHudMoveMode(false);
-  mode = next;
-  if (next === 'panel') {
-    overlay.setIgnoreMouseEvents(false);
-    overlay.setBounds(windowBounds('panel'));
-    overlay.show();
-    overlay.focus();
-  } else {
-    overlay.setIgnoreMouseEvents(true, { forward: true });
-    overlay.setBounds(windowBounds('hud'));
-    overlay.showInactive();
-  }
-  applyWindowAppearance(next);
-  overlay.webContents.send('overlay:mode', mode);
-  overlay.webContents.send('overlay:move-mode', hudMoveEnabled);
-}
-
-function requestWindowsRoundedCorners() {
-  if (process.platform !== 'win32' || !overlay || overlay.isDestroyed()) return;
-  const handle = overlay.getNativeWindowHandle();
-  const hwnd = handle.length >= 8
-    ? handle.readBigUInt64LE(0).toString()
-    : handle.readUInt32LE(0).toString();
-  // On heavily customized frameless windows, Windows may ignore this hint.
-  // Keep the opaque background to avoid Electron 35's inactive alpha artifacts.
-  execFile(nativeHotkeyBinary(), ['--round-corners', hwnd], { windowsHide: true, timeout: 3000 }, error => {
-    if (error) console.warn('Could not request DWM rounded corners:', error.message);
-  });
-}
-
-function createOverlay() {
-  overlay = new BrowserWindow({
-    ...windowBounds('hud'),
-    title: '',
-    frame: false,
-    // Native Windows 11 rounded corners, without the transparent
-    // frameless DWM inactive-titlebar regression (Electron 35).
-    transparent: false,
-    backgroundColor: '#202a2e',
-    resizable: false,
-    movable: true,
-    // WS_THICKFRAME is needed for Windows 11's DWM rounded corners.
-    // It does not add a visible title bar to a frameless Electron window.
-    thickFrame: true,
-    hasShadow: false,
-    // Use Windows' own smoothly antialiased rounded border.
-    roundedCorners: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    show: false,
-    webPreferences: {
-      preload: join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webSecurity: true,
-    },
-  });
-
-  overlay.once('show', requestWindowsRoundedCorners);
-  overlay.setMenuBarVisibility(false);
-  overlay.setHasShadow(false);
-  applyWindowAppearance('hud');
-  overlay.setAlwaysOnTop(true, 'screen-saver');
-  overlay.setIgnoreMouseEvents(true, { forward: true });
-
-  overlay.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  overlay.webContents.on('did-finish-load', () => {
-    overlay?.webContents.send('overlay:mode', mode);
-    overlay?.webContents.send('overlay:move-mode', hudMoveEnabled);
-    overlay?.webContents.send('app:shortcuts', shortcutStatus);
-  });
-
+function loadWindow(window: BrowserWindow, view: WindowRole) {
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {
-    void overlay.loadURL(devUrl);
+    const url = new URL(devUrl);
+    if (view === 'hud') { url.pathname = '/hud.html'; url.searchParams.set('view', view); }
+    void window.loadURL(url.toString());
   } else {
-    void overlay.loadFile(join(__dirname, '../dist/index.html'));
+    // Keep the editor's original file URL so existing localStorage stays intact.
+    void window.loadFile(join(__dirname, view === 'hud' ? '../dist/hud.html' : '../dist/index.html'), view === 'hud' ? { query: { view } } : undefined);
   }
-  overlay.on('moved', rememberPosition);
-  overlay.once('ready-to-show', () => overlay?.showInactive());
-  overlay.on('closed', () => { overlay = null; });
+}
+
+function createWindows() {
+  let editorFrameReady = false;
+  let editorUiReady = false;
+  let hudReady = false;
+  let hudShown = false;
+  const showReadyHud = () => {
+    if (editorFrameReady && editorUiReady && hudReady && !hudShown) {
+      hudShown = true;
+      hudWindow?.showInactive();
+    }
+  };
+  ipcMain.on('app:editor-ready', event => {
+    if (event.sender !== mainWindow?.webContents) return;
+    editorUiReady = true;
+    showReadyHud();
+  });
+  let showEditorAtStartup = true;
+  // ICO lets Electron load native small/large HICONs at the Windows metric sizes.
+  // A PNG becomes one large HICON and Windows has to resample it for the caption.
+  const iconFile = process.platform === 'win32' ? 'app-icon.ico' : 'app-icon.png';
+  mainWindow = new BrowserWindow({
+    ...windowBounds('panel'),
+    useContentSize: true,
+    minWidth: 520,
+    minHeight: 600,
+    title: `SpeakInCharacter ${app.getVersion()}`,
+    icon: app.isPackaged ? join(process.resourcesPath, iconFile) : join(__dirname, '../assets', iconFile),
+    frame: true,
+    transparent: false,
+    backgroundColor: '#242424',
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    show: false,
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'), contextIsolation: true,
+      nodeIntegration: false, sandbox: false, webSecurity: true,
+      // This renderer owns the sole recorder even while minimized in the game.
+      backgroundThrottling: false,
+      additionalArguments: ['--speak-window=panel'],
+    },
+  });
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.once('ready-to-show', () => {
+    editorFrameReady = true;
+    if (showEditorAtStartup) showMainWindow();
+    showReadyHud();
+  });
+  mainWindow.on('close', event => {
+    if (isQuitting || !tray || tray.isDestroyed()) return;
+    event.preventDefault();
+    showEditorAtStartup = false;
+    rememberPosition('panel');
+    flushPositions();
+    setShortcutCapture(false);
+    mainWindow?.hide();
+  });
+  mainWindow.on('query-session-end', () => { isQuitting = true; });
+  mainWindow.on('moved', () => rememberPosition('panel'));
+  mainWindow.on('closed', () => { mainWindow = null; if (!isQuitting) app.quit(); });
+  mainWindow.on('blur', () => setShortcutCapture(false));
+  mainWindow.on('minimize', () => setShortcutCapture(false));
+  mainWindow.webContents.on('did-finish-load', reportShortcutStatus);
+  loadWindow(mainWindow, 'panel');
+
+  hudWindow = new BrowserWindow({
+    ...windowBounds('hud'),
+    // The never-focused native window is only a transparent host. The HTML
+    // bubble owns its shape and opacity; setOpacity would affect the host too.
+    title: '', type: 'toolbar', frame: false, transparent: true, backgroundColor: '#00000000',
+    // Frameless windows otherwise retain native minimize/maximize style bits.
+    minimizable: false, maximizable: false, fullscreenable: false,
+    resizable: false, movable: true, thickFrame: false, hasShadow: false,
+    roundedCorners: false, alwaysOnTop: true, skipTaskbar: true,
+    focusable: false, show: false,
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'), contextIsolation: true,
+      nodeIntegration: false, sandbox: false, webSecurity: true,
+      additionalArguments: ['--speak-window=hud'],
+    },
+  });
+  const hud = hudWindow;
+  // The HUD document title must never become a native window caption.
+  hud.on('page-title-updated', event => event.preventDefault());
+  hud.setMenuBarVisibility(false);
+  hud.setAlwaysOnTop(true, 'screen-saver');
+  hud.setIgnoreMouseEvents(true, { forward: true });
+  hud.once('ready-to-show', () => {
+    hudReady = true;
+    showReadyHud();
+  });
+  hud.on('moved', () => rememberPosition('hud'));
+  hud.on('close', event => { if (!isQuitting) event.preventDefault(); });
+  hud.on('closed', () => { hudWindow = null; });
+  hud.webContents.on('did-finish-load', sendHudState);
+  loadWindow(hud, 'hud');
+}
+
+function setShortcutCapture(active: boolean) {
+  shortcutCaptureActive = active;
+  if (active) mainWindow?.webContents.send('hotkey:up');
+  if (hotkeyHelper?.stdin.writable) hotkeyHelper.stdin.write(active ? 'CAPTURE_ON\n' : 'CAPTURE_OFF\n');
+}
+
+function handleMain(channel: string, listener: Parameters<typeof ipcMain.handle>[1]) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (event.sender !== mainWindow?.webContents) throw new Error('Main window required');
+    return listener(event, ...args);
+  });
 }
 
 function stopHoldHelper() {
@@ -349,17 +420,17 @@ function stopHoldHelper() {
 }
 
 function reportShortcutStatus() {
-  overlay?.webContents.send('app:shortcuts', shortcutStatus);
+  mainWindow?.webContents.send('app:shortcuts', shortcutStatus);
 }
 
 function registerToggleFallback() {
   if (!shortcutStatus.hold || isQuitting) return;
   shortcutStatus.hold = false;
   shortcutStatus.recording = globalShortcut.register(shortcuts.record, () => {
-    if (!shortcutCaptureActive) overlay?.webContents.send('recording:toggle');
+    if (!shortcutCaptureActive) mainWindow?.webContents.send('recording:toggle');
   });
   shortcutStatus.panel = globalShortcut.register(shortcuts.panel, () => {
-    if (!shortcutCaptureActive) changeMode(mode === 'hud' ? 'panel' : 'hud');
+    if (!shortcutCaptureActive) toggleMainWindow();
   });
   shortcutStatus.move = globalShortcut.register(shortcuts.move, () => {
     if (!shortcutCaptureActive) toggleHudMoveMode();
@@ -408,9 +479,9 @@ function startHoldHelper(): boolean {
         const event = buffer.slice(0, index).trim();
         buffer = buffer.slice(index + 1);
         if (shortcutCaptureActive) continue;
-        if (event === 'RECORD_DOWN') overlay?.webContents.send('hotkey:down');
-        else if (event === 'RECORD_UP') overlay?.webContents.send('hotkey:up');
-        else if (event === 'PANEL_DOWN') changeMode(mode === 'hud' ? 'panel' : 'hud');
+        if (event === 'RECORD_DOWN') mainWindow?.webContents.send('hotkey:down');
+        else if (event === 'RECORD_UP') mainWindow?.webContents.send('hotkey:up');
+        else if (event === 'PANEL_DOWN') toggleMainWindow();
         else if (event === 'MOVE_DOWN') toggleHudMoveMode();
       }
     });
@@ -441,11 +512,11 @@ function registerShortcuts() {
   const hold = startHoldHelper();
   shortcutStatus = {
     recording: hold || globalShortcut.register(shortcuts.record, () => {
-      if (!shortcutCaptureActive) overlay?.webContents.send('recording:toggle');
+      if (!shortcutCaptureActive) mainWindow?.webContents.send('recording:toggle');
     }),
     hold,
     panel: hold || globalShortcut.register(shortcuts.panel, () => {
-      if (!shortcutCaptureActive) changeMode(mode === 'hud' ? 'panel' : 'hud');
+      if (!shortcutCaptureActive) toggleMainWindow();
     }),
     move: hold || globalShortcut.register(shortcuts.move, () => {
       if (!shortcutCaptureActive) toggleHudMoveMode();
@@ -474,85 +545,95 @@ function updateShortcuts(input: ShortcutSettings) {
   return { shortcuts: { ...shortcuts }, status: { ...shortcutStatus } };
 }
 
+const ownsInstance = app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+app.on('second-instance', showMainWindow);
 app.whenReady().then(() => {
+  if (!ownsInstance) return;
   loadPositions();
   loadShortcuts();
   app.setAppUserModelId('io.speakincharacter.app');
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    callback(permission === 'media' && webContents.id === overlay?.webContents.id);
+    callback(permission === 'media' && webContents.id === mainWindow?.webContents.id);
   });
   session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    return permission === 'media' && webContents?.id === overlay?.webContents.id;
+    return permission === 'media' && webContents?.id === mainWindow?.webContents.id;
   });
 
-  ipcMain.on('overlay:set-mode', (_event, next: ViewMode) => {
-    if (next === 'panel' || next === 'hud') changeMode(next);
+  ipcMain.on('hud:publish-state', (event, value: unknown) => {
+    if (event.sender !== mainWindow?.webContents) return;
+    const next = parseHudState(value);
+    if (!next) return;
+    const languageChanged = next.language !== hudState.language;
+    hudState = next;
+    if (languageChanged) updateTrayMenu();
+    sendHudState();
   });
-
+  ipcMain.handle('hud:get-state', event => {
+    if (event.sender !== hudWindow?.webContents) throw new Error('HUD window required');
+    return hudSnapshot();
+  });
   ipcMain.on('hud:resize', (event, width: number) => {
-    if (event.sender !== overlay?.webContents || mode !== 'hud') return;
-    updateHudWidth(width);
+    if (event.sender === hudWindow?.webContents) updateHudWidth(width);
   });
-
   ipcMain.on('hud:set-opacity', (event, opacityPercent: number) => {
-    if (event.sender !== overlay?.webContents || !Number.isFinite(opacityPercent)) return;
-    if (opacityPercent < 40 || opacityPercent > 100) return;
+    if (event.sender !== mainWindow?.webContents || !Number.isFinite(opacityPercent)) return;
+    if (opacityPercent < 10 || opacityPercent > 100) return;
     hudOpacity = opacityPercent / 100;
-    if (mode === 'hud') applyWindowAppearance('hud');
+    sendHudState();
   });
-
-  ipcMain.on('overlay:move-hud', (_event, enabled: boolean) => {
-    if (enabled && mode !== 'hud') changeMode('hud');
-    setHudMoveMode(Boolean(enabled));
+  ipcMain.on('overlay:move-hud', (event, enabled: boolean) => {
+    if (event.sender !== mainWindow?.webContents && event.sender !== hudWindow?.webContents) return;
+    if (typeof enabled === 'boolean') setHudMoveMode(enabled);
   });
-
-  ipcMain.on('overlay:drag-start', () => {
-    if ((mode === 'hud' && !hudMoveEnabled) || !overlay || overlay.isDestroyed()) return;
-    dragAnchor = { cursor: screen.getCursorScreenPoint(), position: overlay.getPosition().reduce((p, v, i) => ({ ...p, [i === 0 ? 'x' : 'y']: v }), { x: 0, y: 0 }) };
+  ipcMain.on('overlay:drag-start', event => {
+    if (event.sender !== hudWindow?.webContents || !hudMoveEnabled || !hudWindow) return;
+    const { x, y } = hudWindow.getBounds();
+    dragAnchor = { cursor: screen.getCursorScreenPoint(), position: { x, y } };
   });
-  ipcMain.on('overlay:drag-move', () => {
-    if (!dragAnchor || (mode === 'hud' && !hudMoveEnabled) || !overlay || overlay.isDestroyed()) return;
+  ipcMain.on('overlay:drag-move', event => {
+    if (event.sender !== hudWindow?.webContents || !dragAnchor || !hudMoveEnabled || !hudWindow) return;
     const cursor = screen.getCursorScreenPoint();
-    overlay.setBounds({
+    hudWindow.setBounds({
       x: Math.round(dragAnchor.position.x + cursor.x - dragAnchor.cursor.x),
       y: Math.round(dragAnchor.position.y + cursor.y - dragAnchor.cursor.y),
-      width: mode === 'hud' ? HUD.width : PANEL.width,
-      height: mode === 'hud' ? HUD.height : PANEL.height,
+      width: HUD.width, height: HUD.height,
     }, false);
   });
-  ipcMain.on('overlay:drag-end', () => {
+  ipcMain.on('overlay:drag-end', event => {
+    if (event.sender !== hudWindow?.webContents) return;
     dragAnchor = null;
-    rememberPosition();
+    rememberPosition('hud');
     flushPositions();
   });
 
   // All network requests, secrets and clipboard writes stay in the privileged main process.
-  ipcMain.handle('ai:key-status', () => hasApiKey());
-  ipcMain.handle('ai:save-key', (_event, key: string) => setApiKey(key));
-  ipcMain.handle('ai:process', (_event, payload: Parameters<typeof processVoice>[0]) => processVoice(payload));
-  ipcMain.handle('ai:rewrite', (_event, transcript: string, context: {additionalContext:string;targetLanguage:string;presetId:string}) => rewriteSpeech(transcript, context));
-  ipcMain.handle('presets:list', () => listPresets());
-  ipcMain.handle('presets:open-folder', async () => {
+  handleMain('ai:key-status', () => hasApiKey());
+  handleMain('ai:save-key', (_event, key: string) => setApiKey(key));
+  handleMain('ai:process', (_event, payload: Parameters<typeof processVoice>[0]) => processVoice(payload));
+  handleMain('ai:rewrite', (_event, transcript: string, context: {additionalContext:string;targetLanguage:string;presetId:string}) => rewriteSpeech(transcript, context));
+  handleMain('presets:list', () => listPresets());
+  handleMain('presets:open-folder', async () => {
     const folder = ensureCustomPresetsDirectory();
     const error = await shell.openPath(folder);
     if (error) throw new Error(error);
   });
-  ipcMain.handle('clipboard:copy', (_event, value: string) => copyToClipboard(value));
+  handleMain('clipboard:copy', (_event, value: string) => copyToClipboard(value));
   // Persistent audio/metadata remain in userData. Renderer never supplies paths.
-  ipcMain.handle('history:list', () => listHistory());
-  ipcMain.handle('history:add', (_event, payload: Parameters<typeof addRecording>[0]) => addRecording(payload));
-  ipcMain.handle('history:finish', (_event, id: string, result: Parameters<typeof finishRecording>[1]) => finishRecording(id, result));
-  ipcMain.handle('history:edit', (_event, id: string, changes: { transcript?: string; english?: string }) => editRecording(id, changes));
-  ipcMain.handle('history:rewrite', (_event, id: string, english: string, cost: number) => addRewriteCost(id, english, cost));
-  ipcMain.handle('history:read-audio', (_event, id: string) => readRecording(id));
-  ipcMain.handle('history:delete', (_event, id: string) => deleteRecording(id));
-  ipcMain.handle('history:clear', (_event, days: number | null) => clearHistory(days));
-  ipcMain.handle('history:export', async (_event, id: string): Promise<SaveResult> => {
-    if (!overlay || overlay.isDestroyed()) throw new Error('Window unavailable');
+  handleMain('history:list', () => listHistory());
+  handleMain('history:add', (_event, payload: Parameters<typeof addRecording>[0]) => addRecording(payload));
+  handleMain('history:finish', (_event, id: string, result: Parameters<typeof finishRecording>[1]) => finishRecording(id, result));
+  handleMain('history:edit', (_event, id: string, changes: { transcript?: string; english?: string }) => editRecording(id, changes));
+  handleMain('history:rewrite', (_event, id: string, english: string, cost: number) => addRewriteCost(id, english, cost));
+  handleMain('history:read-audio', (_event, id: string) => readRecording(id));
+  handleMain('history:delete', (_event, id: string) => deleteRecording(id));
+  handleMain('history:clear', (_event, days: number | null) => clearHistory(days));
+  handleMain('history:export', async (_event, id: string): Promise<SaveResult> => {
+    if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Window unavailable');
     const entry = getRecording(id);
     const date = new Date(entry.createdAt).toISOString().replace(/[:.]/g, '-');
-    const choice = await dialog.showSaveDialog(overlay, {
+    const choice = await dialog.showSaveDialog(mainWindow, {
       title: 'Save voice recording',
       defaultPath: join(app.getPath('documents'), `SpeakInCharacter-${date}.${entry.extension}`),
       filters: [{ name: 'Voice recording', extensions: [entry.extension] }],
@@ -561,32 +642,26 @@ app.whenReady().then(() => {
     exportRecording(id, choice.filePath);
     return { canceled: false, filePath: choice.filePath };
   });
-  ipcMain.handle('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
-  ipcMain.handle('app:preferred-languages', () => getWindowsUILanguages());
-  ipcMain.on('app:theme-background', (_event, scheme: string) => {
-    if (scheme !== 'dark' && scheme !== 'light') return;
-    // The opaque native window background must match Mantine's content.
-    // Windows 11 masks its own antialiased rounded frame, no DWM alpha glitch.
-    panelWindowBackground = scheme === 'dark' ? '#242424' : '#ffffff';
-    if (mode === 'panel') applyWindowAppearance('panel');
+  handleMain('app:open-usage', () => shell.openExternal('https://platform.openai.com/usage'));
+  handleMain('app:preferred-languages', () => preferredLanguagesPromise ??= getWindowsUILanguages());
+  ipcMain.on('app:theme-background', (event, scheme: string) => {
+    if (event.sender !== mainWindow?.webContents || (scheme !== 'dark' && scheme !== 'light')) return;
+    mainWindow?.setBackgroundColor(scheme === 'dark' ? '#242424' : '#ffffff');
   });
-  ipcMain.handle('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
-  ipcMain.handle('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
-  ipcMain.on('shortcuts:capture', (_event, active: boolean) => {
-    shortcutCaptureActive = active === true;
-    if (shortcutCaptureActive) overlay?.webContents.send('hotkey:up');
-    if (hotkeyHelper?.stdin.writable) {
-      hotkeyHelper.stdin.write(shortcutCaptureActive ? 'CAPTURE_ON\n' : 'CAPTURE_OFF\n');
-    }
+  handleMain('shortcuts:get', () => ({ shortcuts: { ...shortcuts }, status: { ...shortcutStatus } }));
+  handleMain('shortcuts:set', (_event, value: ShortcutSettings) => updateShortcuts(value));
+  ipcMain.on('shortcuts:capture', (event, active: boolean) => {
+    if (event.sender === mainWindow?.webContents) setShortcutCapture(active === true);
+  });
+  ipcMain.on('app:quit', event => {
+    if (event.sender === mainWindow?.webContents) app.quit();
   });
 
-  ipcMain.on('app:quit', () => app.quit());
-
-  ipcMain.handle('recording:save', async (_event, payload: {
+  handleMain('recording:save', async (_event, payload: {
     bytes: Uint8Array;
     extension: 'webm' | 'ogg';
   }): Promise<SaveResult> => {
-    if (!overlay || overlay.isDestroyed()) throw new Error('Window unavailable');
+    if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Window unavailable');
     if (payload?.extension !== 'webm' && payload?.extension !== 'ogg') {
       throw new Error('Unsupported audio format');
     }
@@ -595,7 +670,7 @@ app.whenReady().then(() => {
     }
     const date = new Date().toISOString().replace(/[:.]/g, '-');
     const name = `SpeakInCharacter-${date}.${payload.extension}`;
-    const choice = await dialog.showSaveDialog(overlay, {
+    const choice = await dialog.showSaveDialog(mainWindow, {
       title: 'Save voice recording',
       defaultPath: join(app.getPath('documents'), name),
       filters: [{ name: 'Voice recording', extensions: [payload.extension] }],
@@ -605,14 +680,19 @@ app.whenReady().then(() => {
     return { canceled: false, filePath: choice.filePath };
   });
 
-  createOverlay();
+  createTray();
+  createWindows();
   registerShortcuts();
 });
 
+app.on('before-quit', () => { isQuitting = true; });
+app.on('activate', showMainWindow);
 app.on('will-quit', () => {
   isQuitting = true;
   if (saveTimer) flushPositions();
   stopHoldHelper();
   globalShortcut.unregisterAll();
+  tray?.destroy();
+  tray = null;
 });
 app.on('window-all-closed', () => app.quit());
