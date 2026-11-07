@@ -3,6 +3,8 @@ import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } f
 import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
 import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Slider, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
 import { appTheme } from './theme';
+import { MIN_RECORDING_MS, MIN_SIGNAL_RMS, shouldDiscardSilentRecording, type AudioLevelSummary } from './recordingPolicy';
+import { languageFromSystemLocale } from './locale';
 
 type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
@@ -54,14 +56,6 @@ function readableSize(bytes: number): string {
   return bytes < 1024 * 1024 ? (bytes / 1024).toFixed(0) + ' KB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 const TRANSCRIPTION_PER_MINUTE = 0.006;
-// Short accidental taps never create a history entry or incur API charges.
-const MIN_RECORDING_MS = 250;
-// A deliberately conservative local silence gate: it detects near-silence,
-// not actual words. Anything ambiguous is still sent to transcription.
-const SILENCE_CHECK_MIN_MS = 1200;
-const MIN_SIGNAL_RMS = 0.0045;
-type AudioLevelSummary = { samples: number; audibleSamples: number; maxRms: number };
-
 function startAudioLevelMonitor(stream: MediaStream):
   { summary: AudioLevelSummary; stop: () => void } | null {
   try {
@@ -99,15 +93,6 @@ function startAudioLevelMonitor(stream: MediaStream):
     console.warn('Microphone level analysis unavailable:', error);
     return null;
   }
-}
-
-function shouldDiscardSilentRecording(durationMs: number, summary: AudioLevelSummary | null): boolean {
-  // If the browser suspended its AudioContext, do not discard unanalysed speech.
-  return durationMs >= SILENCE_CHECK_MIN_MS &&
-    summary !== null &&
-    summary.samples >= 8 &&
-    summary.audibleSamples === 0 &&
-    summary.maxRms < MIN_SIGNAL_RMS;
 }
 
 function clock(ms: number): string {
@@ -179,11 +164,6 @@ function shortcutFromEvent(event: KeyboardEvent<HTMLButtonElement>): string | nu
     ...(event.shiftKey ? ['Shift'] : []),
   ];
   return [...mods,key].join('+');
-}
-
-function languageFromSystemLocale(locale?: string): InterfaceLanguage {
-  const base = locale?.split(/[-_]/, 1)[0]?.trim().toLowerCase();
-  return INTERFACE_LANGUAGES.find(language => language.value === base)?.value ?? 'en';
 }
 
 export default function App() {
@@ -821,7 +801,6 @@ export default function App() {
   };
 
   const selectedPreset = presets.find(item => item.id === presetId);
-  const sessionCost = lifetimeStats.estimatedCostUsd;
   const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
   const inProgress = phase === 'recording' || isBusy;
 
@@ -859,9 +838,8 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.5</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.6</Badge>
               </Group>
-              <Text size="xs" c="dimmed" truncate>Speak naturally. Stay in character.</Text>
             </Stack>
             <ActionIcon size="md" variant="subtle" color="gray" title={tr('hidePanel')}
               onClick={() => window.inCharacter.setViewMode('hud')}>
@@ -880,10 +858,6 @@ export default function App() {
 
         <AppShell.Main key={tab} className="sic-main">
           {tab === 'rp' && <Stack gap="sm">
-            <Box>
-              <Title order={4}>{tr('tabReply')}</Title>
-              <Text c="dimmed" size="xs">{tr('heroSub')}</Text>
-            </Box>
             <Grid gap="sm">
               <Grid.Col span={5}>
                 <TextInput label={tr('targetLabel')} value={replyLanguageInput} maxLength={80}
@@ -905,7 +879,7 @@ export default function App() {
               </Grid.Col>
             </Grid>
             <Textarea label={tr('additionalContextLabel')} autosize minRows={2} maxRows={4}
-              value={additionalContext} placeholder={tr('additionalContextPlaceholder')}
+              value={additionalContext}
               onChange={event=>{
                 setAdditionalContext(event.currentTarget.value);
                 localStorage.setItem('additional-context',event.currentTarget.value);
@@ -920,7 +894,6 @@ export default function App() {
                     </Text>
                     {phase === 'idle' && <Code>{keyBindings.record}</Code>}
                   </Group>
-                  <Text size="xs" c="dimmed">{shortcuts.hold ? tr('releaseHint') : tr('tapHint')}</Text>
                 </Stack>
                 <Text ff="monospace" fw={650} size="sm" c="dimmed">{clock(elapsed)}</Text>
                 <ActionIcon size="lg" variant="light" color="red" disabled={isBusy}
@@ -930,8 +903,8 @@ export default function App() {
                 </ActionIcon>
               </Group>
             </Paper>
-            <Textarea label={tr('rawLabel')} description={tr('rawHint')} autosize minRows={2} maxRows={4}
-              value={original} placeholder={tr('rawPlaceholder')}
+            <Textarea label={tr('rawLabel')} autosize minRows={2} maxRows={4}
+              value={original}
               onChange={event=>{
                 setOriginal(event.currentTarget.value);
                 if(activeIdRef.current!==null){
@@ -940,9 +913,8 @@ export default function App() {
                 }
               }}/>
             <Textarea label={tr('outputLabel')}
-              description={phase==='processing'?tr('outputProcessing'):tr('outputHint')}
               autosize minRows={3} maxRows={5}
-              value={english} placeholder={tr('outputPlaceholder')}
+              value={english}
               onChange={event=>{
                 setEnglish(event.currentTarget.value);
                 if(activeIdRef.current!==null){
@@ -959,11 +931,7 @@ export default function App() {
             </Group>
           </Stack>}
 
-          {tab === 'history' && <Stack gap="md">
-            <Box>
-              <Title order={4}>{tr('historyTitle')}</Title>
-              <Text size="xs" c="dimmed">{tr('historyPersistentHint')}</Text>
-            </Box>
+          {tab === 'history' && <Stack gap="sm">
             <Text size="sm" fw={700}>{tr('historyLifetime')}</Text>
             <SimpleGrid cols={2} spacing="xs">
               {([
@@ -985,7 +953,6 @@ export default function App() {
               history.length===0 ? <Center py="xl"><Stack align="center" gap="xs">
                 <History size={28} strokeWidth={1.5}/>
                 <Text size="sm" c="dimmed">{tr('historyEmpty')}</Text>
-                <Code>{keyBindings.record}</Code>
               </Stack></Center> :
               <Stack gap="xs">
                 {history.map((item,index)=><Stack gap="xs" key={item.id}>
@@ -1021,7 +988,6 @@ export default function App() {
             <Paper withBorder radius="md" p="sm">
               <Stack gap="xs">
                 <Text size="sm" fw={700}>{tr('historyCleanupTitle')}</Text>
-                <Text c="dimmed" size="xs">{tr('historyCleanupDescription')}</Text>
                 <Group align="end" wrap="nowrap" grow>
                   <Select aria-label={tr('historyRetentionLabel')} value={historyDeleteAge}
                     comboboxProps={{withinPortal:false}} allowDeselect={false}
@@ -1038,14 +1004,9 @@ export default function App() {
           </Stack>}
 
           {tab === 'settings' && <Stack gap="sm">
-            <Box>
-              <Title order={4}>{tr('settingsTitle')}</Title>
-              <Text c="dimmed" size="xs">{tr('settingsSub')}</Text>
-            </Box>
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('themeTitle')}</Text>
-                <Text c="dimmed" size="xs">{tr('themeDescription')}</Text>
                 <SegmentedControl fullWidth size="sm" value={appearance}
                   onChange={value=>{
                     const choice=value as Appearance;
@@ -1058,7 +1019,6 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('languageUiLabel')}</Text>
-                <Text c="dimmed" size="xs">{tr('languageUiDescription')}</Text>
                 <Select value={uiLanguagePreference} allowDeselect={false} comboboxProps={{withinPortal:false}}
                   data={[{value:'system',label:tr('languageSystem')},...INTERFACE_LANGUAGES.map(language=>({value:language.value,label:language.label}))]}
                   onChange={value=>{
@@ -1073,7 +1033,6 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('presetTitle')}</Text>
-                <Text size="xs" c="dimmed">{tr('presetManageHint')}</Text>
                 <Group grow gap="sm" wrap="nowrap">
                   <Button variant="default" onClick={()=>void openPresetsFolder()}>{tr('presetFolder')}</Button>
                   <Button variant="default" leftSection={<RefreshCw size={14}/>} disabled={presetsLoading}
@@ -1090,18 +1049,16 @@ export default function App() {
                     {hasKey?tr('connected'):tr('disconnected')}
                   </Badge>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('apiKeyInfo')}</Text>
                 <Group align="end" wrap="nowrap" gap="xs">
                   <PasswordInput style={{flex:1,minWidth:0}} autoComplete="off" value={apiKeyDraft}
                     placeholder={hasKey?tr('apiKeyPlaceholder'):'sk-proj-…'}
                     onChange={event=>setApiKeyDraft(event.currentTarget.value)}/>
                   <Button disabled={!apiKeyDraft.trim() || keyBusy} onClick={()=>void saveKey()}>{tr('save')}</Button>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('apiKeyDisclaimer')}</Text>
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
-              <Switch label={tr('micProcessing')} description={tr('micProcessingHint')}
+              <Switch label={tr('micProcessing')}
                 checked={micProcessing} disabled={inProgress}
                 onChange={event=>{
                   setMicProcessing(event.currentTarget.checked);
@@ -1111,14 +1068,8 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('overlayTitle')}</Text>
-                <Group justify="space-between" wrap="nowrap" align="center">
-                  <Box style={{minWidth:0}}>
-                    <Text size="sm">{tr('moveIndicator')}</Text>
-                    <Text size="xs" c="dimmed">{tr('positionSaved')}</Text>
-                  </Box>
-                  <Button variant="default" leftSection={<Move size={15}/>}
-                    onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
-                </Group>
+                <Button variant="default" leftSection={<Move size={15}/>}
+                  onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
                 <Stack gap={6}>
                   <Group justify="space-between" align="baseline" gap="xs">
                     <Text size="sm">{tr('hudOpacityLabel')}</Text>
@@ -1138,16 +1089,13 @@ export default function App() {
                       localStorage.setItem('hud-opacity', String(value));
                     }}
                   />
-                  <Text size="xs" c="dimmed">{tr('hudOpacityHint')}</Text>
                 </Stack>
-                <Text size="xs" c="dimmed">{shortcuts.hold?tr('hotkeyHoldHint'):tr('hotkeyTapHint')}</Text>
                 {!shortcuts.hold && <Text size="xs" c="orange">{tr('hotkeyFallback')}</Text>}
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text size="sm" fw={700}>{tr('hotkeyTitle')}</Text>
-                <Text size="xs" c="dimmed">{tr('hotkeyDesc')}</Text>
                 {(['record','panel','move'] as const).map(action=><Group key={action} justify="space-between" gap="xs" wrap="nowrap">
                   <Text size="xs" style={{flex:1}}>{tr(action==='record'?'hotkeyRecord':action==='panel'?'hotkeyPanel':'hotkeyMove')}</Text>
                   <Code>{keyBindings[action]}</Code>
@@ -1161,17 +1109,14 @@ export default function App() {
                 </Group>)}
                 {captureAction && <Text size="xs" c="indigo">{tr('hotkeyCaptureHint')}</Text>}
                 {shortcutError && <Text size="xs" c="red">{shortcutError}</Text>}
-                <Text size="xs" c="dimmed">{tr('hotkeyCapsNote')}</Text>
               </Stack>
             </Paper>
             <Paper withBorder radius="md" p="md">
               <Stack gap="xs">
-                <Text size="sm" fw={700}>{tr('costTitle')}</Text>
                 <Group justify="space-between" align="center">
-                  <Title order={4}>{amount(sessionCost)}</Title>
-                  <Text size="xs" c="dimmed">{lifetimeStats.recordings} {tr('recordingsCount')}</Text>
+                  <Text size="sm" fw={700}>{tr('historyStatCost')}</Text>
+                  <Title order={4}>{amount(lifetimeStats.estimatedCostUsd)}</Title>
                 </Group>
-                <Text size="xs" c="dimmed">{tr('costDisclaimer')}</Text>
                 <Button variant="subtle" size="xs" onClick={()=>void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
               </Stack>
             </Paper>

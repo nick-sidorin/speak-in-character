@@ -278,7 +278,7 @@ export function clearHistory(days: number | null): Promise<HistorySnapshot> {
       // A crash between writing an audio file and the index may leave orphans.
       // Full purge also removes such files, exclusively inside our managed folder.
       for (const file of readdirSync(directory())) {
-        if (!UUID_PATTERN.test(file.slice(0,36)) || !/\\.(webm|ogg)$/.test(file)) continue;
+        if (!UUID_PATTERN.test(file.slice(0,36)) || !/^\.(webm|ogg)$/.test(file.slice(36))) continue;
         const path = join(directory(), file);
         const info = lstatSync(path);
         if (info.isFile() && !info.isSymbolicLink()) rmSync(path);

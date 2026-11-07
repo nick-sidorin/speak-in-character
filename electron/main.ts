@@ -269,6 +269,19 @@ function changeMode(next: ViewMode) {
   overlay.webContents.send('overlay:move-mode', hudMoveEnabled);
 }
 
+function requestWindowsRoundedCorners() {
+  if (process.platform !== 'win32' || !overlay || overlay.isDestroyed()) return;
+  const handle = overlay.getNativeWindowHandle();
+  const hwnd = handle.length >= 8
+    ? handle.readBigUInt64LE(0).toString()
+    : handle.readUInt32LE(0).toString();
+  // On heavily customized frameless windows, Windows may ignore this hint.
+  // Keep the opaque background to avoid Electron 35's inactive alpha artifacts.
+  execFile(nativeHotkeyBinary(), ['--round-corners', hwnd], { windowsHide: true, timeout: 3000 }, error => {
+    if (error) console.warn('Could not request DWM rounded corners:', error.message);
+  });
+}
+
 function createOverlay() {
   overlay = new BrowserWindow({
     ...windowBounds('hud'),
@@ -298,6 +311,7 @@ function createOverlay() {
     },
   });
 
+  overlay.once('show', requestWindowsRoundedCorners);
   overlay.setMenuBarVisibility(false);
   overlay.setHasShadow(false);
   applyWindowAppearance('hud');
