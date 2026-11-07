@@ -61,16 +61,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ steps.config.outputs.version }}
-        run: |
-          set -euo pipefail
-          exe="$(find staging -type f -name InCharacter.exe -print -quit)"
-          directory="$(dirname "$exe")"
-          archive="SpeakInCharacter-${VERSION}-Windows-x64-portable.zip"
-          (cd "$directory" && zip -q -r "$GITHUB_WORKSPACE/$archive" .)
-          unzip -tqq "$archive"
-          sha256sum "$archive" > SHA256SUMS.txt
-          echo "archive=$archive" >> "$GITHUB_OUTPUT"
-          echo "Packed $archive"
+        run: bash scripts/package-windows-release.sh
 
       - name: Publish public GitHub prerelease
         shell: bash

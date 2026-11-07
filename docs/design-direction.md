@@ -40,6 +40,25 @@ custom behavior is necessary solely for:
 The product is **inspired by the density of Discord**, not a Discord theme,
 clone, component library, brand, or collection of extracted assets.
 
+## Compact UI copy
+
+- Use one clear label for each field or action. Do not repeat tab names as
+  content headings or explain standard controls underneath them.
+- Omit instructional placeholders, helper paragraphs, slogans and duplicate
+  status text when the control already explains itself.
+- Add help only for a concrete, non-obvious interaction. Prefer a short
+  contextual hint or tooltip rather than permanent explanatory copy.
+- Keep accessible names and tooltips for icon-only actions, operational
+  errors, hotkey fallback warnings and irreversible-deletion confirmations.
+- Usage costs must be labeled as estimates and reflect the displayed totals.
+- Review copy in all five interface languages. Use native Mantine spacing;
+  compactness must not compromise readable labels or usable controls.
+
+Changes ship through a feature/fix branch and pull request. Require the
+`CI / required` check (tests and full Windows build), then validate the preview
+on Windows before squash merging UI/HUD changes. Keep unverified changes out
+of `main`; publishing a stable release is a separate, explicit step.
+
 ## Regression tests
 
 - In the native Windows hook, `Ctrl+Shift+O` and `Ctrl+Shift+M` must
