@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.13.2 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.13.3 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -28,14 +28,19 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 
 ## How it works
 
+**Editor spacing fix (v0.13.3):** remove duplicate header/footer padding in
+the production bundle. Explicit Mantine content padding/min-height keeps
+the scrolling pane between tabs and footer regardless of CSS chunk order.
+The owner confirmed that 0.13.2 no longer shows the grey HUD backing.
+
 **Window defaults and focus follow-up (v0.13.2):** a new HUD starts 24 DIP
 from the primary work area's left/top edges. New editors use standard
 Electron/Windows placement; valid saved positions still restore. The HUD is
 an explicit non-activating toolbar window with minimize/maximize disabled
 and no native document caption. This targets the owner-reported grey backing
 that returns when focus leaves the editor for a game. The transparent host,
-CSS corners and recording emphasis remain unchanged; verify that exact
-focus transition on the owner's Windows/game setup before calling it fixed.
+CSS corners and recording emphasis remain unchanged. The owner has since
+confirmed that the backing no longer appears; retain the focus regressions.
 
 **Recording emphasis (v0.13.1):** while recording, the HUD bubble becomes
 halfway more opaque toward 100%: 30% → 65%, 80% → 90%. It returns to the

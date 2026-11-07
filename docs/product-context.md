@@ -318,6 +318,14 @@ requires owner validation. New HUD defaults use equal 24 DIP left/top work
 area margins; new editors use normal framework/OS placement. Valid saved
 positions are preserved, including recovery from removed monitors.
 
+The owner then confirmed that the grey backing no longer appears in 0.13.2.
+Their screenshot revealed excess space below the editor tabs. In the built
+renderer, shared CSS loads before editor/Mantine CSS, so AppShell's padding
+overrode the same-specificity desktop stylesheet: top padding was 66px
+instead of 16px, duplicating the 50px header offset. The 0.13.3 fix uses
+explicit Mantine main-pane `p="md"` and `mih={0}`, with production-renderer
+geometry regressions for content insets and tab/footer scroll boundaries.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.

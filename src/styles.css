@@ -36,10 +36,8 @@ button { cursor: pointer; }
   bottom: var(--app-shell-footer-offset, 42px);
   left: 0;
   height: auto;
-  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--mantine-spacing-md);
   scroll-padding-top: var(--mantine-spacing-sm);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--mantine-color-text) 38%, var(--mantine-color-body))

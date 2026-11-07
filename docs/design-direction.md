@@ -69,7 +69,8 @@ Windows setup in initial testing, but subsequently identified a grey backing
 when focus leaves the editor for the game. The 0.13.2 follow-up keeps the
 alpha/CSS strategy and makes the host an explicit non-activating toolbar,
 with native minimize/maximize disabled and document-title updates suppressed.
-This is a targeted mitigation pending that exact owner focus-transition check.
+The owner subsequently confirmed that the backing no longer appears in
+0.13.2. Preserve these native options and empty caption.
 Preserve the transparent contour configuration. Renderer alpha checks guard
 regressions, while Windows desktop composition still needs real-machine
 checks when changing the window strategy.
@@ -111,6 +112,14 @@ Changes ship through a feature/fix branch and pull request. Require the
 `CI / required` check (tests and full Windows build), then validate the preview
 on Windows before squash merging UI/HUD changes. Keep unverified changes out
 of `main`; publishing a stable release is a separate, explicit step.
+
+The absolutely positioned editor main pane must use explicit Mantine
+`p="md"` and `mih={0}`. AppShell otherwise adds header/footer offsets inside
+its padding and a viewport minimum height. Shared HUD CSS loads before
+editor/Mantine CSS in production, so a same-specificity CSS override that
+works in Vite dev can silently lose in the bundle. Test the built renderer: a
+single content inset under tabs, equal top/side/bottom padding, and main
+bounds ending above the footer.
 
 ## Regression tests
 

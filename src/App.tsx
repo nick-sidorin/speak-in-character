@@ -767,7 +767,7 @@ export default function App() {
           </Tabs.List>
         </AppShell.Header>
 
-        <AppShell.Main key={tab} className="sic-main">
+        <AppShell.Main key={tab} className="sic-main" p="md" mih={0}>
           {tab === 'rp' && <Stack gap="sm">
             <Grid gap="sm">
               <Grid.Col span={5}>
@@ -1038,7 +1038,7 @@ export default function App() {
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {presentedMessage || tr('readyMsg')}
             </Text>
-            <Badge size="xs" variant="light" color="gray">0.13.2</Badge>
+            <Badge size="xs" variant="light" color="gray">0.13.3</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>

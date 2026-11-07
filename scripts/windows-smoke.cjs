@@ -68,6 +68,25 @@ app.whenReady().then(async () => {
     assert(hud.webContents.getURL().includes('/hud.html?'), 'HUD has a separate lightweight entry');
     console.log('Editor navigation timings:', await main.webContents.executeJavaScript("JSON.stringify(performance.getEntriesByType('mark').map(({name, startTime}) => ({name, ms: Math.round(startTime)})))"));
 
+    const layout = await main.webContents.executeJavaScript(`(() => {
+      const main = document.querySelector('.sic-main');
+      const bounds = main.getBoundingClientRect();
+      const css = getComputedStyle(main);
+      return {
+        top: bounds.top, bottom: bounds.bottom,
+        headerBottom: document.querySelector('header').getBoundingClientRect().bottom,
+        footerTop: document.querySelector('footer').getBoundingClientRect().top,
+        paddingTop: parseFloat(css.paddingTop), paddingBottom: parseFloat(css.paddingBottom),
+        paddingLeft: parseFloat(css.paddingLeft), contentTop: main.firstElementChild.getBoundingClientRect().top,
+      };
+    })()`);
+    assert.equal(layout.top, layout.headerBottom, 'scroll area starts under tabs');
+    assert.equal(layout.bottom, layout.footerTop, 'scroll area stops above footer');
+    assert.equal(layout.paddingTop, layout.paddingLeft, 'header offset is not repeated as content padding');
+    assert.equal(layout.paddingBottom, layout.paddingLeft, 'footer offset is not repeated as content padding');
+    assert.equal(layout.contentTop - layout.top, layout.paddingTop);
+    console.log(`Production editor layout passed: ${JSON.stringify(layout)}`);
+
     const workArea = screen.getPrimaryDisplay().workArea;
     assert.equal(hud.getBounds().x, workArea.x + 24);
     assert.equal(hud.getBounds().y, workArea.y + 24);
