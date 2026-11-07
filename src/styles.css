@@ -18,7 +18,6 @@ button { cursor: pointer; }
 .sic-shell {
   height: 100dvh;
   background: var(--mantine-color-body);
-  clip-path: inset(0 round 14px);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -32,7 +31,7 @@ button { cursor: pointer; }
      the header and ends above the footer, rather than sliding beneath them. */
   position: absolute;
   /* Exactly the Mantine AppShell header offset. The tab strip ends at this boundary. */
-  top: var(--app-shell-header-offset, 110px);
+  top: var(--app-shell-header-offset, 50px);
   right: 0;
   bottom: var(--app-shell-footer-offset, 42px);
   left: 0;
@@ -54,7 +53,6 @@ button { cursor: pointer; }
   border: 2px solid color-mix(in srgb, var(--mantine-color-body) 92%, #000);
 }
 .sic-footer { border-top: 1px solid var(--mantine-color-default-border); }
-.sic-drag { cursor: move; touch-action: none; }
 .sic-audio { flex: 1; min-width: 0; width: 100%; height: 34px; }
 
 /* The in-game HUD is intentionally NOT a Mantine AppShell.

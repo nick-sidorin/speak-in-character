@@ -2,7 +2,6 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -85,6 +84,13 @@ jobs:
           if (-not (Test-Path 'release/win-unpacked/resources/native/hotkey.exe')) {
             throw "Hotkey helper missing from Windows package"
           }
+          node -e "if (require('@electron/asar').listPackage('release/win-unpacked/resources/app.asar').some(name => name.endsWith('.test.js'))) throw new Error('Test files included in application package')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Smoke-test independent windows and minimized recording
+        shell: pwsh
+        run: |
+          & node_modules\.bin\electron.cmd scripts\windows-smoke.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Attach testable Windows build to the PR
         uses: actions/upload-artifact@v4
         with:

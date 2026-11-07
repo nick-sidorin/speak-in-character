@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { INTERFACE_LANGUAGES, t, type InterfaceLanguage, type TranslationKey } from './i18n';
-import { Circle, Square, X, Check, AlertCircle, Clock3, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive, BarChart3 } from 'lucide-react';
-import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Slider, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, ThemeIcon, Divider, Box, Center } from '@mantine/core';
+import { Circle, Square, History, Settings2, MessageSquareText, ClipboardCopy, Download, Move, RefreshCw, Moon, Sun, Monitor, Trash2, Play, HardDrive } from 'lucide-react';
+import { MantineProvider, AppShell, ActionIcon, Badge, Button, Modal, PasswordInput, SegmentedControl, Select, Slider, Switch, Tabs, Textarea, TextInput, Stack, Group, Grid, SimpleGrid, Paper, Text, Title, Code, Divider, Box, Center } from '@mantine/core';
 import { appTheme } from './theme';
 import { MIN_RECORDING_MS, MIN_SIGNAL_RMS, shouldDiscardSilentRecording, type AudioLevelSummary } from './recordingPolicy';
 import { languageFromSystemLocale } from './locale';
+import { phaseLabel, StateIcon } from './RecordingStatus';
+import type { RecordingPhase as Phase } from '../electron/hudState';
 
-type ViewMode = 'hud' | 'panel';
 type Tab = 'rp' | 'history' | 'settings';
 type Appearance = 'system' | 'dark' | 'light';
-type Phase = 'idle' | 'requesting' | 'recording' | 'finalizing' | 'processing' | 'ready' | 'error';
 
 type PresetInfo = {
   id: string;
@@ -111,26 +111,6 @@ function errorText(error: unknown, lang: InterfaceLanguage): string {
   return error instanceof Error ? error.message : t(lang, 'unknownError');
 }
 
-function phaseLabel(phase: Phase, hold: boolean, lang: InterfaceLanguage): string {
-  const keys: Partial<Record<Phase, TranslationKey>> = {
-    recording: 'phaseRecording', requesting: 'phaseRequesting', finalizing: 'phaseFinalizing',
-    processing: 'phaseProcessing', ready: 'phaseReady', error: 'phaseError',
-  };
-  const key = keys[phase];
-  return key ? t(lang, key) : t(lang, hold ? 'phaseHold' : 'phaseTap');
-}
-
-function StateIcon({ phase, language }: { phase: Phase; language: InterfaceLanguage }) {
-  if (phase === 'processing' || phase === 'requesting' || phase === 'finalizing') {
-    return <span className="state-spinner" aria-label={t(language, 'iconProcessing')} />;
-  }
-  if (phase === 'ready') return <span className="state-check" aria-label={t(language, 'iconReady')}><Check size={17} strokeWidth={3} /></span>;
-  if (phase === 'error') return <span className="state-error" aria-label={t(language, 'iconError')}><AlertCircle size={19} strokeWidth={2.5}/></span>;
-  return <span className={'state-circle ' + (phase === 'recording' ? 'recording' : '')}>
-    <Circle size={18} fill="currentColor" strokeWidth={1.8} />
-  </span>;
-}
-
 type ShortcutAction = 'record' | 'panel' | 'move';
 type ShortcutConfig = Record<ShortcutAction,string>;
 const DEFAULT_KEYS: ShortcutConfig = { record: 'CapsLock', panel: 'Ctrl+Shift+O', move: 'Ctrl+Shift+M' };
@@ -167,7 +147,6 @@ function shortcutFromEvent(event: KeyboardEvent<HTMLButtonElement>): string | nu
 }
 
 export default function App() {
-  const [view, setView] = useState<ViewMode>('hud');
   const [tab, setTab] = useState<Tab>('rp');
   const [hudOpacity, setHudOpacity] = useState(() => {
     const raw = Number(localStorage.getItem('hud-opacity'));
@@ -229,7 +208,6 @@ export default function App() {
   const [historyConfirm, setHistoryConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'age'; days: number } | { kind: 'all' } | null>(null);
   const [historyDeleteAge, setHistoryDeleteAge] = useState<string>('30');
   const [message, setMessage] = useState('');
-  const [moveEnabled, setMoveEnabled] = useState(false);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
   const [keyBindings, setKeyBindings] = useState<ShortcutConfig>(DEFAULT_KEYS);
   const [captureAction, setCaptureAction] = useState<ShortcutAction | null>(null);
@@ -251,7 +229,6 @@ export default function App() {
   const pendingReleaseRef = useRef(false);
   const holdActiveRef = useRef(false);
   const recordingViaHoldRef = useRef(false);
-  const hudRef = useRef<HTMLDivElement | null>(null);
   const urlsRef = useRef<Set<string>>(new Set());
   const loadedAudioRef = useRef<Map<string,string>>(new Map());
   const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -523,21 +500,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    window.inCharacter.setHudOpacity(hudOpacity);
-  }, [hudOpacity]);
+    window.inCharacter.publishHudState({ phase, language: uiLanguage, recordingShortcut: keyBindings.record, hold: shortcuts.hold });
+  }, [phase, uiLanguage, keyBindings.record, shortcuts.hold]);
 
   useEffect(() => {
-    if (view !== 'hud') return;
-    const element = hudRef.current;
-    if (!element) return;
-    // Measure the intrinsic width of a single line, not the viewport width.
-    // Each locale/status/move-control change can resize the native window.
-    const measure = () => window.inCharacter.resizeHud(Math.ceil(element.getBoundingClientRect().width));
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    measure();
-    return () => observer.disconnect();
-  }, [view, moveEnabled, phase, uiLanguage, keyBindings.record]);
+    window.inCharacter.setHudOpacity(hudOpacity);
+  }, [hudOpacity]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -575,23 +543,16 @@ export default function App() {
     const offToggle = window.inCharacter.onToggleRecording(() => toggleRef.current());
     const offDown = window.inCharacter.onHoldKeyDown(() => downRef.current());
     const offUp = window.inCharacter.onHoldKeyUp(() => upRef.current());
-    const offMode = window.inCharacter.onViewModeChanged(mode => {
-      setView(mode);
-      if (mode === 'hud') {
-        setCaptureAction(null);
-        window.inCharacter.setShortcutCapture(false);
-      }
-    });
-    const offMove = window.inCharacter.onHudMoveModeChanged(value => setMoveEnabled(value));
     const offShortcuts = window.inCharacter.onShortcutStatus(value => setShortcuts(value));
+    const onBlur = () => { setCaptureAction(null); window.inCharacter.setShortcutCapture(false); };
+    window.addEventListener('blur', onBlur);
     return () => {
       window.inCharacter.setShortcutCapture(false);
       offToggle();
       offDown();
       offUp();
-      offMode();
-      offMove();
       offShortcuts();
+      window.removeEventListener('blur', onBlur);
       stopClock();
       stopAudioLevelMonitor();
       streamRef.current?.getTracks().forEach(track => track.stop());
@@ -785,67 +746,14 @@ export default function App() {
     }
   }
 
-  const dragWindowStart = (event: PointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    window.inCharacter.startHudDrag();
-  };
-  const dragWindowMove = (event: PointerEvent<HTMLElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) window.inCharacter.moveHudDrag();
-  };
-  const dragWindowEnd = (event: PointerEvent<HTMLElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      window.inCharacter.endHudDrag();
-    }
-  };
-
   const selectedPreset = presets.find(item => item.id === presetId);
   const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
   const inProgress = phase === 'recording' || isBusy;
 
-  if (view === 'hud') {
-    return <div ref={hudRef}
-      className={'hud ' + (moveEnabled ? 'hud-move' : '')}
-      onPointerDown={moveEnabled ? dragWindowStart : undefined}
-      onPointerMove={moveEnabled ? dragWindowMove : undefined}
-      onPointerUp={moveEnabled ? dragWindowEnd : undefined}
-      onPointerCancel={moveEnabled ? dragWindowEnd : undefined}
-    >
-      <div className="hud-status"><StateIcon phase={phase} language={uiLanguage}/></div>
-      <span className="hud-main">
-        {moveEnabled ? tr('hudMoveShort') :
-          phase === 'idle' ? `${tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb')} ${keyBindings.record}` :
-          phaseLabel(phase, shortcuts.hold, uiLanguage)}
-      </span>
-      {moveEnabled && <button type="button" className="hud-lock" title={tr('lockTitle')}
-        onClick={event => { event.stopPropagation(); window.inCharacter.setHudMoveMode(false); }}>
-        <Check size={15} strokeWidth={2.6}/>
-      </button>}
-    </div>;
-  }
-
   return <MantineProvider theme={appTheme} forceColorScheme={effectiveTheme}>
     <Tabs value={tab} onChange={value => setTab((value || 'rp') as Tab)}>
-      <AppShell className="sic-shell" header={{ height: 110 }} footer={{ height: 42 }} padding="md" withBorder={false}>
+      <AppShell className="sic-shell" header={{ height: 50 }} footer={{ height: 42 }} padding="md" withBorder={false}>
         <AppShell.Header>
-          <Group h={60} px="md" gap="sm" wrap="nowrap" className="sic-drag"
-            onPointerDown={dragWindowStart} onPointerMove={dragWindowMove}
-            onPointerUp={dragWindowEnd} onPointerCancel={dragWindowEnd}>
-            <ThemeIcon variant="filled" color="indigo" size={35} radius="md">
-              <MessageSquareText size={20}/>
-            </ThemeIcon>
-            <Stack gap={1} style={{flex:1,minWidth:0}}>
-              <Group gap="xs" wrap="nowrap">
-                <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.6</Badge>
-              </Group>
-            </Stack>
-            <ActionIcon size="md" variant="subtle" color="gray" title={tr('hidePanel')}
-              onClick={() => window.inCharacter.setViewMode('hud')}>
-              <X size={18}/>
-            </ActionIcon>
-          </Group>
           <Tabs.List grow h={50} px="sm">
             <Tabs.Tab value="rp" leftSection={<MessageSquareText size={16}/>}>{tr('tabReply')}</Tabs.Tab>
             <Tabs.Tab value="history" leftSection={<History size={16}/>}
@@ -879,7 +787,7 @@ export default function App() {
               </Grid.Col>
             </Grid>
             <Textarea label={tr('additionalContextLabel')} autosize minRows={2} maxRows={4}
-              value={additionalContext}
+              value={additionalContext} placeholder={tr('additionalContextPlaceholder')}
               onChange={event=>{
                 setAdditionalContext(event.currentTarget.value);
                 localStorage.setItem('additional-context',event.currentTarget.value);
@@ -1127,6 +1035,7 @@ export default function App() {
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
               {message || tr('readyMsg')}
             </Text>
+            <Badge size="xs" variant="light" color="gray">0.11.0</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>
