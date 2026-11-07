@@ -90,6 +90,9 @@ jobs:
           if (-not (Test-Path 'release/win-unpacked/resources/app-icon.png')) {
             throw "App icon missing from Windows package"
           }
+          if (-not (Test-Path 'release/win-unpacked/resources/app-icon.ico')) {
+            throw "Native window ICO missing from Windows package"
+          }
           node -e "if (require('@electron/asar').listPackage('release/win-unpacked/resources/app.asar').some(name => name.endsWith('.test.js'))) throw new Error('Test files included in application package')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify custom executable icon

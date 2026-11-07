@@ -85,8 +85,12 @@ The owner-approved 0.13.4 app mark is a white microphone inside a slender
 elven-face outline on a blue tile: long sharp ears with curved lower lobes,
 a softly pointed chin and bold consistent strokes. The capsule is slightly
 lowered to balance the side/bottom cradle gap. `assets/app-icon-source.png`
-is the exact approved RGB raster master, with no alpha channel; PNG/ICO
-exports serve the native editor, executable and startup screen. Do not redraw
+retains the approved symbol on the subsequently requested square blue
+background, with no rounded tile corners, black backing or alpha channel.
+Windows must load the ICO itself for the native editor: Electron selects
+HICON sizes using the system small/large icon metrics. A PNG path creates
+one oversized HICON that Windows then resamples. PNG is for startup and
+non-Windows windows; the ICO is also embedded in the executable. Do not redraw
 or substitute an earlier review variant. Keep the existing tray microphone
 unchanged. This artwork does not add game-specific assumptions to AI prompts.
 

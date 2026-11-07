@@ -131,7 +131,7 @@ describe('independent editor and HUD windows', () => {
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
     expect(hud.options).toMatchObject({ frame: false, transparent: true, backgroundColor: '#00000000', thickFrame: false, roundedCorners: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
     expect(hud.options).toMatchObject({ type: 'toolbar', minimizable: false, maximizable: false, fullscreenable: false });
-    expect(main.options.icon).toMatch(/assets[\\/]app-icon\.png$/);
+    expect(main.options.icon).toMatch(/assets[\\/]app-icon\.(?:png|ico)$/);
     expect(main.show).toHaveBeenCalledOnce();
     expect(main.loadFile.mock.calls[0][1]).toBeUndefined();
     expect(hud.loadFile.mock.calls[0][0]).toMatch(/dist[\\/]hud\.html$/);

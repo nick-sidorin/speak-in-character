@@ -313,13 +313,16 @@ function createWindows() {
     showReadyHud();
   });
   let showEditorAtStartup = true;
+  // ICO lets Electron load native small/large HICONs at the Windows metric sizes.
+  // A PNG becomes one large HICON and Windows has to resample it for the caption.
+  const iconFile = process.platform === 'win32' ? 'app-icon.ico' : 'app-icon.png';
   mainWindow = new BrowserWindow({
     ...windowBounds('panel'),
     useContentSize: true,
     minWidth: 520,
     minHeight: 600,
     title: `SpeakInCharacter ${app.getVersion()}`,
-    icon: app.isPackaged ? join(process.resourcesPath, 'app-icon.png') : join(__dirname, '../assets/app-icon.png'),
+    icon: app.isPackaged ? join(process.resourcesPath, iconFile) : join(__dirname, '../assets', iconFile),
     frame: true,
     transparent: false,
     backgroundColor: '#242424',

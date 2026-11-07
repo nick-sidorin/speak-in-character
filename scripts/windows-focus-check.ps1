@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][long]$HudHandle)
+param([Parameter(Mandatory=$true)][long]$HudHandle, [Parameter(Mandatory=$true)][long]$EditorHandle)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -13,6 +13,8 @@ public static class FocusProbe {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int count);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
 }
 '@
 $hud = [IntPtr]::new($HudHandle)
@@ -35,7 +37,21 @@ try {
     }
     $title = [System.Text.StringBuilder]::new(256)
     [void][FocusProbe]::GetWindowText($hud, $title, $title.Capacity)
+    $editor = [IntPtr]::new($EditorHandle)
+    $smallHandle = [FocusProbe]::SendMessage($editor, 0x007F, [IntPtr]::Zero, [IntPtr]::Zero)
+    $largeHandle = [FocusProbe]::SendMessage($editor, 0x007F, [IntPtr]::new(1), [IntPtr]::Zero)
+    if ($smallHandle -eq [IntPtr]::Zero -or $largeHandle -eq [IntPtr]::Zero) { throw 'Editor icons unavailable' }
+    $smallIcon = [System.Drawing.Icon]::FromHandle($smallHandle)
+    $largeIcon = [System.Drawing.Icon]::FromHandle($largeHandle)
+    try {
+        $smallWidth = $smallIcon.Width
+        $largeWidth = $largeIcon.Width
+    } finally { $smallIcon.Dispose(); $largeIcon.Dispose() }
     $result = @{
+        editorSmallIconWidth = $smallWidth
+        editorLargeIconWidth = $largeWidth
+        expectedSmallIconWidth = [FocusProbe]::GetSystemMetrics(49)
+        expectedLargeIconWidth = [FocusProbe]::GetSystemMetrics(11)
         externalFocused = ([FocusProbe]::GetForegroundWindow() -eq $form.Handle)
         style = [FocusProbe]::GetWindowLong($hud, -16)
         exStyle = [FocusProbe]::GetWindowLong($hud, -20)

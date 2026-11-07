@@ -1,6 +1,6 @@
 {
   "name": "speak-in-character",
-  "version": "0.13.4",
+  "version": "0.13.5",
   "private": true,
   "description": "SpeakInCharacter — a voice companion for roleplayers",
   "main": "dist-electron/main.js",
@@ -71,6 +71,10 @@
       {
         "from": "assets/app-icon.png",
         "to": "app-icon.png"
+      },
+      {
+        "from": "assets/app-icon.ico",
+        "to": "app-icon.ico"
       },
       {
         "from": "native/hotkey.exe",

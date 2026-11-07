@@ -30,6 +30,10 @@ async function waitHudOpacity(hud, percent) {
     `Math.abs(Number(getComputedStyle(document.querySelector('.hud')).opacity) - ${percent / 100}) < 0.001`
   ), `HUD opacity ${percent}%`);
 }
+const nativeHandle = window => {
+  const handle = window.getNativeWindowHandle();
+  return handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+};
 const select = role => BrowserWindow.getAllWindows().find(window => {
   const url = window.webContents.getURL();
   return url.startsWith('file:') && (role === 'hud' ? url.includes('view=hud') : !url.includes('view=hud'));
@@ -93,15 +97,16 @@ app.whenReady().then(async () => {
     assert.equal(hud.isMinimizable(), false);
     assert.equal(hud.isMaximizable(), false);
     assert.equal(hud.getTitle(), '', 'HUD document does not supply a native caption');
-    const handle = hud.getNativeWindowHandle();
-    const hwnd = handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+    const hwnd = nativeHandle(hud);
     for (let cycle = 0; cycle < 3; cycle++) {
       main.show(); main.focus();
       await waitFor(() => main.isFocused(), 'editor foreground before external focus');
       const { stdout } = await execFileAsync('powershell.exe', [
-        '-NoProfile', '-NonInteractive', '-Sta', '-File', join(__dirname, 'windows-focus-check.ps1'), '-HudHandle', hwnd,
+        '-NoProfile', '-NonInteractive', '-Sta', '-File', join(__dirname, 'windows-focus-check.ps1'), '-HudHandle', hwnd, '-EditorHandle', nativeHandle(main),
       ], { timeout: 12000 });
       const probe = JSON.parse(stdout.trim());
+      assert.equal(probe.editorSmallIconWidth, probe.expectedSmallIconWidth, 'caption uses a native-size ICO image rather than a 512px PNG HICON');
+      assert.equal(probe.editorLargeIconWidth, probe.expectedLargeIconWidth, 'taskbar uses a separate native-size ICO image');
       assert.equal(probe.externalFocused, true, 'focus leaves the editor for a separate application');
       // WS_CAPTION, WS_THICKFRAME, WS_SYSMENU, WS_MINIMIZEBOX, WS_MAXIMIZEBOX.
       assert.equal(probe.style & 0x00CF0000, 0, 'HUD has no native caption or window-control styles');

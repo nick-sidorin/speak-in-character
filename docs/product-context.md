@@ -334,6 +334,15 @@ channel. The 0.13.4 follow-up uses this exact master for the native editor,
 Windows executable and startup screen; the older speech-bubble SVG is removed.
 The existing tray microphone remains unchanged as explicitly requested.
 
+The owner then requested a square icon background and asked about fuzzy
+caption rendering. The 0.13.5 follow-up removes rounded tile/black corners
+while retaining the approved symbol. Electron 35's NativeImage PNG path
+creates a HICON from the entire bitmap even when requested at smaller sizes;
+its ICO path loads the requested small/large size directly. The Windows editor
+now uses the ICO (also packaged as a resource), while startup retains PNG.
+Windows smoke queries actual WM_GETICON handles and verifies their dimensions
+against system metrics. Do not replace this with a large PNG window icon.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
