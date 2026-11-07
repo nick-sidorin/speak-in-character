@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-checks:
+    name: TypeScript and Linux build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check TypeScript and build the renderer and main process
+        run: npm run build
+
+  windows-build:
+    name: Windows build and hotkey tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Compile native Windows keyboard helper
+        shell: pwsh
+        run: |
+          $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          if (-not (Test-Path $compiler)) { throw "C# compiler not found: $compiler" }
+          & $compiler /nologo /optimize+ /target:exe /out:native\hotkey.exe native\hotkey.cs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test repeated keyboard shortcuts
+        shell: pwsh
+        run: |
+          & native\hotkey.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify Windows UI language
+        shell: pwsh
+        run: |
+          $uiLanguage = (& native\hotkey.exe --system-language).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($uiLanguage -notmatch '^[a-z]{2,3}(-[a-zA-Z0-9]+)*$') {
+            throw "Invalid Windows UI language: $uiLanguage"
+          }
+      - name: Typecheck, bundle and package Windows x64
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'false'
+      - name: Verify packaged executable and keyboard helper
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'release/win-unpacked/SpeakInCharacter.exe')) {
+            throw "SpeakInCharacter.exe missing from Windows package"
+          }
+          if (-not (Test-Path 'release/win-unpacked/resources/native/hotkey.exe')) {
+            throw "Hotkey helper missing from Windows package"
+          }
+
+  required:
+    name: CI / required
+    needs: [source-checks, windows-build]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Require both source checks and Windows tests/build
+        env:
+          SOURCE_RESULT: ${{ needs.source-checks.result }}
+          WIN_RESULT: ${{ needs.windows-build.result }}
+        run: |
+          test "$SOURCE_RESULT" = success
+          test "$WIN_RESULT" = success

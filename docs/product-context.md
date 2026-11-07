@@ -127,8 +127,10 @@ Lifetime metrics include:
 - accepted recording count;
 - total speaking time;
 - recognized word count;
-- estimated cumulative API cost;
-- retained entries and managed audio disk size.
+- estimated cumulative API cost.
+
+Retained entry count and managed audio disk size are separate current-storage
+metrics; they decrease with cleanup while lifetime metrics are retained.
 
 The local metadata historically lives at `%APPDATA%\InCharacter\recording-history.json`; audio under `%APPDATA%\InCharacter\recordings\`. **The legacy `InCharacter` user-data name is intentionally retained** after the application was renamed to SpeakInCharacter, protecting previous settings, hotkeys, API credentials, and saved window positions.
 
@@ -154,7 +156,7 @@ Avoid races between recording, playback, editing, and deletion. Never delete arb
 
 ### Release identity and migration
 
-The project was previously named **InCharacter**. Public v0.8.2 assets and executable used that name; later builds move to **SpeakInCharacter**. This is not permission to move legacy user data or discard existing settings. Check `release.yml` against the current executable name before the next release: historically the script verified `SpeakInCharacter.exe` but later looked for `InCharacter.exe` while creating its ZIP, a potential release-only defect that needs validation rather than assumption.
+The project was previously named **InCharacter**. Public v0.8.2 assets and executable used that name; later builds move to **SpeakInCharacter**. This is not permission to move legacy user data or discard existing settings. On the original 0.10.5 `main`, `release.yml` verified `SpeakInCharacter.exe` but then searched for `InCharacter.exe` when creating the ZIP. The resulting wrong-directory selection was reproduced; PR #1 fixes it with packaging regression tests. Until that PR is merged, the defect still exists on `main`.
 
 ## 8. Development and quality preferences
 
@@ -169,7 +171,7 @@ The owner is an experienced software engineer, not a novice who needs generic Gi
 - Distinguish automated checks from real OS/game visual/behavioral verification.
 - Do not merge or release without owner approval.
 
-## 9. State at handoff — **2026-11-07** (historical snapshot)
+## 9. State at initial handoff — **2026-11-07** (historical snapshot)
 
 The repository was `nick-sidorin/speak-in-character` on GitHub. `main` identified development version **0.10.5** (unreleased); README still pointed to published **v0.8.2** as the public download. **Do not assume these versions remain current.**
 
@@ -192,6 +194,52 @@ The initially reported 17 regression tests and ~90.97% line / ~76.63% branch cov
 
 The active `Protect main — PR + CI` ruleset required a legacy check named **`build`**, not the new aggregate **`CI / required`**. Therefore, successful CI did **not** by itself prove the ruleset was configured for the new workflow. Recheck live GitHub settings and change the required check accordingly if the mismatch remains. The ruleset otherwise selected PRs, squash-only merge, linear history, no force-push/deletion, and no bypass actors at the time.
 
+### Follow-up review — **2026-11-07**
+
+This update supersedes the initial operational snapshot above; it does not
+mark unmerged changes as implemented on `main`.
+
+- Before this documentation PR is merged, `main` is still **0.10.5**, commit
+  `12eb1e8`; the public download remains **v0.8.2**.
+- PR #1 is still open. Its **0.10.6 preview**, commit `548446d`, passed
+  [CI run 42371526700](https://github.com/nick-sidorin/speak-in-character/actions/runs/42371526700).
+  It includes further compact-copy cleanup, **20 tests**, **92.85% lines /
+  78.76% branches** for selected modules, a fix for orphan audio surviving
+  full purge, and the release ZIP fix. These fixes are pending merge.
+- The owner corrected the active `Protect main — PR + CI` ruleset. The
+  required check is now **`CI / required` from GitHub Actions** (app ID
+  `15368`), with up-to-date branches, PRs, squash-only merging, linear
+  history, force-push/deletion protection, and no bypass actors. This was
+  read back from GitHub; the original `build` mismatch is resolved.
+- This documentation PR introduces `.github/workflows/ci.yml` so the current
+  `main` code can produce that required check before PR #1 lands. It runs
+  Linux TypeScript/build checks plus Windows keyboard self-tests, UI-language
+  validation and full x64 packaging. It does not fabricate a status or skip
+  an available test suite: Vitest is not yet on this branch. PR #1 adds its
+  Vitest coverage gate and downloadable PR preview artifacts.
+- The compact 0.10.6 renderer was reviewed in Chromium with mocked Electron
+  IPC across **five locales, two themes and three tabs**. Labels, horizontal
+  overflow, scroll boundaries/reset and deletion confirmations were checked.
+  This is not a Windows-native HUD, focus or keyboard-hook test.
+- The owner reports Chrome blocks the newer ZIP even when downloaded from
+  GitHub Actions. A supplied Windows Defender custom-scan result reports
+  **0 threats**. The Chrome verdict's cause remains unknown; a false positive
+  or file-reputation/heuristic issue is a hypothesis, not an established
+  diagnosis. The earlier 0.10.5 preview and current preview are unsigned.
+  Do not attribute the verdict to the DWM change without evidence.
+- Provide the **GitHub Actions run page and artifact name** for previews.
+  Direct temporary ChatGPT download links failed and should not be the
+  default. A rebuilt ZIP does not guarantee Chrome will accept it.
+- UI rules now explicitly exclude repeated tab headings, instructional
+  textarea placeholders and duplicate captions. Keep clear field labels,
+  accessible icon names, operational errors, fallback warnings and deletion
+  confirmations. Label lifetime API totals as estimates rather than a
+  current-session bill.
+- The owner authorized review, correction and **squash merge of documentation
+  PR #2**. That authorization does not extend to PR #1 or a public release.
+  Keep application updates outside `main` until their CI and relevant owner
+  Windows review are complete.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
@@ -210,7 +258,7 @@ The active `Protect main — PR + CI` ruleset required a legacy check named **`b
 | HUD | Minimal separate window; adjustable opacity and position | Windows 11 corner artifacts and inactive backing |
 | Language | Five UI locales, independent reply language | Future locales only if demand warrants |
 | History | Persistent local audio/transcripts and lifetime metrics | Retention/performance at large volumes |
-| Git workflow | PR-only, CI required, squash merge | Verify actual status-check mapping |
-| Release | Manual Windows artifact/release process | Confirm executable rename does not break ZIP packaging |
+| Git workflow | PR-only, `CI / required`, squash merge | Recheck live settings when they change; never bypass protection |
+| Release | Manual Windows artifact/release process | ZIP rename fix is tested in PR #1, pending merge; Chrome verdict remains unexplained |
 
 **Maintenance rule:** Update this document when a real product decision changes. Put ephemeral release/PR status into a dated section; never overwrite historical context as though a proposed fix had already been proven.
