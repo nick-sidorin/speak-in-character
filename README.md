@@ -4,27 +4,27 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.13.5 (unreleased)** · Windows x64 · unsigned prototype
+**Version 1.0.0** · Windows x64 · portable application
 
 ## Download and run
 
-**[Download the latest Windows Preview from GitHub Releases](https://github.com/nick-sidorin/speak-in-character/releases)** — no GitHub Actions navigation required.
+**[Download SpeakInCharacter 1.0.0 for Windows](https://github.com/nick-sidorin/speak-in-character/releases/download/v1.0.0/SpeakInCharacter-v1.0.0-Windows-x64-portable.zip)** · [Release notes and SHA-256 checksum](https://github.com/nick-sidorin/speak-in-character/releases/tag/v1.0.0)
 
-1. Download the current published **v0.8.2** asset, `InCharacter-v0.8.2-Windows-x64-portable.zip`. The new SpeakInCharacter executable name will appear starting with v0.9.0.
-2. **Extract the whole ZIP** to a folder and launch `InCharacter.exe` (in v0.8.2). Upcoming releases will use `SpeakInCharacter.exe`. Visual Studio and Node.js are **not** needed.
-3. For game overlays, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
-4. The current preview opens a normal editor window plus a separate HUD. Configure your personal OpenAI API key in **Settings**. **Ctrl + Shift + O** restores/minimizes the editor; API billing is separate from ChatGPT. The older published v0.8.2 still uses the original single-window behavior.
-5. Hold **Caps Lock**, speak, then release. The translated line goes to the clipboard; review and paste it with **Ctrl + V** into chat, then send manually.
+1. Extract the **whole ZIP** into a new folder and launch `SpeakInCharacter.exe`. Visual Studio and Node.js are **not** needed.
+2. Configure your personal OpenAI API key in **Settings**. API usage is billed separately from ChatGPT.
+3. Hold **Caps Lock**, speak, then release. Review the rewritten/translated line and manually paste it with **Ctrl + V** into your chat.
+4. The editor appears in the taskbar and Alt-Tab; the small HUD stays above other windows. Use **borderless/windowed fullscreen** for games.
+5. Closing the editor hides it to the tray. Click the tray icon or press **Ctrl + Shift + O** to reopen it. Tray **Quit** or the editor's **Exit** button fully closes the app.
 
-Development builds are also available on [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions/workflows/windows.yml), but public downloads should use **Releases**.
+**Updating:** fully quit the old instance through the tray before launching a new version. Extract releases into separate versioned folders; this also avoids stale Explorer icon caching. Settings, encrypted API keys, presets, shortcuts, positions and history remain in the original `%APPDATA%\InCharacter` directory.
 
-Unsigned builds may trigger a Windows SmartScreen warning. This project is still undergoing testing on real Windows/game setups.
+The portable build is unsigned. Windows SmartScreen or Chrome may display download/run warnings; a browser verdict alone does not establish its cause.
 
-**Existing users:** the rename keeps the original local data directory for compatibility, so your encrypted API key, presets, hotkeys, and past window positions remain available. Existing language choices are respected. New users get their Windows display language automatically (English fallback); in Settings, choose **System language** to follow Windows again.
+## First stable release
 
-**UI update (v0.9.0):** the editor now uses the free MIT-licensed Mantine component library with a Mantine's native dark and light theme. In Settings you can choose **System / Dark / Light**; the choice persists, and System follows live Windows light/dark changes. The in-game HUD intentionally retains its compact independent styling.
+Version 1.0.0 brings together the owner-tested compact editor, independent transparent HUD, persistent tray behavior, local recording archive, five interface languages, configurable hotkeys and the approved elven microphone icon. Recordings and draft text stay under your control: the app never sends messages to games automatically.
 
-**Release note:** v0.8.2 remains the currently published release until the redesigned v0.9.0 build is reviewed.
+Development previews remain available from the named artifact on their specific [CI run](https://github.com/nick-sidorin/speak-in-character/actions/workflows/ci.yml).
 
 ## How it works
 
@@ -110,7 +110,7 @@ Native Windows corner/focus behavior still requires owner validation.
 - **Style precedence:** preserve the original meaning first; use the chosen preset as a baseline; **Additional context overrides conflicting preset style instructions**, while compatible traits combine. For example, a pirate who stutters can sound both pirate-like and stuttered, but the original transcript is not stylized.
 - **Persistent local history:** recordings, audio, transcriptions, translated messages and estimated costs survive app restarts. History is not capped at 15 records; a generous safety limit applies (10,000 managed entries). Audio loads on demand to keep startup memory low. All archive data is stored locally inside the existing `InCharacter` user-data folder.
 - **UI languages:** Russian, English, French, Spanish, German, set independently from the reply language.
-- **HUD:** a tiny, translucent (~254 × 54 px) click-through status panel with a recording indicator, spinner and completion check. Its position and the main panel's position persist between launches.
+- **HUD:** a tiny, translucent (content-sized, 44px native host height) click-through status panel with a recording indicator, spinner and completion check. Its position and the main panel's position persist between launches.
 
 **HUD polish (v0.10.2):** compact one-line status, no product-name heading, dynamically measured width, and inside-the-window rounded border. The center panel is the only scrolling region: its scrollbar stays between the native Mantine header and footer. The footer has a subtle 1px divider. System language on Windows uses the actual Windows user UI language from `GetUserDefaultUILanguage`, which may differ from app language preferences; unsupported languages still fall back to English.
 
@@ -177,7 +177,7 @@ A personal preset with the same `id` overrides the bundled one. See [the schema 
 To develop from source, install Node.js 22+ and run:
 
 ```bash
-npm install
+npm ci
 npm run typecheck
 npm run build
 npm run dev
@@ -185,7 +185,7 @@ npm run dev
 
 To package on Windows: compile `native/hotkey.cs` into `native/hotkey.exe` using the .NET Framework C# compiler, then run `npm run dist:win`. The GitHub Actions Windows workflow performs those steps for you.
 
-**CI policy:** pull requests run TypeScript/build checks, native Windows hotkey tests, UI-language validation and full Windows x64 packaging. The required aggregate check is **`CI / required`**; both jobs must succeed. Regular pushes to `main` do **not** trigger builds or public releases. Downloadable previews and releases use the separate manual workflows.
+**CI policy:** pull requests run TypeScript/build checks, native Windows hotkey tests, UI-language validation and full Windows x64 packaging. The required aggregate check is **`CI / required`**; both jobs must succeed. Regular pushes to `main` do **not** trigger builds or public releases. Manual preview workflows remain available. A stable `vX.Y.Z` tag on a commit in `main`, matching `package.json`, triggers the release workflow. It reruns the same CI against that tag and publishes the portable ZIP and `SHA256SUMS.txt` only after all checks pass. Release notes live in `.github/release-notes/`; reruns can select the existing tag through `workflow_dispatch`. Dependencies are pinned by `package-lock.json`.
 
 Licensed under MIT.
 

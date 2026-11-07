@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -14,20 +15,20 @@ concurrency:
 jobs:
   unit-tests:
     name: Unit tests + coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Check TypeScript and run tests with coverage thresholds
         run: npm run check
       - name: Upload coverage report
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: code-coverage
           path: coverage/lcov.info
@@ -39,12 +40,12 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Compile native Windows keyboard helper
         shell: pwsh
         run: |
@@ -127,7 +128,7 @@ jobs:
           & node_modules\.bin\electron.cmd scripts\windows-smoke.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Attach testable Windows build to the PR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SpeakInCharacter-PR-Windows
           path: release/win-unpacked/**
@@ -138,7 +139,7 @@ jobs:
     name: CI / required
     needs: [unit-tests, windows-build]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - name: Block merging if tests or Windows build failed

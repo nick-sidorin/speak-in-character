@@ -343,13 +343,36 @@ now uses the ICO (also packaged as a resource), while startup retains PNG.
 Windows smoke queries actual WM_GETICON handles and verifies their dimensions
 against system metrics. Do not replace this with a large PNG window icon.
 
+### 1.0 release decision (2026-11-07)
+
+The owner confirmed the finished build and explicitly authorized merging both
+open PRs (#1 and #3) and publishing the first stable release as 1.0.0. PR #1
+has been squash-merged; its main tree matched the original PR head exactly.
+PR #3 was retargeted to main and its merge conflicts resolved while preserving
+the tested 0.13.5 tree byte-for-byte. Version 1.0.0, locked dependencies, current
+Node 24-based Actions and tag-driven stable publication are included in PR #3.
+Check GitHub for final merge/release status rather than treating this dated
+preparation note as proof of publication.
+
+The last Explorer-icon report was confirmed to be a shell-cache issue:
+all nine icon sizes inside the downloaded 0.13.5 EXE matched the approved ICO
+byte-for-byte, and renaming the file refreshed the owner's icon. Prefer a new
+versioned extraction folder when updating; keep the executable's normal name.
+
+Stable `vX.Y.Z` tags must match `package.json` and point to commits in main.
+Publication reuses CI on the exact tag, then uploads the portable ZIP and
+SHA-256 checksum to a draft before making it a stable/latest GitHub Release.
+The existing userData directory, recording/AI behavior and Windows rendering
+configuration remain the owner-tested baseline. Future releases or unrelated
+merges require their own explicit approval.
+
 ### What the next agent should do first
 
-1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
-2. Look at the working tree and current branch before changing anything.
-3. Check whether PR #1 remains open, whether the required check mismatch persists, and whether its HUD experiment has been visually tested on the owner's Windows computer.
-4. Do **not** merge PR #1 without explicit approval and the owner's Windows feedback.
-5. Preserve product invariants while continuing whichever new task the owner requests.
+1. Read `AGENTS.md`, this document, README, design direction, package/lock files and live GitHub state.
+2. Check the working tree, current branch, remaining PRs and actual ruleset/check names.
+3. Read the latest release/tag and Actions results before identifying a build as stable.
+4. Preserve the owner's confirmed window, HUD, icon and data-compatibility behavior.
+5. Continue the current authorized task; do not infer approval for future releases.
 
 ## 10. Decisions versus open questions
 
@@ -358,10 +381,10 @@ against system metrics. Do not replace this with a large PNG window icon.
 | AI output | Preserve meaning; style is secondary | Improve fidelity with targeted cases/feedback |
 | Game interaction | Clipboard + manual send, no automation | Game-specific focus/hotkey conflicts |
 | UI | Mantine-native, compact, minimal descriptions | Real-device visual regressions |
-| HUD | Minimal separate window; adjustable opacity and position | Windows 11 corner artifacts and inactive backing |
+| HUD | Separate transparent toolbar; owner-confirmed game-focus/corner behavior | Regressions on other Windows/GPU/display configurations |
 | Language | Five UI locales, independent reply language | Future locales only if demand warrants |
 | History | Persistent local audio/transcripts and lifetime metrics | Retention/performance at large volumes |
 | Git workflow | PR-only, `CI / required`, squash merge | Recheck live settings when they change; never bypass protection |
-| Release | Manual Windows artifact/release process | ZIP rename fix is tested in PR #1, pending merge; Chrome verdict remains unexplained |
+| Release | Matching stable tag on main; exact-tag CI and ZIP/checksum publication | Recheck current release status; unsigned builds and Chrome verdicts remain distinct |
 
 **Maintenance rule:** Update this document when a real product decision changes. Put ephemeral release/PR status into a dated section; never overwrite historical context as though a proposed fix had already been proven.

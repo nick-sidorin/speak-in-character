@@ -139,5 +139,7 @@ bounds ending above the footer.
 - Confirm separately on a real Windows desktop: both window shapes, dark/light
   switch, all tabs, long history scrolling, overlay movement, and repeat hotkeys.
 
-The current built v0.10.1 artifact has passed compilation and key-routing
-tests; visual and overlay behavior still needs a live desktop review.
+The owner has approved the resulting 1.0 editor, tray/HUD behavior and icon
+after Windows/game testing. Preserve the native flags and production-layout
+regressions when evolving that stable baseline. CI does not replace visual
+checks on other Windows/GPU/display configurations.

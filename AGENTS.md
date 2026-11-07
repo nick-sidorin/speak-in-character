@@ -51,7 +51,7 @@ SpeakInCharacter is a **Windows voice companion**, initially built for roleplayi
 
 1. Inspect `git status`, current branch, relevant docs, and affected code. Look for an existing PR before starting overlapping work.
 2. State the minimal intended change and any uncertainty; implement only what the request authorizes.
-3. Run the checks supported by the current branch: usually `npm run typecheck`, `npm run build`, and, when available, `npm run check` / `npm test` / `npm run test:coverage`. Consult `package.json` rather than assuming scripts exist.
+3. Run the checks supported by the current branch: usually `npm run typecheck`, `npm run build`, and, when available, `npm run check` / `npm test` / `npm run test:coverage`. Consult `package.json` rather than assuming scripts exist. Install the locked dependencies with `npm ci`; keep `package-lock.json` in sync when intentionally changing them.
 4. Windows-specific behavior requires the native helper self-test, full Windows x64 package verification, and—where relevant—manual real-Windows testing. Linux CI is not equivalent to a Windows UI test.
 5. Create/update a focused PR. Summarize verification, risks, and anything the owner must confirm. **Stop before merge or release unless the owner has already explicitly authorized that action.** An authorized merge still requires the real required checks and any applicable Windows validation; leave other PRs open.
 
