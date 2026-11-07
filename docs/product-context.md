@@ -283,7 +283,7 @@ host with a separately painted rounded inner HUD. The 0.12.1 experiment uses
 the dedicated non-focusable host with no thick frame/native rounding hint,
 a transparent 2px gutter, and CSS opacity on the inner bubble instead of
 native `setOpacity`. The earlier shared-window alpha attempts also switched
-roles/focus and applied whole-window opacity. This new combination still
+roles/focus and applied whole-window opacity. This new combination
 was subsequently confirmed by the owner to resolve the HUD corners on their
 Windows setup (2026-11-07). Preserve that window configuration; a transparent
 renderer screenshot remains a regression guard rather than proof for every
@@ -298,6 +298,13 @@ This does not promise a fixed cold-start time. Windows smoke logs navigation
 marks separately from process startup. The app now uses a custom vector
 microphone/speech-bubble mark for its executable/editor icon; the owner liked
 the existing tray microphone and it is intentionally unchanged.
+
+The owner requested Discord-inspired recording emphasis in 0.13.1: the HUD
+bubble opacity rises halfway from the saved baseline to 100% only while
+recording (30 → 65%, 80 → 90%). It returns to the saved value on release,
+including processing, completion or error. A short CSS opacity transition
+respects reduced motion. This is recording-state feedback, not voice-activity
+detection, and does not change the setting, native host or main window.
 
 ### What the next agent should do first
 

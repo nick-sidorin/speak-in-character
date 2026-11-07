@@ -8,6 +8,9 @@ export default function Hud() {
   const [state, setState] = useState<HudSnapshot>({
     phase: 'idle', language: 'en', recordingShortcut: 'CapsLock', hold: false, moveEnabled: false, opacityPercent: 76,
   });
+  const opacityPercent = state.phase === 'recording'
+    ? state.opacityPercent + (100 - state.opacityPercent) / 2
+    : state.opacityPercent;
   const hudRef = useRef<HTMLDivElement | null>(null);
   const tr = (key: Parameters<typeof t>[1]) => t(state.language, key);
 
@@ -49,7 +52,7 @@ export default function Hud() {
   };
 
   return <div ref={hudRef} className="hud-window">
-    <div className={'hud ' + (state.moveEnabled ? 'hud-move' : '')} style={{ opacity: state.opacityPercent / 100 }}
+    <div className={'hud ' + (state.moveEnabled ? 'hud-move' : '')} style={{ opacity: opacityPercent / 100 }}
       onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd}>
       <div className="hud-status"><StateIcon phase={state.phase} language={state.language}/></div>
       <span className="hud-main">

@@ -65,6 +65,12 @@ Windows setup. Preserve this configuration. Renderer alpha checks guard
 regressions, while Windows desktop composition still needs real-machine
 checks when changing the window strategy.
 
+During the actual `recording` phase, emphasize the bubble by raising its
+opacity halfway toward 100%: `base + (100 - base) / 2`. Other phases use the
+saved slider value. This is a 180ms CSS transition (none for reduced motion),
+never a change to the stored setting, native host opacity, or editor. Keep
+the red recording indicator; emphasis follows recording, not voice activity.
+
 The app mark is a white microphone inside a speech bubble on an indigo tile.
 `assets/app-icon.svg` is the editable vector source; PNG/ICO derivatives serve
 the native editor and executable. Keep the existing tray microphone unchanged.

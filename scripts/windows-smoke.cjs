@@ -22,6 +22,11 @@ async function waitFor(check, label) {
   }
   throw new Error(`Timed out: ${label}`);
 }
+async function waitHudOpacity(hud, percent) {
+  await waitFor(() => hud.webContents.executeJavaScript(
+    `Math.abs(Number(getComputedStyle(document.querySelector('.hud')).opacity) - ${percent / 100}) < 0.001`
+  ), `HUD opacity ${percent}%`);
+}
 const select = role => BrowserWindow.getAllWindows().find(window => {
   const url = window.webContents.getURL();
   return url.startsWith('file:') && (role === 'hud' ? url.includes('view=hud') : !url.includes('view=hud'));
@@ -60,13 +65,20 @@ app.whenReady().then(async () => {
     assert(hud.webContents.getURL().includes('/hud.html?'), 'HUD has a separate lightweight entry');
     console.log('Editor navigation timings:', await main.webContents.executeJavaScript("JSON.stringify(performance.getEntriesByType('mark').map(({name, startTime}) => ({name, ms: Math.round(startTime)})))"));
 
+    await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(30)');
+    await waitHudOpacity(hud, 30);
     main.minimize();
     await waitFor(() => main.isMinimized(), 'native editor minimize');
     main.webContents.send('hotkey:down');
     await waitFor(() => hud.webContents.executeJavaScript("Boolean(document.querySelector('.state-circle.recording'))"), 'recording status relay');
-    await delay(500);
+    await waitHudOpacity(hud, 65);
+    assert.equal((await hud.webContents.executeJavaScript('window.inCharacter.getHudState()')).opacityPercent, 30, 'recording does not change the configured baseline');
+    assert.equal(hud.getOpacity(), 1);
+    assert.equal(main.getOpacity(), 1);
+    await delay(300);
     main.webContents.send('hotkey:up');
     await waitFor(() => hud.webContents.executeJavaScript("Boolean(document.querySelector('.state-check'))"), 'recording completion relay');
+    await waitHudOpacity(hud, 30);
     const snapshot = await main.webContents.executeJavaScript('window.inCharacter.historyList()');
     assert.equal(snapshot.entries.length, 1, 'one recorder produces one history entry');
     assert.equal(main.isMinimized(), true, 'recording does not restore/focus the editor');
@@ -92,15 +104,20 @@ app.whenReady().then(async () => {
     main.restore();
     await waitFor(() => !main.isMinimized(), 'native editor restore');
     assert.equal(hud.isVisible(), true);
+    await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(80)');
+    await waitHudOpacity(hud, 80);
     main.close();
     await waitFor(() => !main.isVisible(), 'close hides editor to tray');
     assert.equal(main.isDestroyed(), false, 'closing retains the recorder renderer');
     assert.equal(hud.isVisible(), true);
     main.webContents.send('hotkey:down');
     await waitFor(() => hud.webContents.executeJavaScript("Boolean(document.querySelector('.state-circle.recording'))"), 'recording while hidden');
-    await delay(500);
+    await waitHudOpacity(hud, 90);
+    await delay(300);
     main.webContents.send('hotkey:up');
     await waitFor(() => hud.webContents.executeJavaScript("Boolean(document.querySelector('.state-check'))"), 'hidden recording completion');
+    await waitHudOpacity(hud, 80);
+    console.log('Recording HUD emphasis passed: 30 → 65 → 30 and 80 → 90 → 80, with native opacity 1.');
     assert.equal((await main.webContents.executeJavaScript('window.inCharacter.historyList()')).entries.length, 2);
     assert.equal(main.isVisible(), false, 'recording does not reopen the editor');
     app.emit('activate');

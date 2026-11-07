@@ -81,6 +81,7 @@ button { cursor: pointer; }
   border-radius: 10px;
   border: 1px solid #63857f;
   background: #202a2e;
+  transition: opacity 180ms ease-out;
   color: #eaf0ed;
   user-select: none;
   -webkit-user-select: none;
@@ -146,3 +147,7 @@ button { cursor: pointer; }
 .hud .state-check svg,.hud .state-error svg { width: 13px; height: 13px; }
 @keyframes sic-spin { to { transform:rotate(360deg); } }
 @keyframes sic-blink { 50% { opacity: .45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hud { transition: none; }
+}
