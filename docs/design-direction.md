@@ -27,15 +27,26 @@ another custom CSS rule.
 
 ## Desktop-specific exceptions
 
-Electron is a frameless always-on-top window, not a browser tab. A little
-custom behavior is necessary solely for:
+The editor uses a standard native Windows frame and participates in taskbar
+and Alt-Tab switching. The HUD is a separate, non-focusable always-on-top
+window hidden from the taskbar. A little custom behavior is necessary for:
 
-1. OS-level dragging, click-through and keyboard capture;
-2. native alpha transparency for smooth anti-aliased window corners;
-3. clipping the editor to the rounded window boundary;
-4. the 254×54 in-game HUD, which stays independent of Mantine for performance;
-5. preventing text selection when dragging non-editable UI;
-6. scrolling the central pane without moving the header/footer.
+1. HUD dragging, click-through and configured keyboard shortcuts;
+2. the compact, content-sized HUD and its independent opacity;
+3. preventing text selection on non-editable UI;
+4. scrolling the central pane without moving the header/footer.
+
+The editor has no CSS clipping of its native window corners and does not stay
+above the game. Both windows exist from startup. Minimizing/restoring the
+editor never hides or reloads the HUD. Native editor close exits the app;
+minimize keeps recording available. Ctrl+Shift+O restores/minimizes the editor.
+The editor renderer owns the only recorder; the HUD receives a validated
+display snapshot through the main process. Its bridge has no audio, key,
+history or AI operations.
+
+Keep the HUD opaque frameless model while testing the split; do not silently
+reintroduce the transparent-window ghost-frame regression. Native HUD corner
+appearance still requires a real Windows check.
 
 The product is **inspired by the density of Discord**, not a Discord theme,
 clone, component library, brand, or collection of extracted assets.
@@ -44,8 +55,10 @@ clone, component library, brand, or collection of extracted assets.
 
 - Use one clear label for each field or action. Do not repeat tab names as
   content headings or explain standard controls underneath them.
-- Omit instructional placeholders, helper paragraphs, slogans and duplicate
-  status text when the control already explains itself.
+- Omit helper paragraphs, slogans and duplicate status text when the control
+  already explains itself. A placeholder may give a short example of valid
+  input, such as `Example: World of Warcraft, night elf woman`; it must not
+  substitute for a label or merely announce that text will appear there.
 - Add help only for a concrete, non-obvious interaction. Prefer a short
   contextual hint or tooltip rather than permanent explanatory copy.
 - Keep accessible names and tooltips for icon-only actions, operational

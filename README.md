@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.10.6 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.11.0 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -13,7 +13,7 @@ SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Sp
 1. Download the current published **v0.8.2** asset, `InCharacter-v0.8.2-Windows-x64-portable.zip`. The new SpeakInCharacter executable name will appear starting with v0.9.0.
 2. **Extract the whole ZIP** to a folder and launch `InCharacter.exe` (in v0.8.2). Upcoming releases will use `SpeakInCharacter.exe`. Visual Studio and Node.js are **not** needed.
 3. For game overlays, use **borderless/windowed fullscreen** rather than exclusive fullscreen.
-4. Open the panel with **Ctrl + Shift + O** and configure your personal OpenAI API key in **Settings**. API billing is separate from ChatGPT.
+4. The current preview opens a normal editor window plus a separate HUD. Configure your personal OpenAI API key in **Settings**. **Ctrl + Shift + O** restores/minimizes the editor; API billing is separate from ChatGPT. The older published v0.8.2 still uses the original single-window behavior.
 5. Hold **Caps Lock**, speak, then release. The translated line goes to the clipboard; review and paste it with **Ctrl + V** into chat, then send manually.
 
 Development builds are also available on [GitHub Actions](https://github.com/nick-sidorin/speak-in-character/actions/workflows/windows.yml), but public downloads should use **Releases**.
@@ -27,6 +27,16 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 **Release note:** v0.8.2 remains the currently published release until the redesigned v0.9.0 build is reviewed.
 
 ## How it works
+
+**Two-window preview (v0.11.0):** the editor is a standard native window in the
+taskbar and Alt-Tab, with normal minimize/maximize/close controls. The separate
+HUD stays above other windows, never appears in the taskbar, and does not take
+keyboard focus during normal operation or movement. The editor owns the only
+recorder, including while minimized; the HUD receives display state only.
+Closing the editor exits both windows. HUD position/opacity and the existing
+`InCharacter` settings/history are preserved. Input examples are allowed as
+placeholders; additional context now shows a localized WoW/night-elf example.
+Native Windows corner/focus behavior still requires owner validation.
 
 - **Push-to-talk:** hold the configured hotkey to record, release to finish.
 - **Recording guard:** accidental presses under **250 ms** are discarded. No audio Blob, recording history entry or OpenAI request is created for these taps. A quick word such as *«давай»* can still be processed.

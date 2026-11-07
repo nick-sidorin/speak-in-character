@@ -1,6 +1,6 @@
 export {};
 
-type ViewMode = 'hud' | 'panel';
+import type { HudState, HudSnapshot } from '../electron/hudState';
 type HistoryEntry = {
   id: string;
   createdAt: number;
@@ -36,10 +36,10 @@ declare global {
       onHoldKeyDown: (callback: () => void) => () => void;
       onHoldKeyUp: (callback: () => void) => () => void;
       onToggleRecording: (callback: () => void) => () => void;
-      onViewModeChanged: (callback: (mode: ViewMode) => void) => () => void;
-      onHudMoveModeChanged: (callback: (enabled: boolean) => void) => () => void;
+      onHudStateChanged: (callback: (state: HudSnapshot) => void) => () => void;
+      getHudState: () => Promise<HudSnapshot>;
+      publishHudState: (state: HudState) => void;
       onShortcutStatus: (callback: (status: { recording: boolean; panel: boolean; move: boolean; hold: boolean }) => void) => () => void;
-      setViewMode: (mode: ViewMode) => void;
       resizeHud: (width: number) => void;
       setHudOpacity: (percent: number) => void;
       startHudDrag: () => void;

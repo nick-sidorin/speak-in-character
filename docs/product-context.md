@@ -240,6 +240,28 @@ mark unmerged changes as implemented on `main`.
   Keep application updates outside `main` until their CI and relevant owner
   Windows review are complete.
 
+### Two-window follow-up — **2026-11-07** (work in progress)
+
+The owner tested the compact 0.10.6 preview, reported successful downloading
+and approved its quieter appearance. The earlier rectangular ghost backing
+is no longer observed, but dark corner regions remain. This is owner feedback,
+not confirmation that every native-corner issue is solved.
+
+The owner explicitly requested a new window architecture: open a normal
+taskbar/Alt-Tab editor at startup and keep a separate always-on-top HUD without
+a taskbar entry. The 0.11.0 work-in-progress follows that model. The editor is
+the sole recording/processing owner and keeps working while minimized; the
+HUD is a non-focusable display client with a restricted IPC bridge. Native
+editor close exits the app. Both historical position keys and existing local
+data remain compatible. The HUD stays opaque while the split is validated;
+this change does not by itself prove its native corners are fixed.
+
+The placeholder preference is refined: short examples of input are useful,
+especially `Example: World of Warcraft, night elf woman` for additional
+context. Omit redundant instructions, not useful examples or field labels.
+Translate examples across all five UI languages. The window-architecture
+change requires its own PR, CI and real Windows testing before merge.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
