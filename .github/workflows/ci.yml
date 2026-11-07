@@ -101,18 +101,21 @@ jobs:
           if ($null -eq $icon) { throw "Executable icon missing" }
           $bitmap = $icon.ToBitmap()
           try {
-            $indigoPixels = 0
+            $source = [System.Drawing.Bitmap]::FromFile((Resolve-Path 'assets/app-icon.png').Path)
+            try { $background = $source.GetPixel([int]($source.Width / 2), [int]($source.Height * 0.08)) }
+            finally { $source.Dispose() }
+            $bluePixels = 0
             for ($y = 0; $y -lt $bitmap.Height; $y++) {
               for ($x = 0; $x -lt $bitmap.Width; $x++) {
                 $pixel = $bitmap.GetPixel($x, $y)
-                if ($pixel.A -gt 200 -and [Math]::Abs([int]$pixel.R - 76) -lt 12 -and
-                    [Math]::Abs([int]$pixel.G - 110) -lt 12 -and [Math]::Abs([int]$pixel.B - 245) -lt 12) {
-                  $indigoPixels++
+                if ($pixel.A -gt 200 -and [Math]::Abs([int]$pixel.R - [int]$background.R) -lt 12 -and
+                    [Math]::Abs([int]$pixel.G - [int]$background.G) -lt 12 -and [Math]::Abs([int]$pixel.B - [int]$background.B) -lt 12) {
+                  $bluePixels++
                 }
               }
             }
-            if ($indigoPixels -lt ($bitmap.Width * $bitmap.Height / 4)) {
-              throw "Executable does not contain the custom indigo app icon"
+            if ($bluePixels -lt ($bitmap.Width * $bitmap.Height / 4)) {
+              throw "Executable does not contain the approved blue app icon"
             }
           } finally { $bitmap.Dispose(); $icon.Dispose() }
       - name: Smoke-test tray lifecycle and background recording

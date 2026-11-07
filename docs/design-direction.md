@@ -81,9 +81,14 @@ saved slider value. This is a 180ms CSS transition (none for reduced motion),
 never a change to the stored setting, native host opacity, or editor. Keep
 the red recording indicator; emphasis follows recording, not voice activity.
 
-The app mark is a white microphone inside a speech bubble on an indigo tile.
-`assets/app-icon.svg` is the editable vector source; PNG/ICO derivatives serve
-the native editor and executable. Keep the existing tray microphone unchanged.
+The owner-approved 0.13.4 app mark is a white microphone inside a slender
+elven-face outline on a blue tile: long sharp ears with curved lower lobes,
+a softly pointed chin and bold consistent strokes. The capsule is slightly
+lowered to balance the side/bottom cradle gap. `assets/app-icon-source.png`
+is the exact approved RGB raster master, with no alpha channel; PNG/ICO
+exports serve the native editor, executable and startup screen. Do not redraw
+or substitute an earlier review variant. Keep the existing tray microphone
+unchanged. This artwork does not add game-specific assumptions to AI prompts.
 
 The product is **inspired by the density of Discord**, not a Discord theme,
 clone, component library, brand, or collection of extracted assets.

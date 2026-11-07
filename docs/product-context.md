@@ -326,6 +326,14 @@ instead of 16px, duplicating the 50px header offset. The 0.13.3 fix uses
 explicit Mantine main-pane `p="md"` and `mih={0}`, with production-renderer
 geometry regressions for content insets and tab/footer scroll boundaries.
 
+The owner approved the final elven-face microphone icon after reviewing
+several iterations (2026-11-07): sharp angled ears with curved lower lobes,
+a slender face with a softly pointed chin, bold strokes and the capsule
+lowered slightly toward the cradle. The approved RGB raster has no alpha
+channel. The 0.13.4 follow-up uses this exact master for the native editor,
+Windows executable and startup screen; the older speech-bubble SVG is removed.
+The existing tray microphone remains unchanged as explicitly requested.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.
