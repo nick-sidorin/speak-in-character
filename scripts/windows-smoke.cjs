@@ -21,7 +21,10 @@ async function waitFor(check, label) {
   }
   throw new Error(`Timed out: ${label}`);
 }
-const select = role => BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes(`view=${role}`));
+const select = role => BrowserWindow.getAllWindows().find(window => {
+  const url = window.webContents.getURL();
+  return url.startsWith('file:') && (role === 'hud' ? url.includes('view=hud') : !url.includes('view=hud'));
+});
 
 app.whenReady().then(async () => {
   const watchdog = setTimeout(() => { console.error('Windows smoke test exceeded 60 seconds'); app.exit(1); }, 60000);

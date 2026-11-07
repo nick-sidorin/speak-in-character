@@ -23,6 +23,7 @@ vi.mock('electron', async () => {
     bounds: any;
     minimized = false;
     visible = false;
+    focused = false;
     webContents = Object.assign(new EventEmitter(), {
       id: fake.windows.length + 1,
       send: vi.fn(),
@@ -32,10 +33,11 @@ vi.mock('electron', async () => {
     isDestroyed() { return false; }
     isMinimized() { return this.minimized; }
     isVisible() { return this.visible; }
-    show = vi.fn(() => { this.visible = true; this.emit('show'); });
+    isFocused() { return this.focused; }
+    show = vi.fn(() => { this.visible = true; this.focused = true; this.emit('show'); });
     showInactive = vi.fn(() => { this.visible = true; this.emit('show'); });
-    focus = vi.fn();
-    minimize() { this.minimized = true; this.emit('minimize'); }
+    focus = vi.fn(() => { this.focused = true; });
+    minimize() { this.minimized = true; this.focused = false; this.emit('minimize'); }
     restore() { this.minimized = false; }
     loadFile = vi.fn();
     loadURL = vi.fn();
@@ -97,6 +99,8 @@ describe('independent editor and HUD windows', () => {
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
     expect(hud.options).toMatchObject({ frame: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
     expect(main.show).toHaveBeenCalledOnce();
+    expect(main.loadFile.mock.calls[0][1]).toBeUndefined();
+    expect(hud.loadFile.mock.calls[0][1]).toEqual({ query: { view: 'hud' } });
     expect(hud.showInactive).toHaveBeenCalledOnce();
     expect(hud.focus).not.toHaveBeenCalled();
     expect(fake.permissionCheck(main.webContents, 'media')).toBe(true);
@@ -111,6 +115,9 @@ describe('independent editor and HUD windows', () => {
     expect(main.webContents.send).toHaveBeenCalledWith('recording:toggle');
     expect(hud.webContents.send).not.toHaveBeenCalledWith('recording:toggle');
     toggle(); expect(main.minimized).toBe(false);
+    main.focused = false;
+    toggle(); expect(main.minimized).toBe(false);
+    expect(main.focused).toBe(true);
     toggle(); expect(main.minimized).toBe(true);
     expect(hud.visible).toBe(true);
     expect(main.loadFile).toHaveBeenCalledOnce(); expect(hud.loadFile).toHaveBeenCalledOnce();

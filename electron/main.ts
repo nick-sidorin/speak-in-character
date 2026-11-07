@@ -220,7 +220,7 @@ function toggleHudMoveMode() {
 
 function toggleMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+  if (mainWindow.isMinimized() || !mainWindow.isVisible() || !mainWindow.isFocused()) {
     mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
@@ -268,10 +268,11 @@ function loadWindow(window: BrowserWindow, view: WindowRole) {
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {
     const url = new URL(devUrl);
-    url.searchParams.set('view', view);
+    if (view === 'hud') url.searchParams.set('view', view);
     void window.loadURL(url.toString());
   } else {
-    void window.loadFile(join(__dirname, '../dist/index.html'), { query: { view } });
+    // Keep the editor's original file URL so existing localStorage stays intact.
+    void window.loadFile(join(__dirname, '../dist/index.html'), view === 'hud' ? { query: { view } } : undefined);
   }
 }
 
