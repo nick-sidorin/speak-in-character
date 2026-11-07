@@ -6,6 +6,7 @@ import { join } from 'node:path';
 const fake = vi.hoisted(() => ({
   directory: '',
   windows: [] as any[],
+  trays: [] as any[],
   handlers: new Map<string, (...args: any[]) => any>(),
   listeners: new Map<string, (...args: any[]) => any>(),
   shortcuts: new Map<string, () => void>(),
@@ -14,6 +15,7 @@ const fake = vi.hoisted(() => ({
   permissionCheck: (..._args: any[]) => false,
   quit: vi.fn(),
   hasApiKey: vi.fn(() => false),
+  instanceLock: vi.fn(() => true),
 }));
 
 vi.mock('electron', async () => {
@@ -38,6 +40,7 @@ vi.mock('electron', async () => {
     showInactive = vi.fn(() => { this.visible = true; this.emit('show'); });
     focus = vi.fn(() => { this.focused = true; });
     minimize() { this.minimized = true; this.focused = false; this.emit('minimize'); }
+    hide = vi.fn(() => { this.visible = false; this.focused = false; this.emit('blur'); });
     restore() { this.minimized = false; }
     loadFile = vi.fn();
     loadURL = vi.fn();
@@ -49,13 +52,26 @@ vi.mock('electron', async () => {
     getBounds() { return this.bounds; }
     setBounds(value: any) { Object.assign(this.bounds, value); }
   }
+  class Tray extends EventEmitter {
+    destroyed = false;
+    menu: any;
+    constructor(_icon: unknown) { super(); fake.trays.push(this); }
+    isDestroyed() { return this.destroyed; }
+    setToolTip = vi.fn();
+    setContextMenu(menu: unknown) { this.menu = menu; }
+    destroy = vi.fn(() => { this.destroyed = true; });
+  }
   return {
     BrowserWindow: Window,
+    Tray,
+    nativeImage: { createFromPath: () => ({ isEmpty: () => false }) },
+    Menu: { buildFromTemplate: (items: unknown[]) => ({ items }) },
     app: {
       getPath: () => fake.directory, setPath: vi.fn(), getVersion: () => '0.11.0', setAppUserModelId: vi.fn(),
       whenReady: () => ({ then: (callback: () => void) => { fake.start = callback; } }),
       on: (name: string, callback: () => void) => fake.appEvents.set(name, callback),
       quit: fake.quit,
+      requestSingleInstanceLock: fake.instanceLock,
     },
     ipcMain: {
       on: (name: string, callback: (...args: any[]) => any) => fake.listeners.set(name, callback),
@@ -79,11 +95,12 @@ beforeEach(async () => {
   vi.resetModules();
   fake.directory = mkdtempSync(join(tmpdir(), 'speak-windows-'));
   fake.windows.length = 0;
+  fake.trays.length = 0;
   fake.handlers.clear(); fake.listeners.clear(); fake.shortcuts.clear(); fake.appEvents.clear();
   fake.quit.mockClear(); fake.hasApiKey.mockClear();
+  fake.instanceLock.mockReturnValue(true);
   await import('./main');
   fake.start();
-  fake.windows.forEach(window => window.emit('ready-to-show'));
 });
 afterEach(() => {
   fake.appEvents.get('will-quit')?.();
@@ -91,10 +108,12 @@ afterEach(() => {
 });
 const sender = (index: number) => ({ sender: fake.windows[index].webContents });
 const emit = (channel: string, index: number, ...args: unknown[]) => fake.listeners.get(channel)!(sender(index), ...args);
+const readyWindows = () => fake.windows.forEach(window => window.emit('ready-to-show'));
 
 describe('independent editor and HUD windows', () => {
   it('opens a native taskbar editor plus a non-focusable HUD; only the editor owns media', () => {
     const [main, hud] = fake.windows;
+    readyWindows();
     expect(fake.windows).toHaveLength(2);
     expect(main.options).toMatchObject({ frame: true, skipTaskbar: false, alwaysOnTop: false, webPreferences: { backgroundThrottling: false } });
     expect(hud.options).toMatchObject({ frame: false, skipTaskbar: true, alwaysOnTop: true, focusable: false });
@@ -109,6 +128,7 @@ describe('independent editor and HUD windows', () => {
 
   it('repeatedly minimizes/restores the editor without hiding/reloading the HUD or rerouting recording', () => {
     const [main, hud] = fake.windows;
+    readyWindows();
     const toggle = fake.shortcuts.get('Ctrl+Shift+O')!;
     toggle(); expect(main.minimized).toBe(true);
     fake.shortcuts.get('CapsLock')!();
@@ -155,7 +175,7 @@ describe('independent editor and HUD windows', () => {
     expect(fake.handlers.get('ai:key-status')!(sender(0))).toBe(false);
   });
 
-  it('persists separate legacy position keys and quits the application when the editor closes', () => {
+  it('persists separate legacy position keys without saving minimize coordinates', () => {
     const [main, hud] = fake.windows;
     main.bounds = { ...main.bounds, x: 20, y: 30 };
     hud.bounds = { ...hud.bounds, x: 40, y: 50 };
@@ -166,7 +186,76 @@ describe('independent editor and HUD windows', () => {
     hud.emit('moved');
     emit('overlay:drag-end', 1);
     expect(JSON.parse(readFileSync(join(fake.directory, 'window-positions.json'), 'utf8'))).toEqual({ panel: { x: 20, y: 30 }, hud: { x: 40, y: 50 } });
-    main.emit('closed');
+  });
+
+  it('waits for the editor before revealing a faster HUD renderer', () => {
+    const [main, hud] = fake.windows;
+    hud.emit('ready-to-show');
+    expect(hud.showInactive).not.toHaveBeenCalled();
+    main.emit('ready-to-show');
+    expect(main.visible).toBe(true);
+    expect(hud.visible).toBe(true);
+    expect(main.show.mock.invocationCallOrder[0]).toBeLessThan(hud.showInactive.mock.invocationCallOrder[0]);
+  });
+
+  it('keeps the recorder/HUD alive on close and reopens from the tray without a new window', () => {
+    const [main, hud] = fake.windows;
+    readyWindows();
+    const event = { preventDefault: vi.fn() };
+    main.emit('close', event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(main.visible).toBe(false);
+    expect(hud.visible).toBe(true);
+    expect(fake.quit).not.toHaveBeenCalled();
+    fake.shortcuts.get('CapsLock')!();
+    expect(main.webContents.send).toHaveBeenCalledWith('recording:toggle');
+    fake.trays[0].emit('click');
+    expect(main.visible).toBe(true);
+    expect(main.focused).toBe(true);
+    expect(fake.windows).toHaveLength(2);
+    expect(main.loadFile).toHaveBeenCalledOnce();
+  });
+
+  it('respects closing to tray before the editor first paint arrives', () => {
+    const [main, hud] = fake.windows;
+    fake.trays[0].emit('click');
+    main.emit('close', { preventDefault: vi.fn() });
+    hud.emit('ready-to-show'); main.emit('ready-to-show');
+    expect(main.visible).toBe(false);
+    expect(hud.visible).toBe(true);
+  });
+
+  it('localizes the tray menu, allows explicit quit, and removes the tray on shutdown', () => {
+    emit('hud:publish-state', 0, { phase: 'idle', language: 'ru', recordingShortcut: 'CapsLock', hold: true });
+    const tray = fake.trays[0];
+    expect(tray.menu.items.map((item: any) => item.label)).toEqual(['Открыть', undefined, 'Выйти']);
+    tray.menu.items[0].click();
+    expect(fake.windows[0].visible).toBe(true);
+    tray.menu.items[2].click();
     expect(fake.quit).toHaveBeenCalledOnce();
+    fake.appEvents.get('before-quit')!();
+    const event = { preventDefault: vi.fn() };
+    fake.windows[0].emit('close', event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    fake.appEvents.get('will-quit')!();
+    expect(tray.isDestroyed()).toBe(true);
+  });
+
+  it('reactivates the existing editor on a second launch', () => {
+    readyWindows();
+    fake.windows[0].hide();
+    fake.appEvents.get('second-instance')!();
+    expect(fake.windows[0].visible).toBe(true);
+    expect(fake.windows).toHaveLength(2);
+  });
+
+  it('does not create windows or a tray when another instance owns the lock', async () => {
+    fake.instanceLock.mockReturnValue(false);
+    vi.resetModules();
+    await import('./main');
+    fake.start();
+    expect(fake.quit).toHaveBeenCalledOnce();
+    expect(fake.windows).toHaveLength(2);
+    expect(fake.trays).toHaveLength(1);
   });
 });

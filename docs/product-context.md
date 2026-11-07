@@ -268,6 +268,15 @@ minimum to 10% and delays only microphone-preparation presentation for 400 ms
 to avoid a fast flash before recording. It does not change the capture/start
 guards or claim to fix the corners.
 
+The owner then requested Discord-like background behavior. The 0.12.0
+follow-up keeps one tray icon while running, hides the editor on native close,
+restores it from tray click/Open or a second launch, and quits fully only
+through explicit Quit/Exit or OS shutdown. Hidden recording uses the same
+renderer and pipeline. The two windows previously showed independently on
+their first frame; the lighter HUD could appear first. Startup now reveals
+the editor before the HUD. This coordinates presentation, not proof that
+renderer startup itself is faster. Native HUD corner artifacts remain open.
+
 ### What the next agent should do first
 
 1. Read `AGENTS.md`, this document, README, design direction, `package.json`, and the current GitHub PR/CI/ruleset state.

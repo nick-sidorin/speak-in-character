@@ -4,9 +4,12 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
+  Menu,
+  nativeImage,
   screen,
   session,
   shell,
+  Tray,
 } from 'electron';
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -18,6 +21,7 @@ import { writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { INITIAL_HUD_STATE, parseHudState, type HudState } from './hudState';
+import { trayMenuTemplate } from './trayMenu';
 
 // Keep the original Electron userData folder after the public-facing rename.
 // This preserves encrypted API keys, keyboard shortcuts, browser localStorage,
@@ -114,6 +118,7 @@ function storeShortcuts() {
 let mainWindow: BrowserWindow | null = null;
 let hudWindow: BrowserWindow | null = null;
 let hudState: HudState = { ...INITIAL_HUD_STATE };
+let tray: Tray | null = null;
 let shortcutStatus = { recording: false, panel: false, move: false, hold: false };
 let hotkeyHelper: ChildProcessWithoutNullStreams | null = null;
 let isQuitting = false;
@@ -218,14 +223,40 @@ function toggleHudMoveMode() {
   setHudMoveMode(!hudMoveEnabled);
 }
 
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 function toggleMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized() || !mainWindow.isVisible() || !mainWindow.isFocused()) {
-    mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+    showMainWindow();
   } else {
     mainWindow.minimize();
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  tray.setContextMenu(Menu.buildFromTemplate(trayMenuTemplate(hudState.language, showMainWindow, () => app.quit())));
+}
+
+function createTray() {
+  try {
+    const path = app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../assets/tray.png');
+    const image = nativeImage.createFromPath(path);
+    if (image.isEmpty()) throw new Error('Tray icon is missing');
+    tray = new Tray(image);
+    tray.setToolTip('SpeakInCharacter');
+    tray.on('click', showMainWindow);
+    tray.on('double-click', showMainWindow);
+    updateTrayMenu();
+  } catch (error) {
+    // Never hide the only recoverable window if the tray could not be created.
+    console.warn('Tray unavailable; closing the editor will quit:', error);
   }
 }
 
@@ -277,6 +308,9 @@ function loadWindow(window: BrowserWindow, view: WindowRole) {
 }
 
 function createWindows() {
+  let editorReady = false;
+  let hudReady = false;
+  let showEditorAtStartup = true;
   mainWindow = new BrowserWindow({
     ...windowBounds('panel'),
     useContentSize: true,
@@ -299,7 +333,21 @@ function createWindows() {
     },
   });
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    editorReady = true;
+    if (showEditorAtStartup) showMainWindow();
+    if (hudReady) hudWindow?.showInactive();
+  });
+  mainWindow.on('close', event => {
+    if (isQuitting || !tray || tray.isDestroyed()) return;
+    event.preventDefault();
+    showEditorAtStartup = false;
+    rememberPosition('panel');
+    flushPositions();
+    setShortcutCapture(false);
+    mainWindow?.hide();
+  });
+  mainWindow.on('query-session-end', () => { isQuitting = true; });
   mainWindow.on('moved', () => rememberPosition('panel'));
   mainWindow.on('closed', () => { mainWindow = null; if (!isQuitting) app.quit(); });
   mainWindow.on('blur', () => setShortcutCapture(false));
@@ -325,7 +373,10 @@ function createWindows() {
   hud.setOpacity(hudOpacity);
   hud.setIgnoreMouseEvents(true, { forward: true });
   hud.once('show', () => requestWindowsRoundedCorners(hud));
-  hud.once('ready-to-show', () => hud.showInactive());
+  hud.once('ready-to-show', () => {
+    hudReady = true;
+    if (editorReady) hud.showInactive();
+  });
   hud.on('moved', () => rememberPosition('hud'));
   hud.on('close', event => { if (!isQuitting) event.preventDefault(); });
   hud.on('closed', () => { hudWindow = null; });
@@ -484,7 +535,11 @@ function updateShortcuts(input: ShortcutSettings) {
   return { shortcuts: { ...shortcuts }, status: { ...shortcutStatus } };
 }
 
+const ownsInstance = app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+app.on('second-instance', showMainWindow);
 app.whenReady().then(() => {
+  if (!ownsInstance) return;
   loadPositions();
   loadShortcuts();
   app.setAppUserModelId('io.speakincharacter.app');
@@ -500,7 +555,9 @@ app.whenReady().then(() => {
     if (event.sender !== mainWindow?.webContents) return;
     const next = parseHudState(value);
     if (!next) return;
+    const languageChanged = next.language !== hudState.language;
     hudState = next;
+    if (languageChanged) updateTrayMenu();
     sendHudState();
   });
   ipcMain.handle('hud:get-state', event => {
@@ -613,21 +670,19 @@ app.whenReady().then(() => {
     return { canceled: false, filePath: choice.filePath };
   });
 
+  createTray();
   createWindows();
   registerShortcuts();
 });
 
 app.on('before-quit', () => { isQuitting = true; });
-app.on('activate', () => {
-  if (!mainWindow) return;
-  mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
-});
+app.on('activate', showMainWindow);
 app.on('will-quit', () => {
   isQuitting = true;
   if (saveTimer) flushPositions();
   stopHoldHelper();
   globalShortcut.unregisterAll();
+  tray?.destroy();
+  tray = null;
 });
 app.on('window-all-closed', () => app.quit());

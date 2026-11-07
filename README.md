@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.11.1 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.12.0 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -28,6 +28,13 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 
 ## How it works
 
+**Tray preview (v0.12.0):** closing the editor hides it to the system tray;
+recording and the HUD stay active. Click the tray icon to reopen the editor,
+or right-click for **Open / Quit** (localized to the UI language). **Quit**
+and the editor's **Exit** button fully stop the app. Launching again brings
+the existing instance forward. At startup the HUD waits for the editor's
+first frame instead of appearing on its own before the editor is ready.
+
 **Preview refinement (v0.11.1):** HUD opacity now ranges from **10–100%**,
 retaining the 76% default and saved values. Microphone preparation text appears
 only after 400 ms to avoid flashing a transient message before recording.
@@ -39,7 +46,8 @@ taskbar and Alt-Tab, with normal minimize/maximize/close controls. The separate
 HUD stays above other windows, never appears in the taskbar, and does not take
 keyboard focus during normal operation or movement. The editor owns the only
 recorder, including while minimized; the HUD receives display state only.
-Closing the editor exits both windows. HUD position/opacity and the existing
+The current preview hides the editor to tray on close (the original 0.11.0
+preview exited both windows). HUD position/opacity and the existing
 `InCharacter` settings/history are preserved. Input examples are allowed as
 placeholders; additional context now shows a localized WoW/night-elf example.
 Native Windows corner/focus behavior still requires owner validation.

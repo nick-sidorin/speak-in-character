@@ -38,8 +38,13 @@ window hidden from the taskbar. A little custom behavior is necessary for:
 
 The editor has no CSS clipping of its native window corners and does not stay
 above the game. Both windows exist from startup. Minimizing/restoring the
-editor never hides or reloads the HUD. Native editor close exits the app;
-minimize keeps recording available. Ctrl+Shift+O restores/minimizes the editor.
+editor never hides or reloads the HUD. Native editor close hides it to the
+system tray; both close-to-tray and minimize keep recording available.
+Tray click/Open restores the existing editor; Quit/Exit fully stops the app.
+The tray exists throughout the running session and follows the UI language.
+Repeated launches activate the existing instance. The HUD waits for the
+editor's first frame at startup, so the app does not initially show only a HUD.
+Ctrl+Shift+O brings an unfocused editor forward or minimizes the active editor.
 The editor renderer owns the only recorder; the HUD receives a validated
 display snapshot through the main process. Its bridge has no audio, key,
 history or AI operations.
