@@ -801,7 +801,6 @@ export default function App() {
   };
 
   const selectedPreset = presets.find(item => item.id === presetId);
-  const sessionCost = lifetimeStats.estimatedCostUsd;
   const isBusy = phase === 'requesting' || phase === 'finalizing' || phase === 'processing';
   const inProgress = phase === 'recording' || isBusy;
 
@@ -839,7 +838,7 @@ export default function App() {
             <Stack gap={1} style={{flex:1,minWidth:0}}>
               <Group gap="xs" wrap="nowrap">
                 <Text size="sm" fw={750}>SpeakInCharacter</Text>
-                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.5</Badge>
+                <Badge size="xs" variant="light" color="gray" radius="sm">0.10.6</Badge>
               </Group>
             </Stack>
             <ActionIcon size="md" variant="subtle" color="gray" title={tr('hidePanel')}
@@ -859,9 +858,6 @@ export default function App() {
 
         <AppShell.Main key={tab} className="sic-main">
           {tab === 'rp' && <Stack gap="sm">
-            <Box>
-              <Title order={4}>{tr('tabReply')}</Title>
-            </Box>
             <Grid gap="sm">
               <Grid.Col span={5}>
                 <TextInput label={tr('targetLabel')} value={replyLanguageInput} maxLength={80}
@@ -883,7 +879,7 @@ export default function App() {
               </Grid.Col>
             </Grid>
             <Textarea label={tr('additionalContextLabel')} autosize minRows={2} maxRows={4}
-              value={additionalContext} placeholder={tr('additionalContextPlaceholder')}
+              value={additionalContext}
               onChange={event=>{
                 setAdditionalContext(event.currentTarget.value);
                 localStorage.setItem('additional-context',event.currentTarget.value);
@@ -908,7 +904,7 @@ export default function App() {
               </Group>
             </Paper>
             <Textarea label={tr('rawLabel')} autosize minRows={2} maxRows={4}
-              value={original} placeholder={tr('rawPlaceholder')}
+              value={original}
               onChange={event=>{
                 setOriginal(event.currentTarget.value);
                 if(activeIdRef.current!==null){
@@ -918,7 +914,7 @@ export default function App() {
               }}/>
             <Textarea label={tr('outputLabel')}
               autosize minRows={3} maxRows={5}
-              value={english} placeholder={tr('outputPlaceholder')}
+              value={english}
               onChange={event=>{
                 setEnglish(event.currentTarget.value);
                 if(activeIdRef.current!==null){
@@ -935,10 +931,7 @@ export default function App() {
             </Group>
           </Stack>}
 
-          {tab === 'history' && <Stack gap="md">
-            <Box>
-              <Title order={4}>{tr('historyTitle')}</Title>
-            </Box>
+          {tab === 'history' && <Stack gap="sm">
             <Text size="sm" fw={700}>{tr('historyLifetime')}</Text>
             <SimpleGrid cols={2} spacing="xs">
               {([
@@ -960,7 +953,6 @@ export default function App() {
               history.length===0 ? <Center py="xl"><Stack align="center" gap="xs">
                 <History size={28} strokeWidth={1.5}/>
                 <Text size="sm" c="dimmed">{tr('historyEmpty')}</Text>
-                <Code>{keyBindings.record}</Code>
               </Stack></Center> :
               <Stack gap="xs">
                 {history.map((item,index)=><Stack gap="xs" key={item.id}>
@@ -1012,9 +1004,6 @@ export default function App() {
           </Stack>}
 
           {tab === 'settings' && <Stack gap="sm">
-            <Box>
-              <Title order={4}>{tr('settingsTitle')}</Title>
-            </Box>
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('themeTitle')}</Text>
@@ -1079,13 +1068,8 @@ export default function App() {
             <Paper withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Text fw={700} size="sm">{tr('overlayTitle')}</Text>
-                <Group justify="space-between" wrap="nowrap" align="center">
-                  <Box style={{minWidth:0}}>
-                    <Text size="sm">{tr('moveIndicator')}</Text>
-                  </Box>
-                  <Button variant="default" leftSection={<Move size={15}/>}
-                    onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
-                </Group>
+                <Button variant="default" leftSection={<Move size={15}/>}
+                  onClick={()=>window.inCharacter.setHudMoveMode(true)}>{tr('moveAction')}</Button>
                 <Stack gap={6}>
                   <Group justify="space-between" align="baseline" gap="xs">
                     <Text size="sm">{tr('hudOpacityLabel')}</Text>
@@ -1129,10 +1113,9 @@ export default function App() {
             </Paper>
             <Paper withBorder radius="md" p="md">
               <Stack gap="xs">
-                <Text size="sm" fw={700}>{tr('costTitle')}</Text>
                 <Group justify="space-between" align="center">
-                  <Title order={4}>{amount(sessionCost)}</Title>
-                  <Text size="xs" c="dimmed">{lifetimeStats.recordings} {tr('recordingsCount')}</Text>
+                  <Text size="sm" fw={700}>{tr('historyStatCost')}</Text>
+                  <Title order={4}>{amount(lifetimeStats.estimatedCostUsd)}</Title>
                 </Group>
                 <Button variant="subtle" size="xs" onClick={()=>void window.inCharacter.openUsage()}>{tr('openUsage')}</Button>
               </Stack>
