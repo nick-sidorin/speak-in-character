@@ -7,7 +7,7 @@ export default defineConfig({
     clearMocks: true,
     coverage: {
       provider: 'v8',
-      include: ['src/locale.ts', 'src/recordingPolicy.ts', 'electron/history.ts'],
+      include: ['src/locale.ts', 'src/recordingPolicy.ts', 'electron/history.ts', 'electron/hudState.ts'],
       reporter: ['text', 'lcov'],
       thresholds: {
         lines: 85,

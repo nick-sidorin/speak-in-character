@@ -24,7 +24,7 @@ import { INITIAL_HUD_STATE, parseHudState, type HudState } from './hudState';
 // custom presets and overlay positions for existing InCharacter users.
 app.setPath('userData', join(app.getPath('appData'), 'InCharacter'));
 
-type ViewMode = 'hud' | 'panel';
+type WindowRole = 'hud' | 'panel';
 type SaveResult = { canceled: true } | { canceled: false; filePath: string };
 
 // HUD width is measured from its one-line content; the window is resized to fit.
@@ -123,7 +123,7 @@ let hudOpacity = 0.76; // Default matches the previous HUD appearance.
 let dragAnchor: { cursor: {x:number;y:number}; position: {x:number;y:number} } | null = null;
 
 type SavedPosition = { x: number; y: number };
-type SavedPositions = Partial<Record<ViewMode, SavedPosition>>;
+type SavedPositions = Partial<Record<WindowRole, SavedPosition>>;
 const positionFile = join(app.getPath('userData'), 'window-positions.json');
 let positions: SavedPositions = {};
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -161,16 +161,17 @@ function flushPositions() {
   }
 }
 
-function rememberPosition(view: ViewMode) {
+function rememberPosition(view: WindowRole) {
   const window = view === 'hud' ? hudWindow : mainWindow;
   if (!window || window.isDestroyed()) return;
+  if (view === 'panel' && window.isMinimized()) return;
   const { x, y } = window.getBounds();
   positions[view] = { x, y };
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(flushPositions, 400);
 }
 
-function windowBounds(view: ViewMode) {
+function windowBounds(view: WindowRole) {
   const size = view === 'hud' ? HUD : PANEL;
   const saved = positions[view];
   if (saved) {
@@ -262,7 +263,7 @@ function requestWindowsRoundedCorners(window: BrowserWindow) {
   });
 }
 
-function loadWindow(window: BrowserWindow, view: ViewMode) {
+function loadWindow(window: BrowserWindow, view: WindowRole) {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   if (devUrl) {

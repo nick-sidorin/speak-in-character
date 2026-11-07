@@ -150,7 +150,11 @@ describe('independent editor and HUD windows', () => {
     const [main, hud] = fake.windows;
     main.bounds = { ...main.bounds, x: 20, y: 30 };
     hud.bounds = { ...hud.bounds, x: 40, y: 50 };
-    main.emit('moved'); hud.emit('moved');
+    main.emit('moved');
+    main.minimize();
+    main.bounds = { ...main.bounds, x: -32000, y: -32000 };
+    main.emit('moved');
+    hud.emit('moved');
     emit('overlay:drag-end', 1);
     expect(JSON.parse(readFileSync(join(fake.directory, 'window-positions.json'), 'utf8'))).toEqual({ panel: { x: 20, y: 30 }, hud: { x: 40, y: 50 } });
     main.emit('closed');
