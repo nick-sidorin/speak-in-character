@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -94,6 +95,26 @@ describe('persistent recording history', () => {
     expect(snapshot.lifetime).toEqual({ recordings: 0, durationMs: 0, words: 0, estimatedCostUsd: 0 });
     expect(readdirSync(join(fake.dataDirectory, 'recordings'))).toHaveLength(0);
     expect(listHistory().entries).toEqual([]);
+  });
+
+  it('full purge removes orphan audio but preserves unrelated files and directories', async () => {
+    await addRecording(sample());
+    const directory = join(fake.dataDirectory, 'recordings');
+    const id = randomUUID();
+    writeFileSync(join(directory, id + '.webm'), sample().bytes);
+    writeFileSync(join(directory, id + '.ogg'), sample().bytes);
+    const unrelated = id + '.backup.webm';
+    writeFileSync(join(directory, unrelated), 'keep backup');
+    writeFileSync(join(directory, 'notes.txt'), 'keep notes');
+    const subdirectory = randomUUID() + '.ogg';
+    mkdirSync(join(directory, subdirectory));
+    const exported = join(fake.dataDirectory, 'exported.webm');
+    writeFileSync(exported, 'keep export');
+
+    await clearHistory(null);
+
+    expect(readdirSync(directory).sort()).toEqual([unrelated, 'notes.txt', subdirectory].sort());
+    expect(readFileSync(exported, 'utf8')).toBe('keep export');
   });
 
   it('does not accept invalid IDs, unsafe input or corrupt a bad index', async () => {
