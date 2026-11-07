@@ -115,7 +115,7 @@ npm run dev
 
 To package on Windows: compile `native/hotkey.cs` into `native/hotkey.exe` using the .NET Framework C# compiler, then run `npm run dist:win`. The GitHub Actions Windows workflow performs those steps for you.
 
-**CI policy:** regular commits to `main` do **not** trigger a build. Windows test builds are created only when specifically requested. During development, a temporary `build/vX.Y.Z` branch may carry a one-off push trigger; `main` remains manual-only.
+**CI policy:** pull requests run TypeScript/build checks, native Windows hotkey tests, UI-language validation and full Windows x64 packaging. The required aggregate check is **`CI / required`**; both jobs must succeed. Regular pushes to `main` do **not** trigger builds or public releases. Downloadable previews and releases use the separate manual workflows.
 
 Licensed under MIT.
 
