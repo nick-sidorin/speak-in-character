@@ -109,7 +109,7 @@ The mini HUD is separate from Mantine, so it stays minimal, fast, and visually u
 - Width measured against displayed localized content rather than arbitrary oversizing.
 - Configurable position (remembered between launches) and a distinct HUD-move shortcut.
 - No unexpected focus stealing; intended game-overlay use with windowed/borderless fullscreen.
-- HUD-only opacity setting **40–100%**, initially **76%**, persistent and applied immediately.
+- HUD-only opacity setting **10–100%** in the 0.11.1 work-in-progress (previously 40–100%), initially **76%**, persistent and applied immediately.
 - Rounded corners that actually look good on Windows 11 without an opaque rectangular artifact behind them.
 
 ### Windows corner history — do not repeat failed experiments casually
@@ -261,6 +261,12 @@ especially `Example: World of Warcraft, night elf woman` for additional
 context. Omit redundant instructions, not useful examples or field labels.
 Translate examples across all five UI languages. The window-architecture
 change requires its own PR, CI and real Windows testing before merge.
+
+The owner subsequently reported the 0.11.0 two-window preview works, while
+native HUD corner artifacts remain. The 0.11.1 follow-up lowers the opacity
+minimum to 10% and delays only microphone-preparation presentation for 400 ms
+to avoid a fast flash before recording. It does not change the capture/start
+guards or claim to fix the corners.
 
 ### What the next agent should do first
 

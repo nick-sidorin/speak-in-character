@@ -55,8 +55,8 @@ app.whenReady().then(async () => {
     assert.equal(main.isMinimized(), true, 'recording does not restore/focus the editor');
     assert.equal(hud.isVisible(), true, 'HUD survives editor minimization');
 
-    await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(40)');
-    await waitFor(() => Math.abs(hud.getOpacity() - 0.4) < 0.01, 'HUD-only opacity');
+    await main.webContents.executeJavaScript('window.inCharacter.setHudOpacity(10)');
+    await waitFor(() => Math.abs(hud.getOpacity() - 0.1) < 0.01, '10% HUD-only opacity');
     assert.equal(main.getOpacity(), 1);
     main.restore();
     await waitFor(() => !main.isMinimized(), 'native editor restore');

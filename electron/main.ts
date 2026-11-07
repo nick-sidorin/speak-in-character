@@ -512,7 +512,7 @@ app.whenReady().then(() => {
   });
   ipcMain.on('hud:set-opacity', (event, opacityPercent: number) => {
     if (event.sender !== mainWindow?.webContents || !Number.isFinite(opacityPercent)) return;
-    if (opacityPercent < 40 || opacityPercent > 100) return;
+    if (opacityPercent < 10 || opacityPercent > 100) return;
     hudOpacity = opacityPercent / 100;
     hudWindow?.setOpacity(hudOpacity);
   });

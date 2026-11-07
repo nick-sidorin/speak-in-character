@@ -64,6 +64,9 @@ clone, component library, brand, or collection of extracted assets.
 - Keep accessible names and tooltips for icon-only actions, operational
   errors, hotkey fallback warnings and irreversible-deletion confirmations.
 - Usage costs must be labeled as estimates and reflect the displayed totals.
+- Delay microphone-preparation copy for 400 ms so quick device startup does
+  not flash unreadable text. Keep the actual preparation/recording guards
+  immediate and show meaningful waiting states if preparation takes longer.
 - Review copy in all five interface languages. Use native Mantine spacing;
   compactness must not compromise readable labels or usable controls.
 

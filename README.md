@@ -4,7 +4,7 @@
 
 SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Speak in any language (including Russian/English mixtures); OpenAI transcribes your voice and rewrites the **same message** in your chosen language and character style. Review the result, then paste it manually wherever you want.
 
-> **Current development version: 0.11.0 (unreleased)** · Windows x64 · unsigned prototype
+> **Current development version: 0.11.1 (unreleased)** · Windows x64 · unsigned prototype
 
 ## Download and run
 
@@ -27,6 +27,12 @@ Unsigned builds may trigger a Windows SmartScreen warning. This project is still
 **Release note:** v0.8.2 remains the currently published release until the redesigned v0.9.0 build is reviewed.
 
 ## How it works
+
+**Preview refinement (v0.11.1):** HUD opacity now ranges from **10–100%**,
+retaining the 76% default and saved values. Microphone preparation text appears
+only after 400 ms to avoid flashing a transient message before recording.
+Recording/error status stays immediate; preparation still blocks a second
+start. Remaining native HUD corner artifacts are not considered fixed.
 
 **Two-window preview (v0.11.0):** the editor is a standard native window in the
 taskbar and Alt-Tab, with normal minimize/maximize/close controls. The separate

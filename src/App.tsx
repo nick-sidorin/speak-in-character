@@ -7,6 +7,7 @@ import { MIN_RECORDING_MS, MIN_SIGNAL_RMS, shouldDiscardSilentRecording, type Au
 import { languageFromSystemLocale } from './locale';
 import { phaseLabel, StateIcon } from './RecordingStatus';
 import type { RecordingPhase as Phase } from '../electron/hudState';
+import { useRecordingPresentation } from './useRecordingPresentation';
 
 type Tab = 'rp' | 'history' | 'settings';
 type Appearance = 'system' | 'dark' | 'light';
@@ -150,7 +151,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('rp');
   const [hudOpacity, setHudOpacity] = useState(() => {
     const raw = Number(localStorage.getItem('hud-opacity'));
-    return Number.isFinite(raw) && raw >= 40 && raw <= 100 ? raw : 76;
+    return Number.isFinite(raw) && raw >= 10 && raw <= 100 ? raw : 76;
   });
   const [appearance, setAppearance] = useState<Appearance>(() => {
     const stored = localStorage.getItem('appearance');
@@ -208,6 +209,7 @@ export default function App() {
   const [historyConfirm, setHistoryConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'age'; days: number } | { kind: 'all' } | null>(null);
   const [historyDeleteAge, setHistoryDeleteAge] = useState<string>('30');
   const [message, setMessage] = useState('');
+  const { phase: presentedPhase, message: presentedMessage } = useRecordingPresentation(phase, message);
   const [shortcuts, setShortcuts] = useState({ recording: true, panel: true, move: true, hold: false });
   const [keyBindings, setKeyBindings] = useState<ShortcutConfig>(DEFAULT_KEYS);
   const [captureAction, setCaptureAction] = useState<ShortcutAction | null>(null);
@@ -500,8 +502,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    window.inCharacter.publishHudState({ phase, language: uiLanguage, recordingShortcut: keyBindings.record, hold: shortcuts.hold });
-  }, [phase, uiLanguage, keyBindings.record, shortcuts.hold]);
+    window.inCharacter.publishHudState({ phase: presentedPhase, language: uiLanguage, recordingShortcut: keyBindings.record, hold: shortcuts.hold });
+  }, [presentedPhase, uiLanguage, keyBindings.record, shortcuts.hold]);
 
   useEffect(() => {
     window.inCharacter.setHudOpacity(hudOpacity);
@@ -794,13 +796,13 @@ export default function App() {
               }}/>
             <Paper withBorder p="sm" radius="md">
               <Group wrap="nowrap" gap="sm">
-                <StateIcon phase={phase} language={uiLanguage}/>
+                <StateIcon phase={presentedPhase} language={uiLanguage}/>
                 <Stack gap={2} style={{flex:1,minWidth:0}}>
                   <Group gap="xs" wrap="wrap">
-                    <Text fw={650} size="sm">
-                      {phase === 'idle' ? tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb') : phaseLabel(phase,shortcuts.hold,uiLanguage)}
+                    <Text fw={650} size="sm" role="status" aria-live="polite">
+                      {presentedPhase === 'idle' ? tr(shortcuts.hold ? 'phaseHoldVerb' : 'phaseTapVerb') : phaseLabel(presentedPhase,shortcuts.hold,uiLanguage)}
                     </Text>
-                    {phase === 'idle' && <Code>{keyBindings.record}</Code>}
+                    {presentedPhase === 'idle' && <Code>{keyBindings.record}</Code>}
                   </Group>
                 </Stack>
                 <Text ff="monospace" fw={650} size="sm" c="dimmed">{clock(elapsed)}</Text>
@@ -986,11 +988,11 @@ export default function App() {
                   <Slider
                     aria-label={tr('hudOpacityLabel')}
                     color="indigo"
-                    min={40}
+                    min={10}
                     max={100}
                     step={5}
                     value={hudOpacity}
-                    marks={[{ value: 40, label: '40%' }, { value: 100, label: '100%' }]}
+                    marks={[{ value: 10, label: '10%' }, { value: 100, label: '100%' }]}
                     mb="sm"
                     onChange={value => {
                       setHudOpacity(value);
@@ -1033,9 +1035,9 @@ export default function App() {
         <AppShell.Footer className="sic-footer">
           <Group px="sm" h="100%" justify="space-between" gap="sm" wrap="nowrap">
             <Text size="xs" c={phase==='error'?'red':'dimmed'} truncate style={{flex:1,minWidth:0}}>
-              {message || tr('readyMsg')}
+              {presentedMessage || tr('readyMsg')}
             </Text>
-            <Badge size="xs" variant="light" color="gray">0.11.0</Badge>
+            <Badge size="xs" variant="light" color="gray">0.11.1</Badge>
             <Button size="compact-xs" variant="subtle" color="gray" onClick={()=>window.inCharacter.quit()}>{tr('exit')}</Button>
           </Group>
         </AppShell.Footer>

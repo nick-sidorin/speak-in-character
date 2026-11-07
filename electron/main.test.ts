@@ -136,9 +136,11 @@ describe('independent editor and HUD windows', () => {
   it('changes HUD opacity and move mode without changing the editor or focusing the HUD', () => {
     const [main, hud] = fake.windows;
     emit('hud:set-opacity', 0, 40);
+    emit('hud:set-opacity', 0, 10);
+    emit('hud:set-opacity', 0, 9);
     emit('hud:set-opacity', 0, 101);
     emit('hud:set-opacity', 1, 100);
-    expect(hud.setOpacity.mock.calls).toEqual([[0.76], [0.4]]);
+    expect(hud.setOpacity.mock.calls).toEqual([[0.76], [0.4], [0.1]]);
     expect(main.setOpacity).not.toHaveBeenCalled();
     emit('overlay:move-hud', 0, true);
     expect(hud.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false, { forward: true });

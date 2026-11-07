@@ -297,7 +297,7 @@ const strings = {
     "historyDeleted": "История очищена.",
     "historyError": "Ошибка истории: ",
     "hudOpacityLabel": "Прозрачность мини-оверлея",
-    "hudOpacityHint": "40% — прозрачнее, 100% — полностью непрозрачный. На основное окно не влияет."
+    "hudOpacityHint": "10% — прозрачнее, 100% — полностью непрозрачный. На основное окно не влияет."
   },
   "en": {
     "readyMsg": "Ready to speak.",
@@ -472,7 +472,7 @@ const strings = {
     "historyDeleted": "History cleaned up.",
     "historyError": "History error: ",
     "hudOpacityLabel": "HUD opacity",
-    "hudOpacityHint": "40% is more transparent; 100% is fully opaque. Does not affect the main panel."
+    "hudOpacityHint": "10% is more transparent; 100% is fully opaque. Does not affect the main panel."
   },
   "fr": {
     "readyMsg": "Prêt à parler.",
@@ -647,7 +647,7 @@ const strings = {
     "historyDeleted": "Historique nettoyé.",
     "historyError": "Erreur historique : ",
     "hudOpacityLabel": "Opacité du mini-overlay",
-    "hudOpacityHint": "40 % est plus transparent ; 100 % est opaque. N'affecte pas la fenêtre principale."
+    "hudOpacityHint": "10 % est plus transparent ; 100 % est opaque. N'affecte pas la fenêtre principale."
   },
   "es": {
     "readyMsg": "Listo para hablar.",
@@ -822,7 +822,7 @@ const strings = {
     "historyDeleted": "Historial limpiado.",
     "historyError": "Error de historial: ",
     "hudOpacityLabel": "Opacidad del HUD",
-    "hudOpacityHint": "40 % es más transparente y 100 % es opaco. No afecta a la ventana principal."
+    "hudOpacityHint": "10 % es más transparente y 100 % es opaco. No afecta a la ventana principal."
   },
   "de": {
     "readyMsg": "Bereit zum Sprechen.",
@@ -997,7 +997,7 @@ const strings = {
     "historyDeleted": "Verlauf bereinigt.",
     "historyError": "Verlaufsfehler: ",
     "hudOpacityLabel": "HUD-Deckkraft",
-    "hudOpacityHint": "40 % ist transparenter, 100 % ist vollständig deckend. Das Hauptfenster bleibt unverändert."
+    "hudOpacityHint": "10 % ist transparenter, 100 % ist vollständig deckend. Das Hauptfenster bleibt unverändert."
   }
 } as const;
 
