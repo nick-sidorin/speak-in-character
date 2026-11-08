@@ -20,6 +20,23 @@ SpeakInCharacter is a Windows voice companion for roleplay and everyday chat. Sp
 
 The portable build is unsigned. Windows SmartScreen or Chrome may display download/run warnings; a browser verdict alone does not establish its cause.
 
+## Demo
+
+### Main window
+<img width="30%" alt="Screenshot 2026-11-08 163012" src="https://github.com/user-attachments/assets/a4a52292-ff3d-4ed3-892f-e9b38727c3d7" />
+<img width="30%" alt="Screenshot 2026-11-08 163042" src="https://github.com/user-attachments/assets/cf4b4514-35d9-4608-9c4d-b602f61eb8ff" />
+<img width="30%" alt="Screenshot 2026-11-08 163059" src="https://github.com/user-attachments/assets/99fa8ef7-9687-4da2-b107-9a642dfdc3d2" />
+
+### Overlay states
+<img width="262" height="201" alt="Screenshot 2026-11-08 163426" src="https://github.com/user-attachments/assets/9306814f-05bb-415b-a326-58ed21419447" />
+<img width="218" height="135" alt="Screenshot 2026-11-08 163504" src="https://github.com/user-attachments/assets/98ab9e35-4487-4207-b57c-37a0fac5dab1" />
+
+### In game example with the overlay
+<img width="100%" alt="Screenshot 2026-11-08 163318" src="https://github.com/user-attachments/assets/6ee4d108-cab2-4de7-ab83-4c19acbc5aef" />
+
+
+
+
 ## First stable release
 
 Version 1.0.0 brings together the owner-tested compact editor, independent transparent HUD, persistent tray behavior, local recording archive, five interface languages, configurable hotkeys and the approved elven microphone icon. Recordings and draft text stay under your control: the app never sends messages to games automatically.
